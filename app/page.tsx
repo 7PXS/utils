@@ -1,103 +1,207 @@
-import Image from "next/image";
+import { useState, useEffect } from 'react';
 
-export default function Home() {
+export default function StatusDashboard() {
+  const versionPrefix = 'version-';
+  const [version, setVersion] = useState('');
+  const [lastUpdated, setLastUpdated] = useState('');
+  const [logs, setLogs] = useState([]);
+
+  // Generate random version hash
+  const generateVersionHash = () => {
+    return Math.random().toString(36).substring(2, 15);
+  };
+
+  // Format timestamp
+  const getFormattedTimestamp = () => {
+    return new Date().toISOString().replace('T', ' ').substring(0, 19);
+  };
+
+  // Update version
+  const updateVersion = () => {
+    const newVersion = `${versionPrefix}${generateVersionHash()}`;
+    setVersion(newVersion);
+  };
+
+  // Update last updated timestamp
+  const updateTimestamp = () => {
+    setLastUpdated(
+      new Date().toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        hour12: true,
+        timeZone: 'America/Los_Angeles',
+      }) + ' PDT'
+    );
+  };
+
+  // Add log entry
+  const addLogEntry = (message, type = 'info') => {
+    const icon = {
+      success: '✅',
+      warning: '⚠️',
+      error: '❌',
+      info: 'ℹ️',
+    }[type] || 'ℹ️';
+    setLogs((prevLogs) => [
+      ...prevLogs,
+      { time: getFormattedTimestamp(), message, type, icon },
+    ]);
+  };
+
+  // Fetch script from API route
+  const getScript = async (scriptName) => {
+    addLogEntry(`Requesting script: ${scriptName}`, 'info');
+    try {
+      const response = await fetch(`/api/scripts/${scriptName}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': 'UserMode-2d93n2002n8',
+        },
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Unauthorized: Invalid authentication header');
+        }
+        if (response.status === 404) {
+          throw new Error(`Script "${scriptName}" not found`);
+        }
+        throw new Error(`HTTP error: ${response.status}`);
+      }
+      const content = await response.text();
+      addLogEntry(`Successfully retrieved script: ${scriptName}`, 'success');
+      return content;
+    } catch (error) {
+      addLogEntry(`Failed to retrieve script "${scriptName}": ${error.message}`, 'error');
+      throw error;
+    }
+  };
+
+  // Initialize dashboard
+  useEffect(() => {
+    updateVersion();
+    updateTimestamp();
+    addLogEntry('Dashboard initialized', 'success');
+
+    // Periodic updates
+    const interval = setInterval(() => {
+      updateVersion();
+      updateTimestamp();
+      addLogEntry('System status check completed', 'success');
+    }, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div
+      className="min-h-screen text-gray-200"
+      style={{
+        backgroundColor: '#1a1a1a',
+        backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 40 40\'%3E%3Cg fill=\'%23222222\' fill-opacity=\'0.3\'%3E%3Cpath d=\'M0 0h40v40H0z\'/%3E%3Cpath d=\'M0 0h20v20H0zM20 20h20v20H20z\'/%3E%3C/g%3E%3C/svg%3E")',
+        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+      }}
+    >
+      <div className="container mx-auto p-6">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-xl font-semibold">Status Dashboard</h1>
+          <div className="text-sm text-gray-500">
+            Last Updated: {lastUpdated}
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        {/* Service Status (Centered) */}
+        <div className="flex justify-center">
+          <div
+            className="service-card rounded-xl shadow-lg max-w-[400px] p-4"
+            style={{
+              background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
+              border: '1px solid #333',
+              transition: 'transform 0.2s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+            onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+          >
+            <div className="flex justify-between items-center mb-3">
+              <div className="flex items-center">
+                <h2 className="text-lg font-semibold">Status</h2>
+                <span
+                  className="ml-2 h-4 w-4 rounded-full bg-green-500 status-dot"
+                  style={{ boxShadow: '0 0 8px rgba(0, 255, 0, 0.5)' }}
+                ></span>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-4">
+              <span
+                className="text-gray-300 text-xs font-semibold px-2 py-1 rounded category-tag"
+                style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+              >
+                {version}
+              </span>
+            </div>
+            <div className="flex gap-3"></div>
+            <p className="text-xs text-gray-500 mt-3">Windows • 2025-04-02 20:48 UTC</p>
+          </div>
+        </div>
+
+        {/* Status Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-1 gap-6">
+          <div
+            className="rounded-xl p-5 shadow-lg"
+            style={{
+              background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
+              border: '1px solid #333',
+              transition: 'transform 0.2s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+            onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+          >
+            <div className="flex justify-between items-center mb-3">
+              <div className="flex items-center">
+                <span
+                  className="text-gray-300 text-xs font-semibold px-2 py-1 rounded"
+                  style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                >
+                  Service enpoint logs
+                </span>
+              </div>
+              <span className="text-gray-400 font-medium">by 7PX$</span>
+            </div>
+            <div
+              className="rounded-lg p-4"
+              style={{
+                background: '#1e1e1e',
+                border: '1px solid #444',
+                fontFamily: 'Courier New, Courier, monospace',
+                fontSize: '0.9rem',
+                maxHeight: '200px',
+                overflowY: 'auto',
+              }}
+            >
+              {logs.map((log, index) => (
+                <div key={index} className="log-entry flex items-center mb-2">
+                  <span className="log-icon mr-2">{log.icon}</span>
+                  <span
+                    className={
+                      log.type === 'success'
+                        ? 'log-success text-green-400'
+                        : log.type === 'warning'
+                        ? 'log-warning text-yellow-400'
+                        : 'log-error text-red-400'
+                    }
+                  >
+                    [{log.time}] {log.message}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
