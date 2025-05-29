@@ -6,7 +6,7 @@ export default function StatusDashboard() {
   const versionPrefix = 'version-';
   const [version, setVersion] = useState('');
   const [lastUpdated, setLastUpdated] = useState('');
-  const [logs, setLogs] = useState([]);
+  const [logs, setLogs] = useState<{ time: string; message: string; type: string; icon: string }[]>([]);
 
   // Generate random version hash
   const generateVersionHash = () => {
@@ -41,7 +41,7 @@ export default function StatusDashboard() {
   };
 
   // Add log entry
-  const addLogEntry = (message, type = 'info') => {
+  const addLogEntry = (message: string, type: string = 'info') => {
     const icon = {
       success: '✅',
       warning: '⚠️',
@@ -55,7 +55,7 @@ export default function StatusDashboard() {
   };
 
   // Fetch script from /files endpoint
-  const getScript = async (scriptName) => {
+  const getScript = async (scriptName: string) => {
     addLogEntry(`Requesting script: ${scriptName}`, 'info');
     try {
       const response = await fetch(`/files/${scriptName}`, {
@@ -77,7 +77,7 @@ export default function StatusDashboard() {
       addLogEntry(`Successfully retrieved script: ${scriptName}`, 'success');
       return content;
     } catch (error) {
-      addLogEntry(`Failed to retrieve script "${scriptName}": ${error.message}`, 'error');
+      addLogEntry(`Failed to retrieve script "${scriptName}": ${(error as Error).message}`, 'error');
       throw error;
     }
   };
@@ -134,7 +134,7 @@ export default function StatusDashboard() {
               <div className="flex items-center">
                 <h2 className="text-lg font-semibold">Status</h2>
                 <span
-                  className="ml-2 h-4 w-4 rounded-full bg-green-500 status-dot"
+                  className="ml-2 h-4 w-4 rounded-full-Resfull rounded-full bg-green-500 status-dot"
                   style={{ boxShadow: '0 0 8px rgba(0, 255, 0, 0.5)' }}
                 ></span>
               </div>
