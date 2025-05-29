@@ -7,6 +7,31 @@ export default function StatusDashboard() {
   const [version, setVersion] = useState('');
   const [lastUpdated, setLastUpdated] = useState('');
   const [logs, setLogs] = useState<{ time: string; message: string; type: string; icon: string }[]>([]);
+  const [scripts, setScripts] = useState<{ name: string; language: string; status: string; content?: string }[]>([]);
+
+  // Language mapping based on file extension
+  const getLanguageFromExtension = (filename: string): string => {
+    const extension = filename.split('.').pop()?.toLowerCase() || '';
+    const languageMap: { [key: string]: string } = {
+      js: 'JavaScript',
+      ts: 'TypeScript',
+      py: 'Python',
+      lua: 'Lua',
+      rb: 'Ruby',
+      php: 'PHP',
+      java: 'Java',
+      cs: 'C#',
+      cpp: 'C++',
+      c: 'C',
+      go: 'Go',
+      rs: 'Rust',
+      sh: 'Shell',
+      sql: 'SQL',
+      html: 'HTML',
+      css: 'CSS',
+    };
+    return languageMap[extension] || 'Unknown';
+  };
 
   // Generate random version hash
   const generateVersionHash = () => {
@@ -54,7 +79,32 @@ export default function StatusDashboard() {
     ]);
   };
 
-  // Fetch script from /files endpoint
+  // Fetch list of scripts from /files endpoint
+  const fetchScriptsList = async () => {
+    addLogEntry('Requesting list of scripts', 'info');
+    try {
+      const response = await fetch('/files', {
+        method: 'GET',
+        headers: {
+          'Authorization': 'UserMode-2d93n2002n8',
+        },
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Unauthorized: Invalid authentication header');
+        }
+        throw new Error(`HTTP error: ${response.status}`);
+      }
+      const scriptNames = await response.json(); // Assuming /files returns a JSON array of filenames
+      addLogEntry('Successfully retrieved script list', 'success');
+      return scriptNames;
+    } catch (error) {
+      addLogEntry(`Failed to retrieve script list: ${(error as Error).message}`, 'error');
+      throw error;
+    }
+  };
+
+  // Fetch individual script content
   const getScript = async (scriptName: string) => {
     addLogEntry(`Requesting script: ${scriptName}`, 'info');
     try {
@@ -82,19 +132,47 @@ export default function StatusDashboard() {
     }
   };
 
+  // Fetch all scripts and update state
+  const fetchAllScripts = async () => {
+    try {
+      const scriptNames = await fetchScriptsList();
+      const scriptPromises = scriptNames.map(async (scriptName: string) => {
+        try {
+          const content = await getScript(scriptName);
+          return {
+            name: scriptName,
+            language: getLanguageFromExtension(scriptName),
+            status: 'success',
+            content,
+          };
+        } catch (error) {
+          return {
+            name: scriptName,
+            language: getLanguageFromExtension(scriptName),
+            status: 'error',
+          };
+        }
+      });
+      const scriptResults = await Promise.all(scriptPromises);
+      setScripts(scriptResults);
+    } catch (error) {
+      // Error already logged in fetchScriptsList
+    }
+  };
+
   // Initialize dashboard
   useEffect(() => {
     updateVersion();
     updateTimestamp();
     addLogEntry('Dashboard initialized', 'success');
+    fetchAllScripts(); // Initial fetch of scripts
 
     // Periodic updates
     const interval = setInterval(() => {
       updateVersion();
       updateTimestamp();
       addLogEntry('System status check completed', 'success');
-      // Example: Fetch a script periodically (e.g., 'example.js')
-      getScript('example');
+      fetchAllScripts(); // Periodic fetch of scripts
     }, 60000); // Update every minute
 
     return () => clearInterval(interval);
@@ -118,6 +196,8 @@ export default function StatusDashboard() {
           </div>
         </div>
 
+.ti
+
         {/* Service Status (Centered) */}
         <div className="flex justify-center">
           <div
@@ -130,16 +210,16 @@ export default function StatusDashboard() {
             onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
             onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
           >
-            <div className="flex justify-between items-center mb-3">
+            <div className="flex justify-center items-center mb-3">
               <div className="flex items-center">
-                <h2 className="text-lg font-semibold">Status</h2>
+                <h2 className="text-lg font-semibold text-center">Status</h2>
                 <span
-                  className="ml-2 h-4 w-4 rounded-full-Resfull rounded-full bg-green-500 status-dot"
+                  className="ml-2 h-4 w-4 rounded-full bg-green-500 status-dot"
                   style={{ boxShadow: '0 0 8px rgba(0, 255, 0, 0.5)' }}
                 ></span>
               </div>
             </div>
-            <div className="flex flex-wrap gap-2 mb-4">
+            <div className="flex flex-wrap gap-2 mb-4 justify-center">
               <span
                 className="text-gray-300 text-xs font-semibold px-2 py-1 rounded category-tag"
                 style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
@@ -147,13 +227,52 @@ export default function StatusDashboard() {
                 {version}
               </span>
             </div>
-            <div className="flex gap-3"></div>
-            <p className="text-xs text-gray-500 mt-3">Windows • 2025-04-02 20:48 UTC</p>
+            <p className="text-xs text-gray-500 mt-3 text-center">Windows • {lastUpdated}</p>
           </div>
         </div>
 
-        {/* Status Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-1 gap-6">
+        {/* Scripts Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+          {scripts.map((script, index) => (
+            <div
+              key={index}
+              className="rounded-xl p-5 shadow-lg"
+              style={{
+                background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
+                border: '1px solid #333',
+                transition: 'transform 0.2s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+              onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+            >
+              <div className="flex justify-between items-center mb-3">
+                <div className="flex items-center">
+                  <h3 className="text-md font-semibold">{script.name}</h3>
+                  <span
+                    className={`ml-2 h-4 w-4 rounded-full ${
+                      script.status === 'success' ? 'bg-green-500' : 'bg-red-500'
+                    } status-dot`}
+                    style={{ boxShadow: `0 0 8px rgba(${script.status === 'success' ? '0, 255, 0' : '255, 0, 0'}, 0.5)` }}
+                  ></span>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 mb-4">
+                <span
+                  className="text-gray-300 text-xs font-semibold px-2 py-1 rounded category-tag"
+                  style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                >
+                  {script.language}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-3">
+                Status: {script.status === 'success' ? 'Loaded' : 'Failed to load'}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Status Cards (Logs) */}
+        <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-1 gap-6 mt-6">
           <div
             className="rounded-xl p-5 shadow-lg"
             style={{
