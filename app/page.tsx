@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 
 export default function StatusDashboard() {
@@ -52,11 +54,11 @@ export default function StatusDashboard() {
     ]);
   };
 
-  // Fetch script from API route
+  // Fetch script from /files endpoint
   const getScript = async (scriptName) => {
     addLogEntry(`Requesting script: ${scriptName}`, 'info');
     try {
-      const response = await fetch(`/api/scripts/${scriptName}`, {
+      const response = await fetch(`/files/${scriptName}`, {
         method: 'GET',
         headers: {
           'Authorization': 'UserMode-2d93n2002n8',
@@ -91,6 +93,8 @@ export default function StatusDashboard() {
       updateVersion();
       updateTimestamp();
       addLogEntry('System status check completed', 'success');
+      // Example: Fetch a script periodically (e.g., 'example.js')
+      getScript('example');
     }, 60000); // Update every minute
 
     return () => clearInterval(interval);
@@ -166,7 +170,7 @@ export default function StatusDashboard() {
                   className="text-gray-300 text-xs font-semibold px-2 py-1 rounded"
                   style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
                 >
-                  Service enpoint logs
+                  Service endpoint logs
                 </span>
               </div>
               <span className="text-gray-400 font-medium">by 7PX$</span>
