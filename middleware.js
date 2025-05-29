@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-// Middleware to handle /files/* requests
-export function middleware(request) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  
-  // Check if request is for /files/ScriptName
+
+  // Handle /files/ScriptName
   if (pathname.startsWith('/files/')) {
     const scriptName = pathname.split('/files/')[1];
     const authHeader = request.headers.get('authorization');
@@ -17,12 +17,9 @@ export function middleware(request) {
       });
     }
 
-    // Redirect to static file in public/RoHub/Scripts/
+    // Rewrite to static file in public/RoHub/Scripts/
     const filePath = `/RoHub/Scripts/${scriptName}`;
     try {
-      // Note: Vercel can't directly read filesystem in middleware.
-      // We assume files are in public/RoHub/Scripts/ and rewrite the request.
-      // Logs are handled client-side in page.jsx via fetch.
       const url = new URL(filePath, request.nextUrl.origin);
       return NextResponse.rewrite(url);
     } catch (error) {
