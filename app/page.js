@@ -234,19 +234,19 @@ export default function StatusDashboard() {
         </div>
 
         {/* Scripts Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-          {scripts.map((script, index) => (
-            <div
-              key={index}
-              className="rounded-xl p-5 shadow-lg"
-              style={{
-                background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
-                border: '1px solid #333',
-                transition: 'transform 0.2s ease',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-              onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
-            >
+    <div className="flex flex-wrap justify-center gap-6 mt-6">
+        {scripts.map((script, index) => (
+          <div
+            key={index}
+            className="rounded-xl p-5 shadow-lg w-full max-w-[400px]"
+            style={{
+              background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
+              border: '1px solid #333',
+              transition: 'transform 0.2s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+            onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+          >
               <div className="flex justify-between items-center mb-3">
                 <div className="flex items-center">
                   <h3 className="text-md font-semibold">{script.name}</h3>
