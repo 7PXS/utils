@@ -9,11 +9,6 @@ export default function StatusDashboard() {
   const [logs, setLogs] = useState([]);
   const [scripts, setScripts] = useState([]);
 
-  // Generate random version hash
-  const generateVersionHash = () => {
-    return Math.random().toString(36).substring(2, 15);
-  };
-
   // Format timestamp
   const getFormattedTimestamp = () => {
     return new Date().toISOString().replace('T', ' ').substring(0, 19);
@@ -31,12 +26,6 @@ export default function StatusDashboard() {
       hour12: true,
       timeZone: 'America/Los_Angeles',
     }) + ' PDT';
-  };
-
-  // Update dashboard version
-  const updateVersion = () => {
-    const newVersion = `${versionPrefix}${generateVersionHash()}`;
-    setVersion(newVersion);
   };
 
   // Update dashboard last updated timestamp
@@ -60,7 +49,6 @@ export default function StatusDashboard() {
 
   // Fetch list of scripts from /scripts-list endpoint
   const fetchScriptsList = async () => {
-    addLogEntry('Requesting list of scripts', 'info');
     try {
       const response = await fetch('/scripts-list', {
         method: 'GET',
@@ -68,24 +56,23 @@ export default function StatusDashboard() {
           'Authorization': 'UserMode-2d93n2002n8',
         },
       });
+      const data = await response.json();
       if (!response.ok) {
+        addLogEntry(`Scripts list request failed: ${data.error || 'Unknown error'}`, 'error');
         if (response.status === 401) {
           throw new Error('Unauthorized: Invalid authentication header');
         }
         throw new Error(`HTTP error: ${response.status}`);
       }
-      const scriptNames = await response.json();
-      addLogEntry('Successfully retrieved script list', 'success');
-      return scriptNames;
+      return data;
     } catch (error) {
-      addLogEntry(`Failed to retrieve script list: ${error.message}`, 'error');
+      addLogEntry(`Scripts list request failed: ${error.message}`, 'error');
       throw error;
     }
   };
 
-  // Fetch individual script content
+  // Fetch individual script content and metadata
   const getScript = async (scriptName) => {
-    addLogEntry(`Requesting script: ${scriptName}`, 'info');
     try {
       const response = await fetch(`/files?filename=${scriptName}`, {
         method: 'GET',
@@ -93,7 +80,9 @@ export default function StatusDashboard() {
           'Authorization': 'UserMode-2d93n2002n8',
         },
       });
+      const data = await response.json(); // Expect JSON with content and log
       if (!response.ok) {
+        addLogEntry(`Script request for "${scriptName}" failed: ${data.error || 'Unknown error'}`, 'error');
         if (response.status === 401) {
           throw new Error('Unauthorized: Invalid authentication header');
         }
@@ -102,11 +91,10 @@ export default function StatusDashboard() {
         }
         throw new Error(`HTTP error: ${response.status}`);
       }
-      const content = await response.text();
-      addLogEntry(`Successfully retrieved script: ${scriptName}`, 'success');
-      return content;
+      addLogEntry(`Script request for "${scriptName}" succeeded`, 'success');
+      return data.content;
     } catch (error) {
-      addLogEntry(`Failed to retrieve script "${scriptName}": ${error.message}`, 'error');
+      addLogEntry(`Script request for "${scriptName}" failed: ${error.message}`, 'error');
       throw error;
     }
   };
@@ -115,24 +103,29 @@ export default function StatusDashboard() {
   const fetchAllScripts = async () => {
     try {
       const scriptNames = await fetchScriptsList();
+      // Fetch metadata from Edge Config via a new endpoint
+      const metadataResponse = await fetch('/scripts-metadata', {
+        method: 'GET',
+        headers: {
+          'Authorization': 'UserMode-2d93n2002n8',
+        },
+      });
+      const metadataData = await metadataResponse.json();
+      if (!metadataResponse.ok) {
+        addLogEntry(`Metadata request failed: ${metadataData.error || 'Unknown error'}`, 'error');
+        throw new Error(`HTTP error: ${metadataResponse.status}`);
+      }
+
       const scriptPromises = scriptNames.map(async (scriptName) => {
         try {
           const content = await getScript(scriptName);
-          // Fetch script metadata from Edge Config
-          const response = await fetch('/scripts-list', {
-            method: 'GET',
-            headers: {
-              'Authorization': 'UserMode-2d93n2002n8',
-            },
-          });
-          const scripts = await response.json();
-          const scriptData = scripts[scriptName] || {};
-          
+          const scriptData = metadataData.scripts[scriptName] || {};
+
           return {
             name: scriptName,
-            language: scriptData.Lang || 'Unknown', // Use Lang directly from Edge Config
+            language: scriptData.Lang || 'Unknown',
             status: 'success',
-            version: scriptData.Version || `${versionPrefix}${generateVersionHash()}`,
+            version: scriptData.Version || 'N/A',
             lastUpdated: getFormattedDate(),
             content,
           };
@@ -149,21 +142,18 @@ export default function StatusDashboard() {
       const scriptResults = await Promise.all(scriptPromises);
       setScripts(scriptResults);
     } catch (error) {
-      // Error already logged in fetchScriptsList
+      // Error already logged
     }
   };
 
   // Initialize dashboard
   useEffect(() => {
-    updateVersion();
     updateTimestamp();
     addLogEntry('Dashboard initialized', 'success');
     fetchAllScripts();
 
     const interval = setInterval(() => {
-      updateVersion();
       updateTimestamp();
-      addLogEntry('System status check completed', 'success');
       fetchAllScripts();
     }, 60000);
 
@@ -214,7 +204,7 @@ export default function StatusDashboard() {
                 className="text-gray-300 text-xs font-semibold px-2 py-1 rounded category-tag"
                 style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
               >
-                {version}
+                {getFormattedDate()}
               </span>
             </div>
             <p className="text-xs text-gray-500 mt-3 text-center">Windows • {lastUpdated}</p>
