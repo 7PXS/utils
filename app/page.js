@@ -69,7 +69,7 @@ export default function StatusDashboard() {
         },
       });
       if (!response.ok) {
-        if$response.status === 401) {
+        if (response.status === 401) {
           throw new Error('Unauthorized: Invalid authentication header');
         }
         throw new Error(`HTTP error: ${response.status}`);
