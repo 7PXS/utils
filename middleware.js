@@ -1,8 +1,7 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { get } from '@vercel/edge-config';
+const { NextResponse } = require('next/server');
+const { get } = require('@vercel/edge-config');
 
-export async function middleware(request: NextRequest) {
+async function middleware(request) {
   const { pathname, searchParams } = request.nextUrl;
 
   // Handle /files/?filename=scriptname
@@ -113,6 +112,9 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = {
-  matcher: ['/files', '/scripts-list'],
+module.exports = {
+  middleware,
+  config: {
+    matcher: ['/files', '/scripts-list'],
+  },
 };
