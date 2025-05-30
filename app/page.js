@@ -8,6 +8,8 @@ export default function StatusDashboard() {
   const [lastUpdated, setLastUpdated] = useState('');
   const [logs, setLogs] = useState([]);
   const [scripts, setScripts] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [displayedUsers, setDisplayedUsers] = useState(6);
 
   // Format timestamp
   const getFormattedTimestamp = () => {
@@ -44,7 +46,6 @@ export default function StatusDashboard() {
     }[type] || 'ℹ️';
 
     setLogs((prevLogs) => {
-      // Check if a log entry for this script's success or error already exists
       const existingLogIndex = prevLogs.findIndex(
         (log) =>
           log.message.includes(`Script "${scriptName}"`) &&
@@ -52,7 +53,6 @@ export default function StatusDashboard() {
       );
 
       if (existingLogIndex !== -1 && scriptName) {
-        // Update existing log entry's timestamp
         const updatedLogs = [...prevLogs];
         updatedLogs[existingLogIndex] = {
           ...updatedLogs[existingLogIndex],
@@ -61,7 +61,6 @@ export default function StatusDashboard() {
         };
         return updatedLogs;
       } else {
-        // Add new log entry
         return [
           ...prevLogs,
           { time: timestamp, message, type, icon },
@@ -168,15 +167,102 @@ export default function StatusDashboard() {
     }
   };
 
+  // Fetch list of users from /users-list endpoint
+  const fetchUsersList = async () => {
+    try {
+      const response = await fetch('/users-list', {
+        method: 'GET',
+        headers: {
+          'Authorization': 'UserMode-2d93n2002n8',
+        },
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        addOrUpdateLogEntry(`Users list request failed: ${data.error || 'Unknown error'}`, 'error');
+        throw new Error(`HTTP error: ${response.status}`);
+      }
+      return data;
+    } catch (error) {
+      addOrUpdateLogEntry(`Users list request failed: ${error.message}`, 'error');
+      throw error;
+    }
+  };
+
+  // Fetch individual user data
+  const getUser = async (discordID) => {
+    try {
+      const userData = await readUserBlob(discordID);
+      addOrUpdateLogEntry(`User "${discordID}" Loaded`, 'success', discordID);
+      return {
+        discordID,
+        username: userData.UserName,
+        status: 'success',
+      };
+    } catch (error) {
+      addOrUpdateLogEntry(`User "${discordID}" failed to load: ${error.message}`, 'error', discordID);
+      return {
+        discordID,
+        username: 'Unknown',
+        status: 'error',
+      };
+    }
+  };
+
+  // Fetch all users and update state
+  const fetchAllUsers = async () => {
+    try {
+      const userIDs = await fetchUsersList();
+      const userPromises = userIDs.map(async (discordID) => {
+        try {
+          const userData = await getUser(discordID);
+          return userData;
+        } catch (error) {
+          return {
+            discordID,
+            username: 'Unknown',
+            status: 'error',
+          };
+        }
+      });
+      const userResults = await Promise.all(userPromises);
+      setUsers(userResults);
+    } catch (error) {
+      // Error already logged
+    }
+  };
+
+  // Helper to read user blob (client-side fetch to blob URL)
+  const readUserBlob = async (discordID) => {
+    try {
+      const response = await fetch(`https://<your-vercel-app>.vercel.app/Users/user-${discordID}.json`, {
+        method: 'GET',
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user blob: ${response.status}`);
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      throw new Error(`Failed to read user blob: ${error.message}`);
+    }
+  };
+
+  // Handle "Show More" button click
+  const handleShowMore = () => {
+    setDisplayedUsers((prev) => prev + 6);
+  };
+
   // Initialize dashboard
   useEffect(() => {
     updateTimestamp();
     addOrUpdateLogEntry('Dashboard initialized', 'success');
     fetchAllScripts();
+    fetchAllUsers();
 
     const interval = setInterval(() => {
       updateTimestamp();
       fetchAllScripts();
+      fetchAllUsers();
     }, 60000);
 
     return () => clearInterval(interval);
@@ -233,20 +319,65 @@ export default function StatusDashboard() {
           </div>
         </div>
 
+        {/* Users Cards */}
+        <div className="flex flex-wrap justify-center gap-6 mt-6">
+          {users.slice(0, displayedUsers).map((user, index) => (
+            <div
+              key={index}
+              className="rounded-xl p-5 shadow-lg w-full max-w-[400px]"
+              style={{
+                background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
+                border: '1px solid #333',
+                transition: 'transform 0.2s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+              onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+            >
+              <div className="flex justify-between items-center mb-3">
+                <div className="flex items-center">
+                  <h3 className="text-md font-semibold">{user.username} (username)</h3>
+                  <span
+                    className={`ml-2 h-4 w-4 rounded-full ${
+                      user.status === 'success' ? 'bg-green-500' : 'bg-red-500'
+                    } status-dot`}
+                    style={{ boxShadow: `0 0 8px rgba(${user.status === 'success' ? '0, 255, 0' : '255, 0, 0'}, 0.5)` }}
+                  ></span>
+                </div>
+              </div>
+              <p className="text-xs text-gray-300 mt-2">
+                ID: {user.discordID} (discord id)
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Show More Button */}
+        {users.length > displayedUsers && (
+          <div className="flex justify-center mt-6">
+            <button
+              onClick={handleShowMore}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+              style={{ fontFamily: 'Inter, sans-serif' }}
+            >
+              Show More
+            </button>
+          </div>
+        )}
+
         {/* Scripts Cards */}
-    <div className="flex flex-wrap justify-center gap-6 mt-6">
-        {scripts.map((script, index) => (
-          <div
-            key={index}
-            className="rounded-xl p-5 shadow-lg w-full max-w-[400px]"
-            style={{
-              background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
-              border: '1px solid #333',
-              transition: 'transform 0.2s ease',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-            onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
-          >
+        <div className="flex flex-wrap justify-center gap-6 mt-6">
+          {scripts.map((script, index) => (
+            <div
+              key={index}
+              className="rounded-xl p-5 shadow-lg w-full max-w-[400px]"
+              style={{
+                background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
+                border: '1px solid #333',
+                transition: 'transform 0.2s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+              onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+            >
               <div className="flex justify-between items-center mb-3">
                 <div className="flex items-center">
                   <h3 className="text-md font-semibold">{script.name}</h3>
