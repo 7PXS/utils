@@ -31,6 +31,7 @@ async function writeUserBlob(discordID, userData) {
     await put(blobName, JSON.stringify(userData, null, 2), {
       access: 'public',
       contentType: 'application/json',
+      addRandomSuffix: false, // Prevent random suffixes in the blob URL
     });
   } catch (error) {
     throw new Error(`Failed to write user blob: ${error.message}`);
