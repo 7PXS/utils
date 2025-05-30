@@ -1,6 +1,6 @@
 const { NextResponse } = require('next/server');
 const { get } = require('@vercel/edge-config');
-const { put, get: getBlob, head } = require('@vercel/blob');
+const { put, get: getBlob, head, list } = require('@vercel/blob');
 
 // Vercel Blob Storage configuration
 const CONTAINER_NAME = 'users'; // Optional: Vercel Blob doesn't require a container name, but used for clarity
@@ -31,7 +31,7 @@ async function writeUserBlob(discordID, userData) {
     await put(blobName, JSON.stringify(userData, null, 2), {
       access: 'public',
       contentType: 'application/json',
-      addRandomSuffix: false, // Prevent random suffixes in the blob URL
+      addRandomSuffix: false,
     });
   } catch (error) {
     throw new Error(`Failed to write user blob: ${error.message}`);
@@ -49,6 +49,18 @@ async function userBlobExists(discordID) {
       return false;
     }
     throw new Error(`Failed to check user blob existence: ${error.message}`);
+  }
+}
+
+// Helper to list all user blobs
+async function listUserBlobs() {
+  try {
+    const { blobs } = await list({ prefix: USERS_DIR, access: 'public' });
+    return blobs
+      .filter(blob => blob.pathname.startsWith(USERS_DIR) && blob.pathname.endsWith('.json'))
+      .map(blob => blob.pathname.replace(`${USERS_DIR}user-`, '').replace('.json', ''));
+  } catch (error) {
+    throw new Error(`Failed to list user blobs: ${error.message}`);
   }
 }
 
@@ -181,12 +193,10 @@ async function middleware(request) {
     }
   }
 
-  // Handle /files/?filename=scriptname
-  if (pathname === '/files') {
-    const filename = searchParams.get('filename');
+  // Handle /users-list
+  if (pathname === '/users-list') {
     const authHeader = request.headers.get('authorization');
 
-    // Validate authorization header
     if (authHeader !== 'UserMode-2d93n2002n8') {
       return new NextResponse(
         JSON.stringify({ error: 'Unauthorized: Invalid authentication header' }),
@@ -197,7 +207,41 @@ async function middleware(request) {
       );
     }
 
-    // Validate filename
+    try {
+      const userIDs = await listUserBlobs();
+      return new NextResponse(
+        JSON.stringify(userIDs),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    } catch (error) {
+      return new NextResponse(
+        JSON.stringify({ error: `Failed to fetch user list: ${error.message}` }),
+        {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+  }
+
+  // Handle /files/?filename=scriptname
+  if (pathname === '/files') {
+    const filename = searchParams.get('filename');
+    const authHeader = request.headers.get('authorization');
+
+    if (authHeader !== 'UserMode-2d93n2002n8') {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized: Invalid authentication header' }),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
     if (!filename) {
       return new NextResponse(
         JSON.stringify({ error: 'Filename parameter is required' }),
@@ -208,7 +252,6 @@ async function middleware(request) {
       );
     }
 
-    // Prevent directory traversal
     if (filename.includes('..')) {
       return new NextResponse(
         JSON.stringify({ error: 'Invalid filename: Directory traversal not allowed' }),
@@ -220,7 +263,6 @@ async function middleware(request) {
     }
 
     try {
-      // Get scripts from Edge Config
       const scripts = await get('scripts');
       
       if (!scripts || !scripts[filename]) {
@@ -233,12 +275,10 @@ async function middleware(request) {
         );
       }
 
-      // Ensure the URL has a trailing slash
       const scriptUrl = scripts[filename].Code.endsWith('/')
         ? scripts[filename].Code
         : `${scripts[filename].Code}/`;
 
-      // Return script content as JSON with URL wrapped in quotes
       return new NextResponse(
         JSON.stringify({ content: `"${scriptUrl}"` }),
         {
@@ -257,7 +297,7 @@ async function middleware(request) {
     }
   }
 
-  // Handle /scripts-list to return available script names
+  // Handle /scripts-list
   if (pathname === '/scripts-list') {
     const authHeader = request.headers.get('authorization');
 
@@ -293,7 +333,7 @@ async function middleware(request) {
     }
   }
 
-  // Handle /scripts-metadata to return full scripts object
+  // Handle /scripts-metadata
   if (pathname === '/scripts-metadata') {
     const authHeader = request.headers.get('authorization');
 
@@ -328,13 +368,12 @@ async function middleware(request) {
     }
   }
 
-  // Pass through other requests
   return NextResponse.next();
 }
 
 module.exports = {
   middleware,
   config: {
-    matcher: ['/files', '/scripts-list', '/scripts-metadata', '/auth', '/register'],
+    matcher: ['/files', '/scripts-list', '/scripts-metadata', '/auth', '/register', '/users-list'],
   },
 };
