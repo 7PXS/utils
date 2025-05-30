@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
+import { get } from '@vercel/edge-config';
 
 export async function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
@@ -45,25 +44,65 @@ export async function middleware(request: NextRequest) {
     }
 
     try {
-      // Construct file path
-      const filePath = path.join(process.cwd(), 'public', 'RoHub', 'Scripts', filename);
+      // Get scripts from Edge Config
+      const scripts = await get('scripts');
       
-      // Check if file exists
-      await fs.access(filePath);
+      if (!scripts || !scripts[filename]) {
+        return new NextResponse(
+          JSON.stringify({ error: `Script "${filename}" not found` }),
+          {
+            status: 404,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
+      }
 
-      // Read file content
-      const content = await fs.readFile(filePath, 'utf-8');
-
-      // Return file content as raw text
-      return new NextResponse(content, {
+      // Return script content
+      return new NextResponse(scripts[filename].Code, {
         status: 200,
         headers: { 'Content-Type': 'text/plain' },
       });
     } catch (error) {
       return new NextResponse(
-        JSON.stringify({ error: `Script "${filename}" not found` }),
+        JSON.stringify({ error: `Failed to fetch script "${filename}": ${error.message}` }),
         {
-          status: 404,
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+  }
+
+  // Handle /scripts-list to return available script names
+  if (pathname === '/scripts-list') {
+    const authHeader = request.headers.get('authorization');
+
+    if (authHeader !== 'UserMode-2d93n2002n8') {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized: Invalid authentication header' }),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    try {
+      const scripts = await get('scripts');
+      const scriptNames = Object.keys(scripts || {});
+      
+      return new NextResponse(
+        JSON.stringify(scriptNames),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    } catch (error) {
+      return new NextResponse(
+        JSON.stringify({ error: `Failed to fetch script list: ${error.message}` }),
+        {
+          status: 500,
           headers: { 'Content-Type': 'application/json' },
         }
       );
@@ -74,7 +113,6 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Configure matcher to target /files route
 export const config = {
-  matcher: '/files',
+  matcher: ['/files', '/scripts-list'],
 };
