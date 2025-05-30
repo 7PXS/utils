@@ -1,32 +1,72 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { promises as fs } from 'fs';
+import path from 'path';
 
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+export async function middleware(request: NextRequest) {
+  const { pathname, searchParams } = request.nextUrl;
 
-  // Handle /files/ScriptName
-  if (pathname.startsWith('/files/')) {
-    const scriptName = pathname.split('/files/')[1];
+  // Handle /files/?filename=scriptname
+  if (pathname === '/files') {
+    const filename = searchParams.get('filename');
     const authHeader = request.headers.get('authorization');
 
     // Validate authorization header
     if (authHeader !== 'UserMode-2d93n2002n8') {
-      return new Response(JSON.stringify({ error: 'Unauthorized: Invalid authentication header' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized: Invalid authentication header' }),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
     }
 
-    // Rewrite to static file in public/RoHub/Scripts/
-    const filePath = `/RoHub/Scripts/${scriptName}`;
+    // Validate filename
+    if (!filename) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Filename parameter is required' }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Prevent directory traversal
+    if (filename.includes('..') || filename.includes('/')) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Invalid filename: Directory traversal not allowed' }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
     try {
-      const url = new URL(filePath, request.nextUrl.origin);
-      return NextResponse.rewrite(url);
-    } catch (error) {
-      return new Response(JSON.stringify({ error: `Script "${scriptName}" not found` }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
+      // Construct file path
+      const filePath = path.join(process.cwd(), 'public', 'RoHub', 'Scripts', filename);
+      
+      // Check if file exists
+      await fs.access(filePath);
+
+      // Read file content
+      const content = await fs.readFile(filePath, 'utf-8');
+
+      // Return file content as raw text
+      return new NextResponse(content, {
+        status: 200,
+        headers: { 'Content-Type': 'text/plain' },
       });
+    } catch (error) {
+      return new NextResponse(
+        JSON.stringify({ error: `Script "${filename}" not found` }),
+        {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
     }
   }
 
@@ -34,7 +74,7 @@ export function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Configure matcher to target /files/* routes
+// Configure matcher to target /files route
 export const config = {
-  matcher: '/files/:path*',
+  matcher: '/files',
 };
