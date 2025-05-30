@@ -32,7 +32,7 @@ async function middleware(request) {
     }
 
     // Prevent directory traversal
-    if (filename.includes('..') || filename.includes('/')) {
+    if (filename.includes('..')) {
       return new NextResponse(
         JSON.stringify({ error: 'Invalid filename: Directory traversal not allowed' }),
         {
@@ -56,9 +56,14 @@ async function middleware(request) {
         );
       }
 
-      // Return script content as JSON
+      // Ensure the URL has a trailing slash
+      const scriptUrl = scripts[filename].Code.endsWith('/')
+        ? scripts[filename].Code
+        : `${scripts[filename].Code}/`;
+
+      // Return script content as JSON with URL wrapped in quotes
       return new NextResponse(
-        JSON.stringify({ content: scripts[filename].Code }),
+        JSON.stringify({ content: `"${scriptUrl}"` }),
         {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
