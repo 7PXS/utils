@@ -17,10 +17,10 @@ async function readUserBlob(discordID) {
     const data = await blob.text(); // Get the blob content as text
     return JSON.parse(data);
   } catch (error) {
-    if (error.status === 404) {
+    if (error.status === 404 || error.message.includes('The requested blob does not exist')) {
       throw new Error('User not found');
     }
-    throw error;
+    throw new Error(`Failed to read user blob: ${error.message}`);
   }
 }
 
@@ -41,13 +41,13 @@ async function writeUserBlob(discordID, userData) {
 async function userBlobExists(discordID) {
   const blobName = `${USERS_DIR}user-${discordID}.json`;
   try {
-    await head(blobName);
+    await head(blobName, { access: 'public' });
     return true;
   } catch (error) {
-    if (error.status === 404) {
+    if (error.status === 404 || error.message.includes('The requested blob does not exist')) {
       return false;
     }
-    throw error;
+    throw new Error(`Failed to check user blob existence: ${error.message}`);
   }
 }
 
