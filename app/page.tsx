@@ -17,27 +17,26 @@ export default function StatusDashboard() {
   }[]>([]);
 
   // Language mapping based on file extension
-  const getLanguageFromExtension = (filename: string): string => {
-    const extension = filename.split('.').pop()?.toLowerCase() || '';
+  const getLanguageFromExtension = (language: string): string => {
     const languageMap: { [key: string]: string } = {
-      js: 'JavaScript',
-      ts: 'TypeScript',
-      py: 'Python',
-      lua: 'Lua',
-      rb: 'Ruby',
-      php: 'PHP',
-      java: 'Java',
-      cs: 'C#',
-      cpp: 'C++',
-      c: 'C',
-      go: 'Go',
-      rs: 'Rust',
-      sh: 'Shell',
-      sql: 'SQL',
-      html: 'HTML',
-      css: 'CSS',
+      Lua: 'Lua',
+      JavaScript: 'JavaScript',
+      TypeScript: 'TypeScript',
+      Python: 'Python',
+      Ruby: 'Ruby',
+      PHP: 'PHP',
+      Java: 'Java',
+      CSharp: 'C#',
+      CPlusPlus: 'C++',
+      C: 'C',
+      Go: 'Go',
+      Rust: 'Rust',
+      Shell: 'Shell',
+      SQL: 'SQL',
+      HTML: 'HTML',
+      CSS: 'CSS',
     };
-    return languageMap[extension] || 'Unknown';
+    return languageMap[language] || 'Unknown';
   };
 
   // Generate random version hash
@@ -89,11 +88,11 @@ export default function StatusDashboard() {
     ]);
   };
 
-  // Fetch list of scripts from /files endpoint
+  // Fetch list of scripts from /scripts-list endpoint
   const fetchScriptsList = async () => {
     addLogEntry('Requesting list of scripts', 'info');
     try {
-      const response = await fetch('/files', {
+      const response = await fetch('/scripts-list', {
         method: 'GET',
         headers: {
           'Authorization': 'UserMode-2d93n2002n8',
@@ -118,7 +117,7 @@ export default function StatusDashboard() {
   const getScript = async (scriptName: string) => {
     addLogEntry(`Requesting script: ${scriptName}`, 'info');
     try {
-      const response = await fetch(`/files/${scriptName}`, {
+      const response = await fetch(`/files?filename=${scriptName}`, {
         method: 'GET',
         headers: {
           'Authorization': 'UserMode-2d93n2002n8',
@@ -149,18 +148,28 @@ export default function StatusDashboard() {
       const scriptPromises = scriptNames.map(async (scriptName: string) => {
         try {
           const content = await getScript(scriptName);
+          // Fetch script metadata from Edge Config
+          const response = await fetch('/scripts-list', {
+            method: 'GET',
+            headers: {
+              'Authorization': 'UserMode-2d93n2002n8',
+            },
+          });
+          const scripts = await response.json();
+          const scriptData = scripts[scriptName] || {};
+          
           return {
             name: scriptName,
-            language: getLanguageFromExtension(scriptName),
+            language: getLanguageFromExtension(scriptData.Lang || 'Unknown'),
             status: 'success',
-            version: `${versionPrefix}${generateVersionHash()}`,
+            version: scriptData.Version || `${versionPrefix}${generateVersionHash()}`,
             lastUpdated: getFormattedDate(),
             content,
           };
         } catch (error) {
           return {
             name: scriptName,
-            language: getLanguageFromExtension(scriptName),
+            language: 'Unknown',
             status: 'error',
             version: 'N/A',
             lastUpdated: 'N/A',
@@ -260,7 +269,7 @@ export default function StatusDashboard() {
                 <div className="flex items-center">
                   <h3 className="text-md font-semibold">{script.name}</h3>
                   <span
-                    className={`ml-2 h-4 w-4 rounded-full ${
+                    className={`ml-2 h-4 w-4 disallowfullscreen rounded-full ${
                       script.status === 'success' ? 'bg-green-500' : 'bg-red-500'
                     } status-dot`}
                     style={{ boxShadow: `0 0 8px rgba(${script.status === 'success' ? '0, 255, 0' : '255, 0, 0'}, 0.5)` }}
