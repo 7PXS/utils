@@ -6,19 +6,12 @@ export default function StatusDashboard() {
   const versionPrefix = 'version-';
   const [version, setVersion] = useState('');
   const [lastUpdated, setLastUpdated] = useState('');
-  const [logs, setLogs] = useState<{ time: string; message: string; type: string; icon: string }[]>([]);
-  const [scripts, setScripts] = useState<{
-    name: string;
-    language: string;
-    status: string;
-    version: string;
-    lastUpdated: string;
-    content?: string;
-  }[]>([]);
+  const [logs, setLogs] = useState([]);
+  const [scripts, setScripts] = useState([]);
 
-  // Language mapping based on file extension
-  const getLanguageFromExtension = (language: string): string => {
-    const languageMap: { [key: string]: string } = {
+  // Language mapping based on language from Edge Config
+  const getLanguageFromExtension = (language) => {
+    const languageMap = {
       Lua: 'Lua',
       JavaScript: 'JavaScript',
       TypeScript: 'TypeScript',
@@ -75,7 +68,7 @@ export default function StatusDashboard() {
   };
 
   // Add log entry
-  const addLogEntry = (message: string, type: string = 'info') => {
+  const addLogEntry = (message, type = 'info') => {
     const icon = {
       success: '✅',
       warning: '⚠️',
@@ -108,13 +101,13 @@ export default function StatusDashboard() {
       addLogEntry('Successfully retrieved script list', 'success');
       return scriptNames;
     } catch (error) {
-      addLogEntry(`Failed to retrieve script list: ${(error as Error).message}`, 'error');
+      addLogEntry(`Failed to retrieve script list: ${error.message}`, 'error');
       throw error;
     }
   };
 
   // Fetch individual script content
-  const getScript = async (scriptName: string) => {
+  const getScript = async (scriptName) => {
     addLogEntry(`Requesting script: ${scriptName}`, 'info');
     try {
       const response = await fetch(`/files?filename=${scriptName}`, {
@@ -136,7 +129,7 @@ export default function StatusDashboard() {
       addLogEntry(`Successfully retrieved script: ${scriptName}`, 'success');
       return content;
     } catch (error) {
-      addLogEntry(`Failed to retrieve script "${scriptName}": ${(error as Error).message}`, 'error');
+      addLogEntry(`Failed to retrieve script "${scriptName}": ${error.message}`, 'error');
       throw error;
     }
   };
@@ -145,7 +138,7 @@ export default function StatusDashboard() {
   const fetchAllScripts = async () => {
     try {
       const scriptNames = await fetchScriptsList();
-      const scriptPromises = scriptNames.map(async (scriptName: string) => {
+      const scriptPromises = scriptNames.map(async (scriptName) => {
         try {
           const content = await getScript(scriptName);
           // Fetch script metadata from Edge Config
@@ -269,7 +262,7 @@ export default function StatusDashboard() {
                 <div className="flex items-center">
                   <h3 className="text-md font-semibold">{script.name}</h3>
                   <span
-                    className={`ml-2 h-4 w-4 disallowfullscreen rounded-full ${
+                    className={`ml-2 h-4 w-4 rounded-full ${
                       script.status === 'success' ? 'bg-green-500' : 'bg-red-500'
                     } status-dot`}
                     style={{ boxShadow: `0 0 8px rgba(${script.status === 'success' ? '0, 255, 0' : '255, 0, 0'}, 0.5)` }}
