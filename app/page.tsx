@@ -7,7 +7,14 @@ export default function StatusDashboard() {
   const [version, setVersion] = useState('');
   const [lastUpdated, setLastUpdated] = useState('');
   const [logs, setLogs] = useState<{ time: string; message: string; type: string; icon: string }[]>([]);
-  const [scripts, setScripts] = useState<{ name: string; language: string; status: string; content?: string }[]>([]);
+  const [scripts, setScripts] = useState<{
+    name: string;
+    language: string;
+    status: string;
+    version: string;
+    lastUpdated: string;
+    content?: string;
+  }[]>([]);
 
   // Language mapping based on file extension
   const getLanguageFromExtension = (filename: string): string => {
@@ -43,26 +50,29 @@ export default function StatusDashboard() {
     return new Date().toISOString().replace('T', ' ').substring(0, 19);
   };
 
-  // Update version
+  // Format date for display
+  const getFormattedDate = () => {
+    return new Date().toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: true,
+      timeZone: 'America/Los_Angeles',
+    }) + ' PDT';
+  };
+
+  // Update dashboard version
   const updateVersion = () => {
     const newVersion = `${versionPrefix}${generateVersionHash()}`;
     setVersion(newVersion);
   };
 
-  // Update last updated timestamp
+  // Update dashboard last updated timestamp
   const updateTimestamp = () => {
-    setLastUpdated(
-      new Date().toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: 'numeric',
-        second: 'numeric',
-        hour12: true,
-        timeZone: 'America/Los_Angeles',
-      }) + ' PDT'
-    );
+    setLastUpdated(getFormattedDate());
   };
 
   // Add log entry
@@ -95,7 +105,7 @@ export default function StatusDashboard() {
         }
         throw new Error(`HTTP error: ${response.status}`);
       }
-      const scriptNames = await response.json(); // Assuming /files returns a JSON array of filenames
+      const scriptNames = await response.json();
       addLogEntry('Successfully retrieved script list', 'success');
       return scriptNames;
     } catch (error) {
@@ -143,6 +153,8 @@ export default function StatusDashboard() {
             name: scriptName,
             language: getLanguageFromExtension(scriptName),
             status: 'success',
+            version: `${versionPrefix}${generateVersionHash()}`,
+            lastUpdated: getFormattedDate(),
             content,
           };
         } catch (error) {
@@ -150,6 +162,8 @@ export default function StatusDashboard() {
             name: scriptName,
             language: getLanguageFromExtension(scriptName),
             status: 'error',
+            version: 'N/A',
+            lastUpdated: 'N/A',
           };
         }
       });
@@ -165,15 +179,14 @@ export default function StatusDashboard() {
     updateVersion();
     updateTimestamp();
     addLogEntry('Dashboard initialized', 'success');
-    fetchAllScripts(); // Initial fetch of scripts
+    fetchAllScripts();
 
-    // Periodic updates
     const interval = setInterval(() => {
       updateVersion();
       updateTimestamp();
       addLogEntry('System status check completed', 'success');
-      fetchAllScripts(); // Periodic fetch of scripts
-    }, 60000); // Update every minute
+      fetchAllScripts();
+    }, 60000);
 
     return () => clearInterval(interval);
   }, []);
@@ -195,8 +208,6 @@ export default function StatusDashboard() {
             Last Updated: {lastUpdated}
           </div>
         </div>
-
-.ti
 
         {/* Service Status (Centered) */}
         <div className="flex justify-center">
@@ -263,9 +274,18 @@ export default function StatusDashboard() {
                 >
                   {script.language}
                 </span>
+                <span
+                  className="text-gray-300 text-xs font-semibold px-2 py-1 rounded category-tag"
+                  style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                >
+                  {script.version}
+                </span>
               </div>
               <p className="text-xs text-gray-500 mt-3">
                 Status: {script.status === 'success' ? 'Loaded' : 'Failed to load'}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Last Updated: {script.lastUpdated}
               </p>
             </div>
           ))}
