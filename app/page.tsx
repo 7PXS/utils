@@ -9,29 +9,6 @@ export default function StatusDashboard() {
   const [logs, setLogs] = useState([]);
   const [scripts, setScripts] = useState([]);
 
-  // Language mapping based on language from Edge Config
-  const getLanguageFromExtension = (language) => {
-    const languageMap = {
-      Lua: 'Lua',
-      JavaScript: 'JavaScript',
-      TypeScript: 'TypeScript',
-      Python: 'Python',
-      Ruby: 'Ruby',
-      PHP: 'PHP',
-      Java: 'Java',
-      CSharp: 'C#',
-      CPlusPlus: 'C++',
-      C: 'C',
-      Go: 'Go',
-      Rust: 'Rust',
-      Shell: 'Shell',
-      SQL: 'SQL',
-      HTML: 'HTML',
-      CSS: 'CSS',
-    };
-    return languageMap[language] || 'Unknown';
-  };
-
   // Generate random version hash
   const generateVersionHash = () => {
     return Math.random().toString(36).substring(2, 15);
@@ -92,7 +69,7 @@ export default function StatusDashboard() {
         },
       });
       if (!response.ok) {
-        if (response.status === 401) {
+        if$response.status === 401) {
           throw new Error('Unauthorized: Invalid authentication header');
         }
         throw new Error(`HTTP error: ${response.status}`);
@@ -153,7 +130,7 @@ export default function StatusDashboard() {
           
           return {
             name: scriptName,
-            language: getLanguageFromExtension(scriptData.Lang || 'Unknown'),
+            language: scriptData.Lang || 'Unknown', // Use Lang directly from Edge Config
             status: 'success',
             version: scriptData.Version || `${versionPrefix}${generateVersionHash()}`,
             lastUpdated: getFormattedDate(),
