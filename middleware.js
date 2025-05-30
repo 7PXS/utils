@@ -56,11 +56,14 @@ async function middleware(request) {
         );
       }
 
-      // Return script content
-      return new NextResponse(scripts[filename].Code, {
-        status: 200,
-        headers: { 'Content-Type': 'text/plain' },
-      });
+      // Return script content as JSON
+      return new NextResponse(
+        JSON.stringify({ content: scripts[filename].Code }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
     } catch (error) {
       return new NextResponse(
         JSON.stringify({ error: `Failed to fetch script "${filename}": ${error.message}` }),
@@ -108,6 +111,41 @@ async function middleware(request) {
     }
   }
 
+  // Handle /scripts-metadata to return full scripts object
+  if (pathname === '/scripts-metadata') {
+    const authHeader = request.headers.get('authorization');
+
+    if (authHeader !== 'UserMode-2d93n2002n8') {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized: Invalid authentication header' }),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    try {
+      const scripts = await get('scripts');
+      
+      return new NextResponse(
+        JSON.stringify({ scripts: scripts || {} }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    } catch (error) {
+      return new NextResponse(
+        JSON.stringify({ error: `Failed to fetch scripts metadata: ${error.message}` }),
+        {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+  }
+
   // Pass through other requests
   return NextResponse.next();
 }
@@ -115,6 +153,6 @@ async function middleware(request) {
 module.exports = {
   middleware,
   config: {
-    matcher: ['/files', '/scripts-list'],
+    matcher: ['/files', '/scripts-list', '/scripts-metadata'],
   },
 };
