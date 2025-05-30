@@ -1,6 +1,6 @@
 const { NextResponse } = require('next/server');
 const { get } = require('@vercel/edge-config');
-const { put, get, head } = require('@vercel/blob');
+const { put, get: getBlob, head } = require('@vercel/blob');
 
 // Vercel Blob Storage configuration
 const CONTAINER_NAME = 'users'; // Optional: Vercel Blob doesn't require a container name, but used for clarity
@@ -10,7 +10,7 @@ const USERS_DIR = 'Users/'; // Prefix for user files in blob storage
 async function readUserBlob(discordID) {
   const blobName = `${USERS_DIR}user-${discordID}.json`;
   try {
-    const blob = await get(blobName, { access: 'public' });
+    const blob = await getBlob(blobName, { access: 'public' });
     if (!blob) {
       throw new Error('User not found');
     }
