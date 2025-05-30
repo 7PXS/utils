@@ -33,18 +33,41 @@ export default function StatusDashboard() {
     setLastUpdated(getFormattedDate());
   };
 
-  // Add log entry
-  const addLogEntry = (message, type = 'info') => {
+  // Add or update log entry
+  const addOrUpdateLogEntry = (message, type = 'info', scriptName = null) => {
+    const timestamp = getFormattedTimestamp();
     const icon = {
       success: '✅',
       warning: '⚠️',
       error: '❌',
       info: 'ℹ️',
     }[type] || 'ℹ️';
-    setLogs((prevLogs) => [
-      ...prevLogs,
-      { time: getFormattedTimestamp(), message, type, icon },
-    ]);
+
+    setLogs((prevLogs) => {
+      // Check if a log entry for this script's success or error already exists
+      const existingLogIndex = prevLogs.findIndex(
+        (log) =>
+          log.message.includes(`Script "${scriptName}"`) &&
+          (log.type === 'success' || log.type === 'error')
+      );
+
+      if (existingLogIndex !== -1 && scriptName) {
+        // Update existing log entry's timestamp
+        const updatedLogs = [...prevLogs];
+        updatedLogs[existingLogIndex] = {
+          ...updatedLogs[existingLogIndex],
+          time: timestamp,
+          icon,
+        };
+        return updatedLogs;
+      } else {
+        // Add new log entry
+        return [
+          ...prevLogs,
+          { time: timestamp, message, type, icon },
+        ];
+      }
+    });
   };
 
   // Fetch list of scripts from /scripts-list endpoint
@@ -58,7 +81,7 @@ export default function StatusDashboard() {
       });
       const data = await response.json();
       if (!response.ok) {
-        addLogEntry(`Scripts list request failed: ${data.error || 'Unknown error'}`, 'error');
+        addOrUpdateLogEntry(`Scripts list request failed: ${data.error || 'Unknown error'}`, 'error');
         if (response.status === 401) {
           throw new Error('Unauthorized: Invalid authentication header');
         }
@@ -66,7 +89,7 @@ export default function StatusDashboard() {
       }
       return data;
     } catch (error) {
-      addLogEntry(`Scripts list request failed: ${error.message}`, 'error');
+      addOrUpdateLogEntry(`Scripts list request failed: ${error.message}`, 'error');
       throw error;
     }
   };
@@ -80,9 +103,9 @@ export default function StatusDashboard() {
           'Authorization': 'UserMode-2d93n2002n8',
         },
       });
-      const data = await response.json(); // Expect JSON with content and log
+      const data = await response.json();
       if (!response.ok) {
-        addLogEntry(`Script request for "${scriptName}" failed: ${data.error || 'Unknown error'}`, 'error');
+        addOrUpdateLogEntry(`Script "${scriptName}" failed to load: ${data.error || 'Unknown error'}`, 'error', scriptName);
         if (response.status === 401) {
           throw new Error('Unauthorized: Invalid authentication header');
         }
@@ -91,10 +114,10 @@ export default function StatusDashboard() {
         }
         throw new Error(`HTTP error: ${response.status}`);
       }
-      addLogEntry(`Script request for "${scriptName}" succeeded`, 'success');
+      addOrUpdateLogEntry(`Script "${scriptName}" Loaded`, 'success', scriptName);
       return data.content;
     } catch (error) {
-      addLogEntry(`Script request for "${scriptName}" failed: ${error.message}`, 'error');
+      addOrUpdateLogEntry(`Script "${scriptName}" failed to load: ${error.message}`, 'error', scriptName);
       throw error;
     }
   };
@@ -103,7 +126,6 @@ export default function StatusDashboard() {
   const fetchAllScripts = async () => {
     try {
       const scriptNames = await fetchScriptsList();
-      // Fetch metadata from Edge Config via a new endpoint
       const metadataResponse = await fetch('/scripts-metadata', {
         method: 'GET',
         headers: {
@@ -112,7 +134,7 @@ export default function StatusDashboard() {
       });
       const metadataData = await metadataResponse.json();
       if (!metadataResponse.ok) {
-        addLogEntry(`Metadata request failed: ${metadataData.error || 'Unknown error'}`, 'error');
+        addOrUpdateLogEntry(`Metadata request failed: ${metadataData.error || 'Unknown error'}`, 'error');
         throw new Error(`HTTP error: ${metadataResponse.status}`);
       }
 
@@ -149,7 +171,7 @@ export default function StatusDashboard() {
   // Initialize dashboard
   useEffect(() => {
     updateTimestamp();
-    addLogEntry('Dashboard initialized', 'success');
+    addOrUpdateLogEntry('Dashboard initialized', 'success');
     fetchAllScripts();
 
     const interval = setInterval(() => {
