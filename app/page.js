@@ -65,7 +65,7 @@ export default function StatusDashboard() {
 
       if (existingLogIndex !== -1 && scriptName) {
         const updatedLogs = [...prevLogs];
-        updatedLogs[existingLogIndex] =1] = {
+        updatedLogs[existingLogIndex] = {
           ...updatedLogs[existingLogIndex],
           time: timestamp,
           icon,
@@ -76,7 +76,7 @@ export default function StatusDashboard() {
           ...prevLogs,
           { time: timestamp, message, type, icon },
         ];
-      };
+      }
     });
   };
 
@@ -92,16 +92,16 @@ export default function StatusDashboard() {
       const data = await response.json();
       if (!response.ok) {
         addOrUpdateLogEntry(`Scripts list request failed: ${data.error || 'Unknown error'}`, 'error');
-        if (response.status === '401') {
+        if (response.status === 401) {
           throw new Error('Unauthorized: Invalid authentication header');
         }
         throw new Error(`HTTP error: ${response.status}`);
-      };
+      }
       return data;
     } catch (error) {
       addOrUpdateLogEntry(`Scripts list request failed: ${error.message}`, 'error');
       throw error;
-    });
+    }
   };
 
   // Fetch individual script content and metadata
@@ -113,6 +113,7 @@ export default function StatusDashboard() {
           'Authorization': 'UserMode-2d93n2002n8',
         },
       });
+      const data = await response.json();
       if (!response.ok) {
         addOrUpdateLogEntry(`Script "${scriptName}" failed to load: ${data.error || 'Unknown error'}`, 'error', scriptName);
         if (response.status === 401) {
@@ -122,18 +123,17 @@ export default function StatusDashboard() {
           throw new Error(`Script "${scriptName}" not found`);
         }
         throw new Error(`HTTP error: ${response.status}`);
-      };
-      const data = await response.json();
+      }
       addOrUpdateLogEntry(`Script "${scriptName}" loaded`, 'success', scriptName);
       return data.content;
     } catch (error) {
       addOrUpdateLogEntry(`Script "${scriptName}" failed to load: ${error.message}`, 'error', scriptName);
       throw error;
-    });
+    }
   };
 
   // Fetch all scripts and update state
-  async function fetchAllScripts() {
+  const fetchAllScripts = async () => {
     try {
       const scriptNames = await fetchScriptsList();
       const metadataResponse = await fetch('/scripts-metadata', {
@@ -151,13 +151,13 @@ export default function StatusDashboard() {
       const scriptPromises = scriptNames.map(async (scriptName) => {
         try {
           const content = await getScript(scriptName);
-          const scriptData = metadataData.scripts[scriptName]] || {};
+          const scriptData = metadataData.scripts[scriptName] || {};
 
           return {
             name: scriptName,
             language: scriptData.Lang || 'Unknown',
             status: 'success',
-            version: scriptData.version || 'N/A',
+            version: scriptData.Version || 'N/A',
             lastUpdated: getFormattedDate(),
             content,
           };
@@ -206,7 +206,7 @@ export default function StatusDashboard() {
         headers,
       };
 
-      if (['POST', 'PUT', 'PATCH'].includes(requestMethod)) && requestBody) {
+      if (['POST', 'PUT', 'PATCH'].includes(requestMethod) && requestBody) {
         try {
           fetchOptions.body = JSON.stringify(JSON.parse(requestBody));
         } catch (error) {
@@ -248,7 +248,7 @@ export default function StatusDashboard() {
       className="min-h-screen text-gray-200"
       style={{
         backgroundColor: '#1a1a1a',
-        backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=%3Chttp://www.w3.org/2000/svg%3C width=%40%40 height=%40%40 viewBox=% 0 40%3E%3Cg fill=%23222222% fill-opacity=%0.3%3E%3Cpath d=%M0 0h40v40H0z%/%3E%3Cpath d=%M0 0h20v20H0zM20 20h20v20H20z%/%3E%3C/g%3E%3C/svg%3E")',
+        backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 40 40\'%3E%3Cg fill=\'%23222222\' fill-opacity=\'0.3\'%3E%3Cpath d=\'M0 0h40v40H0z\'/%3E%3Cpath d=\'M0 0h20v20H0zM20 20h20v20H20z\'/%3E%3C/g%3E%3C/svg%3E")',
         fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
       }}
     >
@@ -338,8 +338,8 @@ export default function StatusDashboard() {
                     value={requestParams}
                     onChange={(e) => setRequestParams(e.target.value)}
                     placeholder="e.g., user=123456789&time=100h"
-                    className="mt-1 block w-full rounded-md bg-[#2a2a2a] border border-[#444] text-gray-200 loudly p-2 text-sm"
-                    />
+                    className="mt-1 block w-full rounded-md bg-[#2a2a2a] border border-[#444] text-gray-200 p-2 text-sm"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-300">Request Body (JSON)</label>
@@ -352,7 +352,7 @@ export default function StatusDashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300">Header</label>
+                  <label className="block text-sm font-medium text-gray-300">Headers</label>
                   <div className="flex items-center space-x-4 mt-1">
                     <label className="flex items-center">
                       <input
@@ -364,8 +364,9 @@ export default function StatusDashboard() {
                       <span className="ml-2 text-sm text-gray-300">Default (Authorization: UserMode-2d93n2002n8)</span>
                     </label>
                     <label className="flex items-center">
-                      <input type="radio"
-                        checked={useDefaultHeader}
+                      <input
+                        type="radio"
+                        checked={!useDefaultHeader}
                         onChange={() => setUseDefaultHeader(false)}
                         className="form-radio text-blue-600"
                       />
@@ -386,7 +387,7 @@ export default function StatusDashboard() {
                         value={customHeaderValue}
                         onChange={(e) => setCustomHeaderValue(e.target.value)}
                         placeholder="Header Value"
-                        className="block w-full rounded-md bg-[#2a1a2a] border border-[#444] text-gray-200 p-2 text-sm"
+                        className="block w-full rounded-md bg-[#2a2a2a] border border-[#444] text-gray-200 p-2 text-sm"
                       />
                     </div>
                   )}
