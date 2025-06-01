@@ -214,8 +214,9 @@ async function middleware(request) {
           {
             status: 404,
             headers: { 'Content-Type': 'application/json' },
-        }
-      );
+          }
+        );
+      }
       return new NextResponse(
         JSON.stringify({ error: `Failed to update key expiration: ${error.message}` }),
         {
@@ -249,8 +250,9 @@ async function middleware(request) {
           {
             status: 409,
             headers: { 'Content-Type': 'application/json' },
-        }
-      );
+          }
+        );
+      }
 
       const durationMs = parseDuration(time);
       const createdAt = Date.now();
@@ -328,10 +330,11 @@ async function middleware(request) {
         return new NextResponse(
           JSON.stringify({ error: `Script "${filename}" not found` }),
           {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+            status: 404,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
+      }
 
       const scriptUrl = scripts[filename].Code.endsWith('/')
         ? scripts[filename].Code
