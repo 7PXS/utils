@@ -1,86 +1,86 @@
+@tailwind base;
+     @tailwind components;
+     @tailwind utilities;
 
+     @layer base {
+       :root {
+         --background: #ffffff;
+         --foreground: #171717;
+       }
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+       @media (prefers-color-scheme: dark) {
+         :root {
+           --background: #0a0a0a;
+           --foreground: #ededed;
+         }
+       }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+       body {
+         @apply bg-custom-dark text-custom-gray font-sans m-0 p-0 box-border;
+         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Cg fill='%23222222' fill-opacity='0.3'%3E%3Cpath d='M0 0h40v40H0z'/%3E%3Cpath d='M0 0h20v20H0zM20 20h20v20H20z'/%3E%3C/g%3E%3C/svg%3E");
+       }
+     }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+     @layer components {
+       .card {
+         @apply bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 transition-transform duration-200;
+       }
 
-body {
-      background-color: #1a1a1a;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Cg fill='%23222222' fill-opacity='0.3'%3E%3Cpath d='M0 0h40v40H0z'/%3E%3Cpath d='M0 0h20v20H0zM20 20h20v20H20z'/%3E%3C/g%3E%3C/svg%3E");
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    }
-    .card {
-      background: linear-gradient(145deg, #2a2a2a, #1f1f1f);
-      border: 1px solid #333;
-      transition: transform 0.2s ease;
-    }
-    .card:hover {
-      transform: translateY(-2px);
-    }
-    .status-dot {
-      box-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
-    }
-    .status-dot-down {
-      box-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
-    }
-    .category-tag {
-      background: #333;
-      border: 1px solid #444;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .btn {
-      background: #444;
-      border: 1px solid #555;
-      transition: background 0.3s ease;
-    }
-    .btn:hover {
-      background: #555;
-    }
-    .service-card {
-      max-width: 400px;
-      padding: 1rem;
-      margin-bottom: 2.5rem;
-    }
-    .log-container {
-      background: #1e1e1e;
-      border: 1px solid #444;
-      border-radius: 0.5rem;
-      padding: 1rem;
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 0.9rem;
-      max-height: 200px;
-      overflow-y: auto;
-    }
-    .log-entry {
-      display: flex;
-      align-items: center;
-      margin-bottom: 0.5rem;
-    }
-    .log-icon {
-      margin-right: 0.5rem;
-    }
-    .log-error {
-      color: #f87171;
-    }
-    .log-warning {
-      color: #facc15;
-    }
-    .log-success {
-      color: #4ade80;
-    }
+       .card:hover {
+         @apply translate-y-[-2px];
+       }
+
+       .status-dot {
+         @apply shadow-[0_0_8px_rgba(0,255,0,0.5)];
+       }
+
+       .status-dot-down {
+         @apply shadow-[0_0_8px_rgba(255,0,0,0.5)];
+       }
+
+       .category-tag {
+         @apply bg-gray-800 border border-gray-700 text-xs font-semibold uppercase tracking-[0.5px] px-2 py-1 rounded;
+       }
+
+       .btn {
+         @apply bg-gray-700 border border-gray-600 transition-colors duration-300;
+       }
+
+       .btn:hover {
+         @apply bg-gray-600;
+       }
+
+       .service-card {
+         @apply max-w-xs p-4 mb-10;
+       }
+
+       .log-container {
+         @apply bg-gray-900 border border-gray-700 rounded-lg p-4 text-sm font-mono max-h-50 overflow-y-auto;
+       }
+
+       .log-entry {
+         @apply flex items-center mb-2;
+       }
+
+       .log-icon {
+         @apply mr-2;
+       }
+
+       .log-error {
+         @apply text-red-400;
+       }
+
+       .log-warning {
+         @apply text-yellow-400;
+       }
+
+       .log-success {
+         @apply text-green-400;
+       }
+     }
+
+     @layer utilities {
+       .container {
+         @apply max-w-5xl mx-auto px-6;
+       }
+     }
