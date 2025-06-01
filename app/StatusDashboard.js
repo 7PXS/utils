@@ -92,7 +92,7 @@ export default function StatusDashboard() {
         if (response.status === 401) {
           throw new Error('Unauthorized: Invalid authentication header');
         }
-        throw new Error(`HTTP error: ${response.status}`);
+        throw new Error('HTTP error: ' + response.status);
       }
       return data;
     } catch (error) {
@@ -117,9 +117,9 @@ export default function StatusDashboard() {
           throw new Error('Unauthorized: Invalid authentication header');
         }
         if (response.status === 404) {
-          throw new Error(`Script "${scriptName}" not found');
+          throw new Error(`Script "${scriptName}" not found`);
         }
-        throw new Error(`HTTP error: ${response.status}`);
+        throw new Error('HTTP error: ' + response.status);
       }
       addOrUpdateLogEntry(`Script "${scriptName}" loaded`, 'success', scriptName);
       return data.content;
@@ -139,10 +139,10 @@ export default function StatusDashboard() {
           Authorization: 'UserMode-2d93n2002n8',
         },
       });
-      const metadataData = await metadataResponse.json();
+      const metadataData = await response.json();
       if (!metadataResponse.ok) {
         addOrUpdateLogEntry(`Metadata request failed: ${metadataData.error || 'Unknown error'}`, 'error');
-        throw new Error(`HTTP error: ${metadataResponse.status}`);
+        throw new Error('HTTP error: ' + metadataResponse.status);
       }
 
       const scriptPromises = scriptNames.map(async (scriptName) => {
@@ -215,7 +215,7 @@ export default function StatusDashboard() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || `HTTP error: ${response.status}`);
+        throw new Error(data.error || 'HTTP error: ' + response.status);
       }
 
       setResponse(data);
