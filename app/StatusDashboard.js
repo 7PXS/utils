@@ -139,7 +139,7 @@ export default function StatusDashboard() {
           Authorization: 'UserMode-2d93n2002n8',
         },
       });
-      const metadataData = await metadataResponse.json();
+      const metadataData = await response.json();
       if (!metadataResponse.ok) {
         addOrUpdateLogEntry(`Metadata request failed: ${metadataData.error || 'Unknown error'}`, 'error');
         throw new Error('HTTP error: ' + metadataResponse.status);
