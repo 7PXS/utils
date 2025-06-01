@@ -1,7 +1,4 @@
-import { Suspense } from 'react';
-import StatusDashboard from './StatusDashboard';
-
-export default function'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -297,130 +294,128 @@ export default function StatusDashboard() {
           </div>
         </div>
 
-        {/* Request Sender (Dev Mode) */}
-        {isDevMode && (
-          <div className="mt-6">
-            <div
-              className="rounded-xl p-5 shadow-lg"
-              style={{
-                background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
-                border: '1px solid #333',
-              }}
-            >
-              <h2 className="text-lg font-semibold mb-4">Send Request</h2>
-              <form onSubmit={sendRequest} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300">URL</label>
-                  <input
-                    type="text"
-                    value={requestUrl}
-                    onChange={(e) => setRequestUrl(e.target.value)}
-                    placeholder="e.g., /auth/admin or /register"
-                    className="mt-1 block w-full rounded-md bg-[#2a2a2a] border border-[#444] text-gray-200 p-2 text-sm"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300">Method</label>
-                  <select
-                    value={requestMethod}
-                    onChange={(e) => setRequestMethod(e.target.value)}
-                    className="mt-1 block w-full rounded-md bg-[#2a2a2a] border border-[#444] text-gray-200 p-2 text-sm"
-                  >
-                    <option value="GET">GET</option>
-                    <option value="POST">POST</option>
-                    <option value="PUT">PUT</option>
-                    <option value="PATCH">PATCH</option>
-                    <option value="DELETE">DELETE</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300">Query Parameters (key=value&key2=value2)</label>
-                  <input
-                    type="text"
-                    value={requestParams}
-                    onChange={(e) => setRequestParams(e.target.value)}
-                    placeholder="e.g., user=123456789&time=100h"
-                    className="mt-1 block w-full rounded-md bg-[#2a2a2a] border border-[#444] text-gray-200 p-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300">Request Body (JSON)</label>
-                  <textarea
-                    value={requestBody}
-                    onChange={(e) => setRequestBody(e.target.value)}
-                    placeholder='e.g., {"key": "value"}'
-                    className="mt-1 block w-full rounded-md bg-[#2a2a2a] border border-[#444] text-gray-200 p-2 text-sm"
-                    rows="4"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300">Headers</label>
-                  <div className="flex items-center space-x-4 mt-1">
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        checked={useDefaultHeader}
-                        onChange={() => setUseDefaultHeader(true)}
-                        className="form-radio text-blue-600"
-                      />
-                      <span className="ml-2 text-sm text-gray-300">Default (Authorization: UserMode-2d93n2002n8)</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        checked={!useDefaultHeader}
-                        onChange={() => setUseDefaultHeader(false)}
-                        className="form-radio text-blue-600"
-                      />
-                      <span className="ml-2 text-sm text-gray-300">Custom</span>
-                    </label>
-                  </div>
-                  {!useDefaultHeader && (
-                    <div className="mt-2 space-y-2">
-                      <input
-                        type="text"
-                        value={customHeaderKey}
-                        onChange={(e) => setCustomHeaderKey(e.target.value)}
-                        placeholder="Header Key (e.g., Authorization)"
-                        className="block w-full rounded-md bg-[#2a2a2a] border border-[#444] text-gray-200 p-2 text-sm"
-                      />
-                      <input
-                        type="text"
-                        value={customHeaderValue}
-                        onChange={(e) => setCustomHeaderValue(e.target.value)}
-                        placeholder="Header Value"
-                        className="block w-full rounded-md bg-[#2a2a2a] border border-[#444] text-gray-200 p-2 text-sm"
-                      />
-                    </div>
-                  )}
-                </div>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                  style={{ fontFamily: 'Inter, sans-serif' }}
+        {/* Request Sender */}
+        <div className="mt-6">
+          <div
+            className="rounded-xl p-5 shadow-lg"
+            style={{
+              background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
+              border: '1px solid #333',
+            }}
+          >
+            <h2 className="text-lg font-semibold mb-4">Send Request</h2>
+            <form onSubmit={sendRequest} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300">URL</label>
+                <input
+                  type="text"
+                  value={requestUrl}
+                  onChange={(e) => setRequestUrl(e.target.value)}
+                  placeholder="e.g., /auth/admin or /register"
+                  className="mt-1 block w-full rounded-md bg-[#2a2a2a] border border-[#444] text-gray-200 p-2 text-sm"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300">Method</label>
+                <select
+                  value={requestMethod}
+                  onChange={(e) => setRequestMethod(e.target.value)}
+                  className="mt-1 block w-full rounded-md bg-[#2a2a2a] border border-[#444] text-gray-200 p-2 text-sm"
                 >
-                  Send Request
-                </button>
-              </form>
-              {(response || responseError) && (
-                <div className="mt-4">
-                  <h3 className="text-sm font-medium text-gray-300">Response</h3>
-                  <pre
-                    className="mt-2 p-4 rounded-lg bg-[#1e1e1e] border border-[#444] text-gray-200 text-sm overflow-auto"
-                    style={{ maxHeight: '200px' }}
-                  >
-                    {responseError ? (
-                      <span className="text-red-400">Error: {responseError}</span>
-                    ) : (
-                      JSON.stringify(response, null, 2)
-                    )}
-                  </pre>
+                  <option value="GET">GET</option>
+                  <option value="POST">POST</option>
+                  <option value="PUT">PUT</option>
+                  <option value="PATCH">PATCH</option>
+                  <option value="DELETE">DELETE</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300">Query Parameters (key=value&key2=value2)</label>
+                <input
+                  type="text"
+                  value={requestParams}
+                  onChange={(e) => setRequestParams(e.target.value)}
+                  placeholder="e.g., user=123456789&time=100h"
+                  className="mt-1 block w-full rounded-md bg-[#2a2a2a] border border-[#444] text-gray-200 p-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300">Request Body (JSON)</label>
+                <textarea
+                  value={requestBody}
+                  onChange={(e) => setRequestBody(e.target.value)}
+                  placeholder='e.g., {"key": "value"}'
+                  className="mt-1 block w-full rounded-md bg-[#2a2a2a] border border-[#444] text-gray-200 p-2 text-sm"
+                  rows="4"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300">Headers</label>
+                <div className="flex items-center space-x-4 mt-1">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      checked={useDefaultHeader}
+                      onChange={() => setUseDefaultHeader(true)}
+                      className="form-radio text-blue-600"
+                    />
+                    <span className="ml-2 text-sm text-gray-300">Default (Authorization: UserMode-2d93n2002n8)</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      checked={!useDefaultHeader}
+                      onChange={() => setUseDefaultHeader(false)}
+                      className="form-radio text-blue-600"
+                    />
+                    <span className="ml-2 text-sm text-gray-300">Custom</span>
+                  </label>
                 </div>
-              )}
-            </div>
+                {!useDefaultHeader && (
+                  <div className="mt-2 space-y-2">
+                    <input
+                      type="text"
+                      value={customHeaderKey}
+                      onChange={(e) => setCustomHeaderKey(e.target.value)}
+                      placeholder="Header Key (e.g., Authorization)"
+                      className="block w-full rounded-md bg-[#2a2a2a] border border-[#444] text-gray-200 p-2 text-sm"
+                    />
+                    <input
+                      type="text"
+                      value={customHeaderValue}
+                      onChange={(e) => setCustomHeaderValue(e.target.value)}
+                      placeholder="Header Value"
+                      className="block w-full rounded-md bg-[#2a2a2a] border border-[#444] text-gray-200 p-2 text-sm"
+                    />
+                  </div>
+                )}
+              </div>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                style={{ fontFamily: 'Inter, sans-serif' }}
+              >
+                Send Request
+              </button>
+            </form>
+            {(response || responseError) && (
+              <div className="mt-4">
+                <h3 className="text-sm font-medium text-gray-300">Response</h3>
+                <pre
+                  className="mt-2 p-4 rounded-lg bg-[#1e1e1e] border border-[#444] text-gray-200 text-sm overflow-auto"
+                  style={{ maxHeight: '200px' }}
+                >
+                  {responseError ? (
+                    <span className="text-red-400">Error: {responseError}</span>
+                  ) : (
+                    JSON.stringify(response, null, 2)
+                  )}
+                </pre>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Scripts Cards */}
         <div className="flex flex-wrap justify-center gap-6 mt-6">
@@ -526,11 +521,5 @@ export default function StatusDashboard() {
         </div>
       </div>
     </div>
-  );
-} Page() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <StatusDashboard />
-    </Suspense>
   );
 }
