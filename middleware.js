@@ -6,15 +6,46 @@ const { put, get: getBlob, head, list } = require('@vercel/blob');
 const CONTAINER_NAME = 'users'; // Optional: Vercel Blob doesn't require a container name, but used for clarity
 const USERS_DIR = 'Users/'; // Prefix for user files in blob storage
 
+// Helper to generate random keys in the format 2sfm82n-0jn3-2uhfh
+function generateKey() {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const getRandomChar = () => chars[Math.floor(Math.random() * chars.length)];
+  const part1 = Array(7).fill().map(getRandomChar).join('');
+  const part2 = Array(4).fill().map(getRandomChar).join('');
+  const part3 = Array(5).fill().map(getRandomChar).join('');
+  return `${part1}-${part2}-${part3}`;
+}
+
+// Helper to parse time input and calculate end date (UNIX timestamp)
+function parseTimeToUnix(timeString) {
+  const now = Math.floor(Date.now() / 1000); // Current UNIX timestamp in seconds
+  if (!timeString) return now + 30 * 24 * 60 * 60; // Default: 30 days
+
+  const match = timeString.match(/^(\d+)(s|m|h|d|mo|yr)$/);
+  if (!match) throw new Error('Invalid time format. Use e.g., 100s, 100m, 100h, 100d, 100mo, 100yr');
+  
+  const value = parseInt(match[1], 10);
+  const unit = match[2];
+  
+  const multipliers = {
+    s: 1,           // seconds
+    m: 60,          // minutes
+    h: 60 * 60,     // hours
+    d: 24 * 60 * 60, // days
+    mo: 30 * 24 * 60 * 60, // months (approx 30 days)
+    yr: 365 * 24 * 60 * 60 // years (approx 365 days)
+  };
+  
+  return now + value * multipliers[unit];
+}
+
 // Helper to read user data from Vercel Blob
 async function readUserBlob(discordID) {
   const blobName = `${USERS_DIR}user-${discordID}.json`;
   try {
     const blob = await getBlob(blobName, { access: 'public' });
-    if (!blob) {
-      throw new Error('User not found');
-    }
-    const data = await blob.text(); // Get the blob content as text
+    if (!blob) throw new Error('User not found');
+    const data = await blob.text();
     return JSON.parse(data);
   } catch (error) {
     if (error.status === 404 || error.message.includes('The requested blob does not exist')) {
@@ -64,6 +95,7 @@ async function listUserBlobs() {
   }
 }
 
+// Middleware function
 async function middleware(request) {
   const { pathname, searchParams } = request.nextUrl;
 
@@ -73,84 +105,85 @@ async function middleware(request) {
     const hwid = searchParams.get('hwid');
     const id = searchParams.get('ID');
 
-    if (!key || !id) {
+    if (!id) {
       return new NextResponse(
-        JSON.stringify({ error: 'Missing required parameters: key and ID are required' }),
-        {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        JSON.stringify({ error: 'Missing required parameter: ID is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
     try {
       const user = await readUserBlob(id);
 
-      // Verify key
-      if (user.Key !== key) {
+      // If key is provided, verify it; otherwise, just check user existence
+      if (key && user.Key !== key) {
         return new NextResponse(
           JSON.stringify({ error: 'Invalid key' }),
-          {
-            status: 401,
-            headers: { 'Content-Type': 'application/json' },
-          }
+          { status: 401, headers: { 'Content-Type': 'application/json' } }
         );
       }
 
-      // If HWID is provided, verify it; if not provided and user has no HWID, assign it
-      if (!user.Hwid && hwid) {
+      // If HWID is provided, verify or assign it
+      if (hwid && !user.Hwid) {
         user.Hwid = hwid;
         await writeUserBlob(id, user);
-      } else if (user.Hwid && user.Hwid !== hwid) {
+      } else if (hwid && user.Hwid && user.Hwid !== hwid) {
         return new NextResponse(
           JSON.stringify({ error: 'Invalid HWID' }),
-          {
-            status: 401,
-            headers: { 'Content-Type': 'application/json' },
-          }
+          { status: 401, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Check if key has expired
+      const now = Math.floor(Date.now() / 1000);
+      if (user.EndTime < now) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Key has expired' }),
+          { status: 401, headers: { 'Content-Type': 'application/json' } }
         );
       }
 
       return new NextResponse(
-        JSON.stringify({ success: true, message: 'Authentication successful' }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        JSON.stringify({
+          success: true,
+          keytype: user.KeyType || 'free',
+          User: user.UserTag || 'None',
+          EndTime: user.EndTime
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
     } catch (error) {
       if (error.message === 'User not found') {
         return new NextResponse(
           JSON.stringify({ error: 'User not found' }),
-          {
-            status: 404,
-            headers: { 'Content-Type': 'application/json' },
-          }
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
         );
       }
       return new NextResponse(
         JSON.stringify({ error: `Authentication failed: ${error.message}` }),
-        {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
   }
 
-  // Handle /register?key=&discordID=&username=
+  // Handle /register?discordID=&username=&time=&keytype=
   if (pathname === '/register') {
-    const key = searchParams.get('key');
     const discordID = searchParams.get('discordID');
     const username = searchParams.get('username');
+    const time = searchParams.get('time');
+    const keytype = searchParams.get('keytype') || 'free';
 
-    if (!key || !discordID || !username) {
+    if (!discordID || !username) {
       return new NextResponse(
-        JSON.stringify({ error: 'Missing required parameters: key, discordID, and username are required' }),
-        {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        JSON.stringify({ error: 'Missing required parameters: discordID and username are required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!['free', 'paid'].includes(keytype)) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Invalid keytype: must be "free" or "paid"' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
@@ -158,37 +191,85 @@ async function middleware(request) {
       if (await userBlobExists(discordID)) {
         return new NextResponse(
           JSON.stringify({ error: 'User with this Discord ID already exists' }),
-          {
-            status: 409,
-            headers: { 'Content-Type': 'application/json' },
-          }
+          { status: 409, headers: { 'Content-Type': 'application/json' } }
         );
       }
 
-      // Create new user
+      const endTime = parseTimeToUnix(time);
       const newUser = {
         discordID,
         UserName: username,
-        Key: key,
-        Hwid: ''
+        Key: generateKey(),
+        Hwid: '',
+        KeyType: keytype,
+        UserTag: keytype === 'paid' ? 'Customer' : 'None',
+        CreatedAt: Math.floor(Date.now() / 1000),
+        EndTime: endTime
       };
 
       await writeUserBlob(discordID, newUser);
 
       return new NextResponse(
-        JSON.stringify({ success: true, message: 'User registered successfully' }),
-        {
-          status: 201,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        JSON.stringify({ success: true, message: 'User registered successfully', key: newUser.Key, endTime: newUser.EndTime }),
+        { status: 201, headers: { 'Content-Type': 'application/json' } }
       );
     } catch (error) {
       return new NextResponse(
         JSON.stringify({ error: `Registration failed: ${error.message}` }),
-        {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  // Handle /auth/admin?user=&time=
+  if (pathname === '/auth/admin') {
+    const discordID = searchParams.get('user');
+    const time = searchParams.get('time');
+    const authHeader = request.headers.get('authorization');
+
+    if (authHeader !== 'UserMode-2d93n2002n8') {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized: Invalid authentication header' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!discordID || !time) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Missing required parameters: user and time are required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    try {
+      const user = await readUserBlob(discordID);
+      const additionalTime = parseTimeToUnix(time) - Math.floor(Date.now() / 1000); // Calculate additional seconds
+      const newEndTime = user.EndTime + additionalTime;
+
+      if (newEndTime < Math.floor(Date.now() / 1000)) {
+        return new NextResponse(
+          JSON.stringify({ error: 'New end time cannot be in the past' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      user.EndTime = newEndTime;
+      await writeUserBlob(discordID, user);
+
+      return new NextResponse(
+        JSON.stringify({ success: true, message: 'User end time updated', newEndTime }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    } catch (error) {
+      if (error.message === 'User not found') {
+        return new NextResponse(
+          JSON.stringify({ error: 'User not found' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      return new NextResponse(
+        JSON.stringify({ error: `Failed to update user: ${error.message}` }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
   }
@@ -200,10 +281,7 @@ async function middleware(request) {
     if (authHeader !== 'UserMode-2d93n2002n8') {
       return new NextResponse(
         JSON.stringify({ error: 'Unauthorized: Invalid authentication header' }),
-        {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
@@ -211,18 +289,12 @@ async function middleware(request) {
       const userIDs = await listUserBlobs();
       return new NextResponse(
         JSON.stringify(userIDs),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
     } catch (error) {
       return new NextResponse(
         JSON.stringify({ error: `Failed to fetch user list: ${error.message}` }),
-        {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
   }
@@ -235,30 +307,21 @@ async function middleware(request) {
     if (authHeader !== 'UserMode-2d93n2002n8') {
       return new NextResponse(
         JSON.stringify({ error: 'Unauthorized: Invalid authentication header' }),
-        {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
     if (!filename) {
       return new NextResponse(
         JSON.stringify({ error: 'Filename parameter is required' }),
-        {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
     if (filename.includes('..')) {
       return new NextResponse(
         JSON.stringify({ error: 'Invalid filename: Directory traversal not allowed' }),
-        {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
@@ -268,10 +331,7 @@ async function middleware(request) {
       if (!scripts || !scripts[filename]) {
         return new NextResponse(
           JSON.stringify({ error: `Script "${filename}" not found` }),
-          {
-            status: 404,
-            headers: { 'Content-Type': 'application/json' },
-          }
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
         );
       }
 
@@ -281,18 +341,12 @@ async function middleware(request) {
 
       return new NextResponse(
         JSON.stringify({ content: `"${scriptUrl}"` }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
     } catch (error) {
       return new NextResponse(
         JSON.stringify({ error: `Failed to fetch script "${filename}": ${error.message}` }),
-        {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
   }
@@ -304,10 +358,7 @@ async function middleware(request) {
     if (authHeader !== 'UserMode-2d93n2002n8') {
       return new NextResponse(
         JSON.stringify({ error: 'Unauthorized: Invalid authentication header' }),
-        {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
@@ -317,18 +368,12 @@ async function middleware(request) {
       
       return new NextResponse(
         JSON.stringify(scriptNames),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
     } catch (error) {
       return new NextResponse(
         JSON.stringify({ error: `Failed to fetch script list: ${error.message}` }),
-        {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
   }
@@ -340,10 +385,7 @@ async function middleware(request) {
     if (authHeader !== 'UserMode-2d93n2002n8') {
       return new NextResponse(
         JSON.stringify({ error: 'Unauthorized: Invalid authentication header' }),
-        {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
@@ -352,18 +394,12 @@ async function middleware(request) {
       
       return new NextResponse(
         JSON.stringify({ scripts: scripts || {} }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
     } catch (error) {
       return new NextResponse(
         JSON.stringify({ error: `Failed to fetch scripts metadata: ${error.message}` }),
-        {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        }
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
   }
@@ -374,6 +410,6 @@ async function middleware(request) {
 module.exports = {
   middleware,
   config: {
-    matcher: ['/files', '/scripts-list', '/scripts-metadata', '/auth', '/register', '/users-list'],
+    matcher: ['/files', '/scripts-list', '/scripts-metadata', '/auth', '/register', '/users-list', '/auth/admin'],
   },
 };
