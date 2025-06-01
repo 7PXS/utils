@@ -1,5 +1,4 @@
-module.exports = {
-  typescript: {
-    ignoreBuildErrors: true, // Skip TypeScript errors during build
-  },
-};
+/** @type {import('next').NextConfig} */
+     const nextConfig = {};
+
+     module.exports = nextConfig;
