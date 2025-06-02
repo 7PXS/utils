@@ -182,104 +182,208 @@ async function listUserBlobs() {
 async function middleware(request) {
   const { pathname, searchParams } = request.nextUrl;
 
-  // Handle /auth?key=&hwid= or /auth?ID=
-  if (pathname === '/auth') {
-    const key = searchParams.get('key');
-    const hwid = searchParams.get('hwid');
-    const id = searchParams.get('ID');
+  // Handle /auth/id?discordID=
+  if (pathname === '/auth/id') {
+    const discordID = searchParams.get('discordID');
 
-    if (!id && !key) {
+    if (!discordID) {
       return new NextResponse(
-        JSON.stringify({ error: 'Missing required parameter: ID or key is required' }),
+        JSON.stringify({ error: 'Missing required parameter: discordID is required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
     try {
-      let user;
+      validateInput(discordID, 'discordID');
+      const user = await readUserBlobByDiscordID(discordID);
       
-      if (id) {
-        // Authenticate with Discord ID only
-        validateInput(id, 'ID');
-        user = await readUserBlobByDiscordID(id);
-        
-        // Check if key has expired
-        const now = Math.floor(Date.now() / 1000);
-        if (user.EndTime < now) {
-          return new NextResponse(
-            JSON.stringify({ error: 'Key has expired' }),
-            { status: 401, headers: { 'Content-Type': 'application/json' } }
-          );
-        }
-
-        // Return comprehensive user information for ID-based auth
+      // Check if key has expired
+      const now = Math.floor(Date.now() / 1000);
+      if (user.EndTime < now) {
         return new NextResponse(
-          JSON.stringify({
-            success: true,
-            User: user.UserTag || 'None',
-            Username: user.UserName,
-            Hwid: user.Hwid || '',
-            Key: user.Key,
-            KeyType: user.KeyType || 'free',
-            EndTime: user.EndTime,
-            CreatedAt: user.CreatedAt,
-            discordID: user.discordID
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        );
-        
-      } else {
-        // Authenticate with key and optional hwid
-        user = await findUserByKey(key);
-
-        // Handle HWID verification or assignment
-        if (hwid) {
-          validateInput(hwid, 'hwid');
-          if (!user.Hwid) {
-            // Assign HWID if not set
-            user.Hwid = hwid;
-            await writeUserBlob(user.discordID, user);
-          } else if (user.Hwid !== hwid) {
-            // HWID mismatch
-            return new NextResponse(
-              JSON.stringify({ error: 'Invalid HWID' }),
-              { status: 401, headers: { 'Content-Type': 'application/json' } }
-            );
-          }
-        }
-
-        // Check if key has expired
-        const now = Math.floor(Date.now() / 1000);
-        if (user.EndTime < now) {
-          return new NextResponse(
-            JSON.stringify({ error: 'Key has expired' }),
-            { status: 401, headers: { 'Content-Type': 'application/json' } }
-          );
-        }
-
-        // Return comprehensive user information for key-based auth
-        return new NextResponse(
-          JSON.stringify({
-            success: true,
-            keytype: user.KeyType || 'free',
-            User: user.UserTag || 'None',
-            Username: user.UserName,
-            Hwid: user.Hwid || '',
-            Key: user.Key,
-            EndTime: user.EndTime,
-            CreatedAt: user.CreatedAt,
-            discordID: user.discordID
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'Key has expired' }),
+          { status: 401, headers: { 'Content-Type': 'application/json' } }
         );
       }
+
+      // Return comprehensive user information for ID-based auth
+      return new NextResponse(
+        JSON.stringify({
+          success: true,
+          discordID: user.discordID,
+          username: user.UserName,
+          key: user.Key,
+          hwid: user.Hwid || '',
+          keytype: user.KeyType || 'free',
+          usertag: user.UserTag || 'None',
+          createdAt: user.CreatedAt,
+          endTime: user.EndTime,
+          isExpired: false
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
     } catch (error) {
-      if (error.message === 'User not found' || error.message.includes('User not found for provided key')) {
+      if (error.message === 'User not found') {
         return new NextResponse(
           JSON.stringify({ error: 'User not found' }),
           { status: 404, headers: { 'Content-Type': 'application/json' } }
         );
       }
+      return new NextResponse(
+        JSON.stringify({ error: `Authentication failed: ${error.message}` }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  // Handle /auth/key?key=&hwid=
+  if (pathname === '/auth/key') {
+    const key = searchParams.get('key');
+    const hwid = searchParams.get('hwid');
+
+    if (!key) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Missing required parameter: key is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    try {
+      const user = await findUserByKey(key);
+
+      // Handle HWID verification or assignment
+      if (hwid) {
+        validateInput(hwid, 'hwid');
+        if (!user.Hwid) {
+          // Assign HWID if not set
+          user.Hwid = hwid;
+          await writeUserBlob(user.discordID, user);
+        } else if (user.Hwid !== hwid) {
+          // HWID mismatch
+          return new NextResponse(
+            JSON.stringify({ error: 'Invalid HWID' }),
+            { status: 401, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+
+      // Check if key has expired
+      const now = Math.floor(Date.now() / 1000);
+      if (user.EndTime < now) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Key has expired' }),
+          { status: 401, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Return comprehensive user information for key-based auth
+      return new NextResponse(
+        JSON.stringify({
+          success: true,
+          discordID: user.discordID,
+          username: user.UserName,
+          key: user.Key,
+          hwid: user.Hwid || '',
+          keytype: user.KeyType || 'free',
+          usertag: user.UserTag || 'None',
+          createdAt: user.CreatedAt,
+          endTime: user.EndTime,
+          isExpired: false
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    } catch (error) {
+      if (error.message === 'User not found for provided key') {
+        return new NextResponse(
+          JSON.stringify({ error: 'User not found' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      return new NextResponse(
+        JSON.stringify({ error: `Authentication failed: ${error.message}` }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  // Handle /auth/hwid?hwid=
+  if (pathname === '/auth/hwid') {
+    const hwid = searchParams.get('hwid');
+
+    if (!hwid) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Missing required parameter: hwid is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    try {
+      validateInput(hwid, 'hwid');
+      
+      // Search through all user blobs to find matching HWID
+      const { blobs } = await list({ prefix: USERS_DIR });
+      let foundUser = null;
+      let foundDiscordID = null;
+
+      for (const blob of blobs) {
+        if (blob.pathname.startsWith(USERS_DIR) && blob.pathname.endsWith('.json')) {
+          try {
+            const blobData = await getBlob(blob.pathname, { access: 'public' });
+            if (!blobData) continue;
+            
+            const userData = JSON.parse(await blobData.text());
+            
+            // Check if this user has the matching HWID
+            if (userData.Hwid === hwid) {
+              // Extract discordID from the blob pathname
+              const match = blob.pathname.match(/user-([^-]+)-[^.]+\.json$/);
+              if (match) {
+                foundDiscordID = match[1];
+                foundUser = userData;
+                foundUser.discordID = foundDiscordID;
+                break;
+              }
+            }
+          } catch (parseError) {
+            // Skip this blob if we can't parse it
+            continue;
+          }
+        }
+      }
+
+      if (!foundUser) {
+        return new NextResponse(
+          JSON.stringify({ error: 'User not found for provided HWID' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Check if key has expired
+      const now = Math.floor(Date.now() / 1000);
+      if (foundUser.EndTime < now) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Key has expired' }),
+          { status: 401, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Return comprehensive user information for HWID-based auth
+      return new NextResponse(
+        JSON.stringify({
+          success: true,
+          discordID: foundUser.discordID,
+          username: foundUser.UserName,
+          key: foundUser.Key,
+          hwid: foundUser.Hwid || '',
+          keytype: foundUser.KeyType || 'free',
+          usertag: foundUser.UserTag || 'None',
+          createdAt: foundUser.CreatedAt,
+          endTime: foundUser.EndTime,
+          isExpired: false
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    } catch (error) {
       return new NextResponse(
         JSON.stringify({ error: `Authentication failed: ${error.message}` }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
@@ -534,12 +638,217 @@ async function middleware(request) {
     }
   }
 
+  // Handle /userinfo/id?discordID=
+  if (pathname === '/userinfo/id') {
+    const discordID = searchParams.get('discordID');
+    const authHeader = request.headers.get('authorization');
+
+    if (authHeader !== 'UserMode-2d93n2002n8') {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized: Invalid authentication header' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!discordID) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Missing required parameter: discordID is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    try {
+      validateInput(discordID, 'discordID');
+      const user = await readUserBlobByDiscordID(discordID);
+
+      // Check if user exists
+      if (!user) {
+        return new NextResponse(
+          JSON.stringify({ error: 'User not found' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Return comprehensive user information
+      return new NextResponse(
+        JSON.stringify({
+          success: true,
+          discordID: user.discordID,
+          username: user.UserName,
+          key: user.Key,
+          hwid: user.Hwid || '',
+          keytype: user.KeyType || 'free',
+          usertag: user.UserTag || 'None',
+          createdAt: user.CreatedAt,
+          endTime: user.EndTime,
+          isExpired: user.EndTime < Math.floor(Date.now() / 1000)
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    } catch (error) {
+      if (error.message === 'User not found') {
+        return new NextResponse(
+          JSON.stringify({ error: 'User not found' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      return new NextResponse(
+        JSON.stringify({ error: `Failed to fetch user info: ${error.message}` }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  // Handle /userinfo/key?key=
+  if (pathname === '/userinfo/key') {
+    const key = searchParams.get('key');
+    const authHeader = request.headers.get('authorization');
+
+    if (authHeader !== 'UserMode-2d93n2002n8') {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized: Invalid authentication header' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!key) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Missing required parameter: key is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    try {
+      const user = await findUserByKey(key);
+
+      // Check if user exists
+      if (!user) {
+        return new NextResponse(
+          JSON.stringify({ error: 'User not found for provided key' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Return comprehensive user information
+      return new NextResponse(
+        JSON.stringify({
+          success: true,
+          discordID: user.discordID,
+          username: user.UserName,
+          key: user.Key,
+          hwid: user.Hwid || '',
+          keytype: user.KeyType || 'free',
+          usertag: user.UserTag || 'None',
+          createdAt: user.CreatedAt,
+          endTime: user.EndTime,
+          isExpired: user.EndTime < Math.floor(Date.now() / 1000)
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    } catch (error) {
+      if (error.message === 'User not found for provided key') {
+        return new NextResponse(
+          JSON.stringify({ error: 'User not found for provided key' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      return new NextResponse(
+        JSON.stringify({ error: `Failed to fetch user info: ${error.message}` }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  // Handle /userinfo/hwid?hwid=
+  if (pathname === '/userinfo/hwid') {
+    const hwid = searchParams.get('hwid');
+    const authHeader = request.headers.get('authorization');
+
+    if (authHeader !== 'UserMode-2d93n2002n8') {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized: Invalid authentication header' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!hwid) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Missing required parameter: hwid is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    try {
+      validateInput(hwid, 'hwid');
+      
+      // Search through all user blobs to find matching HWID
+      const { blobs } = await list({ prefix: USERS_DIR });
+      let foundUser = null;
+      let foundDiscordID = null;
+
+      for (const blob of blobs) {
+        if (blob.pathname.startsWith(USERS_DIR) && blob.pathname.endsWith('.json')) {
+          try {
+            const blobData = await getBlob(blob.pathname, { access: 'public' });
+            if (!blobData) continue;
+            
+            const userData = JSON.parse(await blobData.text());
+            
+            // Check if this user has the matching HWID
+            if (userData.Hwid === hwid) {
+              // Extract discordID from the blob pathname
+              const match = blob.pathname.match(/user-([^-]+)-[^.]+\.json$/);
+              if (match) {
+                foundDiscordID = match[1];
+                foundUser = userData;
+                foundUser.discordID = foundDiscordID;
+                break;
+              }
+            }
+          } catch (parseError) {
+            // Skip this blob if we can't parse it
+            continue;
+          }
+        }
+      }
+
+      if (!foundUser) {
+        return new NextResponse(
+          JSON.stringify({ error: 'User not found for provided HWID' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Return comprehensive user information
+      return new NextResponse(
+        JSON.stringify({
+          success: true,
+          discordID: foundUser.discordID,
+          username: foundUser.UserName,
+          key: foundUser.Key,
+          hwid: foundUser.Hwid || '',
+          keytype: foundUser.KeyType || 'free',
+          usertag: foundUser.UserTag || 'None',
+          createdAt: foundUser.CreatedAt,
+          endTime: foundUser.EndTime,
+          isExpired: foundUser.EndTime < Math.floor(Date.now() / 1000)
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    } catch (error) {
+      return new NextResponse(
+        JSON.stringify({ error: `Failed to fetch user info by HWID: ${error.message}` }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
   return NextResponse.next();
 }
 
 module.exports = {
   middleware,
   config: {
-    matcher: ['/files', '/scripts-list', '/scripts-metadata', '/auth', '/register', '/users-list', '/auth/admin'],
+    matcher: ['/files', '/scripts-list', '/scripts-metadata', '/auth', '/register', '/users-list', '/auth/admin', '/userinfo/id', '/userinfo/key', '/userinfo/hwid'],
   },
 };
