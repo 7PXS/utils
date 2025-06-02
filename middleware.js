@@ -3,8 +3,16 @@ const { get } = require('@vercel/edge-config');
 const { put, get: getBlob, head, list } = require('@vercel/blob');
 
 // Vercel Blob Storage configuration
-const CONTAINER_NAME = 'users'; // Optional: Vercel Blob doesn't require a container name, but used for clarity
+const CONTAINER_NAME = 'users'; // Optional: Used for clarity
 const USERS_DIR = 'Users/'; // Prefix for user files in blob storage
+
+// Helper to validate input strings
+function validateInput(str, name, maxLength = 100) {
+  if (!str || typeof str !== 'string' || str.length > maxLength || /[^a-zA-Z0-9_-]/.test(str)) {
+    throw new Error(`Invalid ${name}: Must be a valid string with alphanumeric characters, underscores, or hyphens`);
+  }
+  return str;
+}
 
 // Helper to generate random keys in the format 2sfm82n-0jn3-2uhfh
 function generateKey() {
@@ -23,10 +31,10 @@ function parseTimeToUnix(timeString) {
 
   const match = timeString.match(/^(\d+)(s|m|h|d|mo|yr)$/);
   if (!match) throw new Error('Invalid time format. Use e.g., 100s, 100m, 100h, 100d, 100mo, 100yr');
-  
+
   const value = parseInt(match[1], 10);
   const unit = match[2];
-  
+
   const multipliers = {
     s: 1,           // seconds
     m: 60,          // minutes
@@ -35,12 +43,13 @@ function parseTimeToUnix(timeString) {
     mo: 30 * 24 * 60 * 60, // months (approx 30 days)
     yr: 365 * 24 * 60 * 60 // years (approx 365 days)
   };
-  
+
   return now + value * multipliers[unit];
 }
 
 // Helper to read user data from Vercel Blob
 async function readUserBlob(discordID) {
+  validateInput(discordID, 'discordID');
   const blobName = `${USERS_DIR}user-${discordID}.json`;
   try {
     const blob = await getBlob(blobName, { access: 'public' });
@@ -55,8 +64,30 @@ async function readUserBlob(discordID) {
   }
 }
 
+// Helper to find user by key
+async function findUserByKey(key) {
+  validateInput(key, 'key', 17);
+  try {
+    const { blobs } = await list({ prefix: USERS_DIR });
+    for (const blob of blobs) {
+      if (blob.pathname.startsWith(USERS_DIR) && blob.pathname.endsWith('.json')) {
+        const blobData = await getBlob(blob.pathname, { access: 'public' });
+        if (!blobData) continue;
+        const userData = JSON.parse(await blobData.text());
+        if (userData.Key === key) {
+          return { discordID: blob.pathname.replace(`${USERS_DIR}user-`, '').replace('.json', ''), ...userData };
+        }
+      }
+    }
+    throw new Error('User not found for provided key');
+  } catch (error) {
+    throw new Error(`Failed to find user by key: ${error.message}`);
+  }
+}
+
 // Helper to write user data to Vercel Blob
 async function writeUserBlob(discordID, userData) {
+  validateInput(discordID, 'discordID');
   const blobName = `${USERS_DIR}user-${discordID}.json`;
   try {
     await put(blobName, JSON.stringify(userData, null, 2), {
@@ -71,6 +102,7 @@ async function writeUserBlob(discordID, userData) {
 
 // Helper to check if user blob exists
 async function userBlobExists(discordID) {
+  validateInput(discordID, 'discordID');
   const blobName = `${USERS_DIR}user-${discordID}.json`;
   try {
     await head(blobName, { access: 'public' });
@@ -86,7 +118,7 @@ async function userBlobExists(discordID) {
 // Helper to list all user blobs
 async function listUserBlobs() {
   try {
-    const { blobs } = await list({ prefix: USERS_DIR, access: 'public' });
+    const { blobs } = await list({ prefix: USERS_DIR });
     return blobs
       .filter(blob => blob.pathname.startsWith(USERS_DIR) && blob.pathname.endsWith('.json'))
       .map(blob => blob.pathname.replace(`${USERS_DIR}user-`, '').replace('.json', ''));
@@ -99,61 +131,84 @@ async function listUserBlobs() {
 async function middleware(request) {
   const { pathname, searchParams } = request.nextUrl;
 
-  // Handle /auth?key=&hwid=&ID=
+  // Handle /auth?key=&hwid= or /auth?ID=
   if (pathname === '/auth') {
     const key = searchParams.get('key');
     const hwid = searchParams.get('hwid');
     const id = searchParams.get('ID');
 
-    if (!id) {
+    if (!id && !key) {
       return new NextResponse(
-        JSON.stringify({ error: 'Missing required parameter: ID is required' }),
+        JSON.stringify({ error: 'Missing required parameter: ID or key is required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
     try {
-      const user = await readUserBlob(id);
+      let user;
+      if (id) {
+        // Authenticate with ID only
+        validateInput(id, 'ID');
+        user = await readUserBlob(id);
 
-      // If key is provided, verify it; otherwise, just check user existence
-      if (key && user.Key !== key) {
+        // Check if key has expired
+        const now = Math.floor(Date.now() / 1000);
+        if (user.EndTime < now) {
+          return new NextResponse(
+            JSON.stringify({ error: 'Key has expired' }),
+            { status: 401, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Return only the requested fields
         return new NextResponse(
-          JSON.stringify({ error: 'Invalid key' }),
-          { status: 401, headers: { 'Content-Type': 'application/json' } }
+          JSON.stringify({
+            success: true,
+            User: user.UserTag || 'None',
+            Hwid: user.Hwid || '',
+            Username: user.UserName
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      } else {
+        // Authenticate with key and optional hwid
+        validateInput(key, 'key', 17);
+        if (hwid) validateInput(hwid, 'hwid');
+        user = await findUserByKey(key);
+
+        // Handle HWID verification or assignment
+        if (hwid && !user.Hwid) {
+          user.Hwid = hwid;
+          await writeUserBlob(user.discordID, user);
+        } else if (hwid && user.Hwid && user.Hwid !== hwid) {
+          return new NextResponse(
+            JSON.stringify({ error: 'Invalid HWID' }),
+            { status: 401, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Check if key has expired
+        const now = Math.floor(Date.now() / 1000);
+        if (user.EndTime < now) {
+          return new NextResponse(
+            JSON.stringify({ error: 'Key has expired' }),
+            { status: 401, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+
+        return new NextResponse(
+          JSON.stringify({
+            success: true,
+            keytype: user.KeyType || 'free',
+            User: user.UserTag || 'None',
+            EndTime: user.EndTime,
+            discordID: user.discordID
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
         );
       }
-
-      // If HWID is provided, verify or assign it
-      if (hwid && !user.Hwid) {
-        user.Hwid = hwid;
-        await writeUserBlob(id, user);
-      } else if (hwid && user.Hwid && user.Hwid !== hwid) {
-        return new NextResponse(
-          JSON.stringify({ error: 'Invalid HWID' }),
-          { status: 401, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Check if key has expired
-      const now = Math.floor(Date.now() / 1000);
-      if (user.EndTime < now) {
-        return new NextResponse(
-          JSON.stringify({ error: 'Key has expired' }),
-          { status: 401, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-
-      return new NextResponse(
-        JSON.stringify({
-          success: true,
-          keytype: user.KeyType || 'free',
-          User: user.UserTag || 'None',
-          EndTime: user.EndTime
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      );
     } catch (error) {
-      if (error.message === 'User not found') {
+      if (error.message === 'User not found' || error.message.includes('User not found for provided key')) {
         return new NextResponse(
           JSON.stringify({ error: 'User not found' }),
           { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -180,14 +235,16 @@ async function middleware(request) {
       );
     }
 
-    if (!['free', 'paid'].includes(keytype)) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Invalid keytype: must be "free" or "paid"' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
     try {
+      validateInput(discordID, 'discordID');
+      validateInput(username, 'username');
+      if (!['free', 'paid'].includes(keytype)) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Invalid keytype: must be "free" or "paid"' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
       if (await userBlobExists(discordID)) {
         return new NextResponse(
           JSON.stringify({ error: 'User with this Discord ID already exists' }),
@@ -242,8 +299,9 @@ async function middleware(request) {
     }
 
     try {
+      validateInput(discordID, 'discordID');
       const user = await readUserBlob(discordID);
-      const additionalTime = parseTimeToUnix(time) - Math.floor(Date.now() / 1000); // Calculate additional seconds
+      const additionalTime = parseTimeToUnix(time) - Math.floor(Date.now() / 1000);
       const newEndTime = user.EndTime + additionalTime;
 
       if (newEndTime < Math.floor(Date.now() / 1000)) {
@@ -318,16 +376,16 @@ async function middleware(request) {
       );
     }
 
-    if (filename.includes('..')) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Invalid filename: Directory traversal not allowed' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
     try {
+      validateInput(filename, 'filename');
+      if (filename.includes('..')) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Invalid filename: Directory traversal not allowed' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
       const scripts = await get('scripts');
-      
       if (!scripts || !scripts[filename]) {
         return new NextResponse(
           JSON.stringify({ error: `Script "${filename}" not found` }),
@@ -340,7 +398,7 @@ async function middleware(request) {
         : `${scripts[filename].Code}/`;
 
       return new NextResponse(
-        JSON.stringify({ content: `"${scriptUrl}"` }),
+        JSON.stringify({ content: scriptUrl }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
     } catch (error) {
@@ -364,8 +422,7 @@ async function middleware(request) {
 
     try {
       const scripts = await get('scripts');
-      const scriptNames = Object.keys(scripts || {});
-      
+      const scriptNames = scripts ? Object.keys(scripts) : [];
       return new NextResponse(
         JSON.stringify(scriptNames),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
@@ -391,7 +448,6 @@ async function middleware(request) {
 
     try {
       const scripts = await get('scripts');
-      
       return new NextResponse(
         JSON.stringify({ scripts: scripts || {} }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
