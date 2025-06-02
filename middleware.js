@@ -48,9 +48,10 @@ function parseTimeToUnix(timeString) {
 }
 
 // Helper to read user data from Vercel Blob
-async function readUserBlob(discordID) {
+async function readUserBlob(discordID, keyPrefix) {
   validateInput(discordID, 'discordID');
-  const blobName = `${USERS_DIR}user-${discordID}.json`;
+  validateInput(keyPrefix, 'keyPrefix', 7);
+  const blobName = `${USERS_DIR}user-${discordID}-${keyPrefix}.json`;
   try {
     const blob = await getBlob(blobName, { access: 'public' });
     if (!blob) throw new Error('User not found');
@@ -70,6 +71,8 @@ async function findUserByKey(key) {
     throw new Error('Invalid key: Must be a non-empty string');
   }
   try {
+    const keyPrefix = key.slice(0, 7);
+    // Since discordID is not provided, we need to list blobs and find matching key prefix
     const { blobs } = await list({ prefix: USERS_DIR });
     for (const blob of blobs) {
       if (blob.pathname.startsWith(USERS_DIR) && blob.pathname.endsWith('.json')) {
@@ -77,7 +80,7 @@ async function findUserByKey(key) {
         if (!blobData) continue;
         const userData = JSON.parse(await blobData.text());
         if (userData.Key === key) {
-          return { discordID: blob.pathname.replace(`${USERS_DIR}user-`, '').replace('.json', ''), ...userData };
+          return { discordID: blob.pathname.replace(`${USERS_DIR}user-`, '').replace(`-${keyPrefix}.json`, ''), ...userData };
         }
       }
     }
@@ -90,7 +93,9 @@ async function findUserByKey(key) {
 // Helper to write user data to Vercel Blob
 async function writeUserBlob(discordID, userData) {
   validateInput(discordID, 'discordID');
-  const blobName = `${USERS_DIR}user-${discordID}.json`;
+  const keyPrefix = userData.Key.slice(0, 7);
+  validateInput(keyPrefix, 'keyPrefix', 7);
+  const blobName = `${USERS_DIR}user-${discordID}-${keyPrefix}.json`;
   try {
     await put(blobName, JSON.stringify(userData, null, 2), {
       access: 'public',
@@ -103,9 +108,10 @@ async function writeUserBlob(discordID, userData) {
 }
 
 // Helper to check if user blob exists
-async function userBlobExists(discordID) {
+async function userBlobExists(discordID, keyPrefix) {
   validateInput(discordID, 'discordID');
-  const blobName = `${USERS_DIR}user-${discordID}.json`;
+  validateInput(keyPrefix, 'keyPrefix', 7);
+  const blobName = `${USERS_DIR}user-${discordID}-${keyPrefix}.json`;
   try {
     await head(blobName, { access: 'public' });
     return true;
@@ -123,7 +129,11 @@ async function listUserBlobs() {
     const { blobs } = await list({ prefix: USERS_DIR });
     return blobs
       .filter(blob => blob.pathname.startsWith(USERS_DIR) && blob.pathname.endsWith('.json'))
-      .map(blob => blob.pathname.replace(`${USERS_DIR}user-`, '').replace('.json', ''));
+      .map(blob => {
+        const match = blob.pathname.match(/user-([^-]+)-[^.]+\.json$/);
+        return match ? match[1] : null;
+      })
+      .filter(id => id !== null);
   } catch (error) {
     throw new Error(`Failed to list user blobs: ${error.message}`);
   }
@@ -151,7 +161,14 @@ async function middleware(request) {
       if (id) {
         // Authenticate with ID only
         validateInput(id, 'ID');
-        user = await readUserBlob(id);
+        // Since we don't know the key prefix, we need to find the user blob
+        const { blobs } = await list({ prefix: `${USERS_DIR}user-${id}-` });
+        if (blobs.length === 0) {
+          throw new Error('User not found');
+        }
+        const blob = await getBlob(blobs[0].pathname, { access: 'public' });
+        if (!blob) throw new Error('User not found');
+        user = JSON.parse(await blob.text());
 
         // Check if key has expired
         const now = Math.floor(Date.now() / 1000);
@@ -248,7 +265,9 @@ async function middleware(request) {
         );
       }
 
-      if (await userBlobExists(discordID)) {
+      // Check if any blob exists with this discordID
+      const { blobs } = await list({ prefix: `${USERS_DIR}user-${discordID}-` });
+      if (blobs.length > 0) {
         return new NextResponse(
           JSON.stringify({ error: 'User with this Discord ID already exists' }),
           { status: 409, headers: { 'Content-Type': 'application/json' } }
@@ -303,7 +322,15 @@ async function middleware(request) {
 
     try {
       validateInput(discordID, 'discordID');
-      const user = await readUserBlob(discordID);
+      // Find the user blob (there should be only one per discordID)
+      const { blobs } = await list({ prefix: `${USERS_DIR}user-${discordID}-` });
+      if (blobs.length === 0) {
+        throw new Error('User not found');
+      }
+      const blob = await getBlob(blobs[0].pathname, { access: 'public' });
+      if (!blob) throw new Error('User not found');
+      const user = JSON.parse(await blob.text());
+
       const additionalTime = parseTimeToUnix(time) - Math.floor(Date.now() / 1000);
       const newEndTime = user.EndTime + additionalTime;
 
