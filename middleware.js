@@ -47,16 +47,29 @@ function parseTimeToUnix(timeString) {
   return now + value * multipliers[unit];
 }
 
-// Helper to read user data from Vercel Blob
-async function readUserBlob(discordID, keyPrefix) {
+// Helper to read user data from Vercel Blob by Discord ID
+async function readUserBlobByDiscordID(discordID) {
   validateInput(discordID, 'discordID');
-  if (keyPrefix) validateInput(keyPrefix, 'keyPrefix', 7);
-  const blobName = `${USERS_DIR}user-${discordID}-${keyPrefix}.json`;
   try {
-    const blob = await getBlob(blobName, { access: 'public' });
-    if (!blob) throw new Error('User not found');
+    // Find any blob that starts with the user prefix
+    const { blobs } = await list({ prefix: `${USERS_DIR}user-${discordID}-` });
+    if (blobs.length === 0) {
+      throw new Error('User not found');
+    }
+    
+    // Get the first matching blob (there should only be one per user)
+    const blob = await getBlob(blobs[0].pathname, { access: 'public' });
+    if (!blob) {
+      throw new Error('User not found');
+    }
+    
     const data = await blob.text();
-    return JSON.parse(data);
+    const userData = JSON.parse(data);
+    
+    // Add discordID to the data for consistency
+    userData.discordID = discordID;
+    
+    return userData;
   } catch (error) {
     if (error.status === 404 || error.message.includes('The requested blob does not exist')) {
       throw new Error('User not found');
@@ -70,24 +83,43 @@ async function findUserByKey(key) {
   if (!key || typeof key !== 'string') {
     throw new Error('Invalid key: Must be a non-empty string');
   }
+  
   try {
     const keyPrefix = key.slice(0, 7);
     const { blobs } = await list({ prefix: `${USERS_DIR}user-` });
+    
     for (const blob of blobs) {
       if (blob.pathname.includes(`-${keyPrefix}.json`)) {
-        const blobData = await getBlob(blob.pathname, { access: 'public' });
-        if (!blobData) continue;
-        const userData = JSON.parse(await blobData.text());
-        if (userData.Key === key) {
-          const discordID = blob.pathname
-            .replace(`${USERS_DIR}user-`, '')
-            .replace(`-${keyPrefix}.json`, '');
-          return { discordID, ...userData };
+        try {
+          const blobData = await getBlob(blob.pathname, { access: 'public' });
+          if (!blobData) continue;
+          
+          const userData = JSON.parse(await blobData.text());
+          
+          // Check if this is the exact key we're looking for
+          if (userData.Key === key) {
+            // Extract discordID from the blob pathname
+            const discordID = blob.pathname
+              .replace(`${USERS_DIR}user-`, '')
+              .replace(`-${keyPrefix}.json`, '');
+            
+            // Add discordID to the userData for consistency
+            userData.discordID = discordID;
+            
+            return userData;
+          }
+        } catch (parseError) {
+          // Skip this blob if we can't parse it
+          continue;
         }
       }
     }
+    
     throw new Error('User not found for provided key');
   } catch (error) {
+    if (error.message === 'User not found for provided key') {
+      throw error;
+    }
     throw new Error(`Failed to find user by key: ${error.message}`);
   }
 }
@@ -98,8 +130,13 @@ async function writeUserBlob(discordID, userData) {
   const keyPrefix = userData.Key.slice(0, 7);
   validateInput(keyPrefix, 'keyPrefix', 7);
   const blobName = `${USERS_DIR}user-${discordID}-${keyPrefix}.json`;
+  
+  // Remove discordID from the data before saving (it's in the filename)
+  const dataToSave = { ...userData };
+  delete dataToSave.discordID;
+  
   try {
-    await put(blobName, JSON.stringify(userData, null, 2), {
+    await put(blobName, JSON.stringify(dataToSave, null, 2), {
       access: 'public',
       contentType: 'application/json',
       addRandomSuffix: false,
@@ -160,17 +197,12 @@ async function middleware(request) {
 
     try {
       let user;
+      
       if (id) {
-        // Authenticate with ID only
+        // Authenticate with Discord ID only
         validateInput(id, 'ID');
-        const { blobs } = await list({ prefix: `${USERS_DIR}user-${id}-` });
-        if (blobs.length === 0) {
-          throw new Error('User not found');
-        }
-        const blob = await getBlob(blobs[0].pathname, { access: 'public' });
-        if (!blob) throw new Error('User not found');
-        user = JSON.parse(await blob.text());
-
+        user = await readUserBlobByDiscordID(id);
+        
         // Check if key has expired
         const now = Math.floor(Date.now() / 1000);
         if (user.EndTime < now) {
@@ -180,16 +212,22 @@ async function middleware(request) {
           );
         }
 
-        // Return only the requested fields
+        // Return comprehensive user information for ID-based auth
         return new NextResponse(
           JSON.stringify({
             success: true,
             User: user.UserTag || 'None',
+            Username: user.UserName,
             Hwid: user.Hwid || '',
-            Username: user.UserName
+            Key: user.Key,
+            KeyType: user.KeyType || 'free',
+            EndTime: user.EndTime,
+            CreatedAt: user.CreatedAt,
+            discordID: user.discordID
           }),
           { status: 200, headers: { 'Content-Type': 'application/json' } }
         );
+        
       } else {
         // Authenticate with key and optional hwid
         user = await findUserByKey(key);
@@ -198,9 +236,11 @@ async function middleware(request) {
         if (hwid) {
           validateInput(hwid, 'hwid');
           if (!user.Hwid) {
+            // Assign HWID if not set
             user.Hwid = hwid;
             await writeUserBlob(user.discordID, user);
           } else if (user.Hwid !== hwid) {
+            // HWID mismatch
             return new NextResponse(
               JSON.stringify({ error: 'Invalid HWID' }),
               { status: 401, headers: { 'Content-Type': 'application/json' } }
@@ -217,12 +257,17 @@ async function middleware(request) {
           );
         }
 
+        // Return comprehensive user information for key-based auth
         return new NextResponse(
           JSON.stringify({
             success: true,
             keytype: user.KeyType || 'free',
             User: user.UserTag || 'None',
+            Username: user.UserName,
+            Hwid: user.Hwid || '',
+            Key: user.Key,
             EndTime: user.EndTime,
+            CreatedAt: user.CreatedAt,
             discordID: user.discordID
           }),
           { status: 200, headers: { 'Content-Type': 'application/json' } }
@@ -277,7 +322,6 @@ async function middleware(request) {
 
       const endTime = parseTimeToUnix(time);
       const newUser = {
-        discordID,
         UserName: username,
         Key: generateKey(),
         Hwid: '',
@@ -290,7 +334,13 @@ async function middleware(request) {
       await writeUserBlob(discordID, newUser);
 
       return new NextResponse(
-        JSON.stringify({ success: true, message: 'User registered successfully', key: newUser.Key, endTime: newUser.EndTime }),
+        JSON.stringify({ 
+          success: true, 
+          message: 'User registered successfully', 
+          key: newUser.Key, 
+          endTime: newUser.EndTime,
+          discordID: discordID
+        }),
         { status: 201, headers: { 'Content-Type': 'application/json' } }
       );
     } catch (error) {
@@ -323,13 +373,7 @@ async function middleware(request) {
 
     try {
       validateInput(discordID, 'discordID');
-      const { blobs } = await list({ prefix: `${USERS_DIR}user-${discordID}-` });
-      if (blobs.length === 0) {
-        throw new Error('User not found');
-      }
-      const blob = await getBlob(blobs[0].pathname, { access: 'public' });
-      if (!blob) throw new Error('User not found');
-      const user = JSON.parse(await blob.text());
+      const user = await readUserBlobByDiscordID(discordID);
 
       const additionalTime = parseTimeToUnix(time) - Math.floor(Date.now() / 1000);
       const newEndTime = user.EndTime + additionalTime;
