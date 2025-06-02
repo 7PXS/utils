@@ -66,7 +66,9 @@ async function readUserBlob(discordID) {
 
 // Helper to find user by key
 async function findUserByKey(key) {
-  validateInput(key, 'key', 17);
+  if (!key || typeof key !== 'string') {
+    throw new Error('Invalid key: Must be a non-empty string');
+  }
   try {
     const { blobs } = await list({ prefix: USERS_DIR });
     for (const blob of blobs) {
@@ -172,19 +174,20 @@ async function middleware(request) {
         );
       } else {
         // Authenticate with key and optional hwid
-        validateInput(key, 'key', 17);
-        if (hwid) validateInput(hwid, 'hwid');
         user = await findUserByKey(key);
 
         // Handle HWID verification or assignment
-        if (hwid && !user.Hwid) {
-          user.Hwid = hwid;
-          await writeUserBlob(user.discordID, user);
-        } else if (hwid && user.Hwid && user.Hwid !== hwid) {
-          return new NextResponse(
-            JSON.stringify({ error: 'Invalid HWID' }),
-            { status: 401, headers: { 'Content-Type': 'application/json' } }
-          );
+        if (hwid) {
+          validateInput(hwid, 'hwid');
+          if (!user.Hwid) {
+            user.Hwid = hwid;
+            await writeUserBlob(user.discordID, user);
+          } else if (user.Hwid !== hwid) {
+            return new NextResponse(
+              JSON.stringify({ error: 'Invalid HWID' }),
+              { status: 401, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
         }
 
         // Check if key has expired
