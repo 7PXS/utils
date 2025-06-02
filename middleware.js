@@ -14,7 +14,7 @@ function validateInput(str, name, maxLength = 100) {
   return str;
 }
 
-// Helper to generate random keys in the format 2sfm82n-0jn3-2uhfh
+// Helper to generate random keys in the format h21958x-siu7-f0qau
 function generateKey() {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
   const getRandomChar = () => chars[Math.floor(Math.random() * chars.length)];
@@ -50,7 +50,7 @@ function parseTimeToUnix(timeString) {
 // Helper to read user data from Vercel Blob
 async function readUserBlob(discordID, keyPrefix) {
   validateInput(discordID, 'discordID');
-  validateInput(keyPrefix, 'keyPrefix', 7);
+  if (keyPrefix) validateInput(keyPrefix, 'keyPrefix', 7);
   const blobName = `${USERS_DIR}user-${discordID}-${keyPrefix}.json`;
   try {
     const blob = await getBlob(blobName, { access: 'public' });
@@ -72,15 +72,17 @@ async function findUserByKey(key) {
   }
   try {
     const keyPrefix = key.slice(0, 7);
-    // Since discordID is not provided, we need to list blobs and find matching key prefix
-    const { blobs } = await list({ prefix: USERS_DIR });
+    const { blobs } = await list({ prefix: `${USERS_DIR}user-` });
     for (const blob of blobs) {
-      if (blob.pathname.startsWith(USERS_DIR) && blob.pathname.endsWith('.json')) {
+      if (blob.pathname.includes(`-${keyPrefix}.json`)) {
         const blobData = await getBlob(blob.pathname, { access: 'public' });
         if (!blobData) continue;
         const userData = JSON.parse(await blobData.text());
         if (userData.Key === key) {
-          return { discordID: blob.pathname.replace(`${USERS_DIR}user-`, '').replace(`-${keyPrefix}.json`, ''), ...userData };
+          const discordID = blob.pathname
+            .replace(`${USERS_DIR}user-`, '')
+            .replace(`-${keyPrefix}.json`, '');
+          return { discordID, ...userData };
         }
       }
     }
@@ -161,7 +163,6 @@ async function middleware(request) {
       if (id) {
         // Authenticate with ID only
         validateInput(id, 'ID');
-        // Since we don't know the key prefix, we need to find the user blob
         const { blobs } = await list({ prefix: `${USERS_DIR}user-${id}-` });
         if (blobs.length === 0) {
           throw new Error('User not found');
@@ -322,7 +323,6 @@ async function middleware(request) {
 
     try {
       validateInput(discordID, 'discordID');
-      // Find the user blob (there should be only one per discordID)
       const { blobs } = await list({ prefix: `${USERS_DIR}user-${discordID}-` });
       if (blobs.length === 0) {
         throw new Error('User not found');
