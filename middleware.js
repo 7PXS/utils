@@ -94,20 +94,47 @@ async function sendWebhookLog(embeds) {
 async function readUserBlobByDiscordID(discordID) {
     validateInput(discordID, 'discordID');
     try {
+        // List blobs with the user prefix
         const { blobs } = await list({ prefix: `${USERS_DIR}user-${discordID}-` });
         if (blobs.length === 0) {
             throw new Error('User not found');
         }
-        const blob = await getBlob(blobs[0].pathname, { access: 'public' });
+
+        // Get the first matching blob
+        const blobPath = blobs[0].pathname;
+        
+        // Verify blob existence using head
+        await head(blobPath, { access: 'public' }).catch((error) => {
+            if (error.status === 404) {
+                throw new Error('User blob not found');
+            }
+            throw new Error(`Failed to verify blob existence: ${error.message}`);
+        });
+
+        // Retrieve the blob content
+        const blob = await getBlob(blobPath, { access: 'public' });
         if (!blob) {
-            throw new Error('User not found');
+            throw new Error('User blob not found');
         }
+
+        // Read and parse the blob content
         const data = await blob.text();
-        const userData = JSON.parse(data);
+        if (!data) {
+            throw new Error('Empty blob content');
+        }
+
+        let userData;
+        try {
+            userData = JSON.parse(data);
+        } catch (parseError) {
+            throw new Error(`Failed to parse user blob: ${parseError.message}`);
+        }
+
+        // Add discordID to the data for consistency
         userData.discordID = discordID;
         return userData;
     } catch (error) {
-        if (error.status === 404 || error.message.includes('The requested blob does not exist')) {
+        if (error.message.includes('User not found') || error.message.includes('User blob not found')) {
             throw new Error('User not found');
         }
         throw new Error(`Failed to read user blob: ${error.message}`);
@@ -277,6 +304,31 @@ async function middleware(request) {
                 );
             }
 
+            // Increment usage count if applicable
+            if (user.MaxUses && user.Uses !== undefined) {
+                const uses = parseInt(user.Uses);
+                const maxUses = parseInt(user.MaxUses);
+                if (uses >= maxUses) {
+                    await sendWebhookLog([{
+                        title: "🔢 Key Usage Limit Reached",
+                        fields: [
+                            { name: "Discord ID", value: discordID },
+                            { name: "Key", value: user.Key },
+                            { name: "Uses", value: `${uses}/${maxUses}` }
+                        ],
+                        color: COLORS.WARNING,
+                        timestamp: new Date().toISOString()
+                    }]);
+                    return new NextResponse(
+                        JSON.stringify({ success: false, message: `Key usage limit reached (${uses}/${maxUses})` }),
+                        { status: 403, headers: { 'Content-Type': 'application/json' } }
+                    );
+                }
+
+                user.Uses = uses + 1;
+                await writeUserBlob(discordID, user);
+            }
+
             await sendWebhookLog([{
                 title: "✅ Successful Auth by Discord ID",
                 fields: [
@@ -301,7 +353,9 @@ async function middleware(request) {
                     createdAt: user.CreatedAt,
                     endTime: user.EndTime,
                     isExpired: false,
-                    session: Math.random().toString(36).substring(7)
+                    session: Math.random().toString(36).substring(7),
+                    uses: user.Uses || 0,
+                    maxUses: user.MaxUses || null
                 }),
                 { status: 200, headers: { 'Content-Type': 'application/json' } }
             );
@@ -426,6 +480,31 @@ async function middleware(request) {
                 );
             }
 
+            // Increment usage count if applicable
+            if (user.MaxUses && user.Uses !== undefined) {
+                const uses = parseInt(user.Uses);
+                const maxUses = parseInt(user.MaxUses);
+                if (uses >= maxUses) {
+                    await sendWebhookLog([{
+                        title: "🔢 Key Usage Limit Reached",
+                        fields: [
+                            { name: "Discord ID", value: user.discordID },
+                            { name: "Key", value: user.Key },
+                            { name: "Uses", value: `${uses}/${maxUses}` }
+                        ],
+                        color: COLORS.WARNING,
+                        timestamp: new Date().toISOString()
+                    }]);
+                    return new NextResponse(
+                        JSON.stringify({ success: false, message: `Key usage limit reached (${uses}/${maxUses})` }),
+                        { status: 403, headers: { 'Content-Type': 'application/json' } }
+                    );
+                }
+
+                user.Uses = uses + 1;
+                await writeUserBlob(user.discordID, user);
+            }
+
             await sendWebhookLog([{
                 title: "✅ Successful Auth by Key",
                 fields: [
@@ -451,7 +530,9 @@ async function middleware(request) {
                     createdAt: user.CreatedAt,
                     endTime: user.EndTime,
                     isExpired: false,
-                    session: Math.random().toString(36).substring(7)
+                    session: Math.random().toString(36).substring(7),
+                    uses: user.Uses || 0,
+                    maxUses: user.MaxUses || null
                 }),
                 { status: 200, headers: { 'Content-Type': 'application/json' } }
             );
@@ -573,6 +654,31 @@ async function middleware(request) {
                 );
             }
 
+            // Increment usage count if applicable
+            if (foundUser.MaxUses && foundUser.Uses !== undefined) {
+                const uses = parseInt(foundUser.Uses);
+                const maxUses = parseInt(foundUser.MaxUses);
+                if (uses >= maxUses) {
+                    await sendWebhookLog([{
+                        title: "🔢 Key Usage Limit Reached",
+                        fields: [
+                            { name: "Discord ID", value: foundUser.discordID },
+                            { name: "Key", value: foundUser.Key },
+                            { name: "Uses", value: `${uses}/${maxUses}` }
+                        ],
+                        color: COLORS.WARNING,
+                        timestamp: new Date().toISOString()
+                    }]);
+                    return new NextResponse(
+                        JSON.stringify({ success: false, message: `Key usage limit reached (${uses}/${maxUses})` }),
+                        { status: 403, headers: { 'Content-Type': 'application/json' } }
+                    );
+                }
+
+                foundUser.Uses = uses + 1;
+                await writeUserBlob(foundUser.discordID, foundUser);
+            }
+
             await sendWebhookLog([{
                 title: "✅ Successful Auth by HWID",
                 fields: [
@@ -598,7 +704,9 @@ async function middleware(request) {
                     createdAt: foundUser.CreatedAt,
                     endTime: foundUser.EndTime,
                     isExpired: false,
-                    session: Math.random().toString(36).substring(7)
+                    session: Math.random().toString(36).substring(7),
+                    uses: foundUser.Uses || 0,
+                    maxUses: foundUser.MaxUses || null
                 }),
                 { status: 200, headers: { 'Content-Type': 'application/json' } }
             );
@@ -701,7 +809,7 @@ async function middleware(request) {
                 CreatedAt: Math.floor(Date.now() / 1000),
                 EndTime: endTime,
                 Uses: 0,
-                MaxUses: keytype === 'paid' ? 1000 : 100 // Example usage limits
+                MaxUses: keytype === 'paid' ? 1000 : 100
             };
 
             await writeUserBlob(discordID, newUser);
@@ -1051,7 +1159,7 @@ async function middleware(request) {
                 description: error.message,
                 fields: [{ name: "Path", value: pathname }],
                 color: COLORS.ERROR,
-                timestamp: new Date(). Sjöndrome
+                timestamp: new Date().toISOString()
             }]);
             return new NextResponse(
                 JSON.stringify({ success: false, message: `Failed to fetch scripts metadata: ${error.message}` }),
@@ -1132,7 +1240,9 @@ async function middleware(request) {
                     createdAt: user.CreatedAt,
                     endTime: user.EndTime,
                     isExpired: user.EndTime < Math.floor(Date.now() / 1000),
-                    session: Math.random().toString(36).substring(7)
+                    session: Math.random().toString(36).substring(7),
+                    uses: user.Uses || 0,
+                    maxUses: user.MaxUses || null
                 }),
                 { status: 200, headers: { 'Content-Type': 'application/json' } }
             );
@@ -1225,7 +1335,9 @@ async function middleware(request) {
                     createdAt: user.CreatedAt,
                     endTime: user.EndTime,
                     isExpired: user.EndTime < Math.floor(Date.now() / 1000),
-                    session: Math.random().toString(36).substring(7)
+                    session: Math.random().toString(36).substring(7),
+                    uses: user.Uses || 0,
+                    maxUses: user.MaxUses || null
                 }),
                 { status: 200, headers: { 'Content-Type': 'application/json' } }
             );
@@ -1365,7 +1477,9 @@ async function middleware(request) {
                     createdAt: foundUser.CreatedAt,
                     endTime: foundUser.EndTime,
                     isExpired: foundUser.EndTime < Math.floor(Date.now() / 1000),
-                    session: Math.random().toString(36).substring(7)
+                    session: Math.random().toString(36).substring(7),
+                    uses: foundUser.Uses || 0,
+                    maxUses: foundUser.MaxUses || null
                 }),
                 { status: 200, headers: { 'Content-Type': 'application/json' } }
             );
