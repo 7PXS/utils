@@ -5,7 +5,7 @@ const { put, get: getBlob, head, list } = require('@vercel/blob');
 // Vercel Blob Storage configuration
 const CONTAINER_NAME = 'users';
 const USERS_DIR = 'Users/';
-const WEBHOOK_URL = process.env.WEBHOOK_URL;
+const WEBHOOK_URL = "https://discord.com/api/webhooks/1378937855199674508/nHwMtepJ3hKpzKDZErNkMdgIZPWhix80nkqSyMgYlbMMuOrLhHcF0HYsmLcq6CZeJrco";
 
 // Webhook colors
 const COLORS = {
