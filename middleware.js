@@ -9,7 +9,7 @@ const WEBHOOK_URL = 'https://discord.com/api/webhooks/1378937855199674508/nHwMte
 // Send log to Discord webhook
 async function sendWebhookLog(message) {
   if (!WEBHOOK_URL) {
-    console.warn('Webhook URL not set, skipping webhook log');
+    console.warn('WEBHOOK_URL not set, skipping webhook log');
     return;
   }
 
@@ -45,12 +45,12 @@ function parseTimeToSeconds(timeStr) {
   const unit = match[2];
 
   const secondsInUnit = {
-    s: 1, // seconds
-    m: 60, // minutes
-    h: 60 * 60, // hours
-    d: 60 * 60 * 24, // days
-    mo: 60 * 60 * 24 * 30, // months (approx. 30 days)
-    yr: 60 * 60 * 24 * 365, // years (approx. 365 days)
+    s: 1,
+    m: 60,
+    h: 60 * 60,
+    d: 60 * 60 * 24,
+    mo: 60 * 60 * 24 * 30,
+    yr: 60 * 60 * 24 * 365,
   };
 
   return value * secondsInUnit[unit];
@@ -89,20 +89,20 @@ export async function middleware(request) {
       }
 
       try {
-        const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
-        const blob = blobs.find(b => b.pathname.startsWith(`Users/${key}-`));
-        if (!blob) {
+        const { blobs } = await list({ prefix: `Users/${key}-`, token: BLOB_READ_WRITE_TOKEN });
+        if (blobs.length === 0) {
           const errorMessage = `[${timestamp}] /auth/v1: Invalid key ${key}`;
           console.error(errorMessage);
           await sendWebhookLog(errorMessage);
           return NextResponse.json({ error: 'Invalid key' }, { status: 401 });
         }
 
-        const userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN))).text());
+        const blob = blobs[0]; // Take the first matching blob
+        const userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
 
         if (userData.hwid === '' && hwid) {
           userData.hwid = hwid;
-          await put(blob.pathname, JSON.stringify(userData), {
+          await put(`Users/${key}-${userData.discordId}.json`, JSON.stringify(userData), {
             access: 'public',
             token: BLOB_READ_WRITE_TOKEN,
             addRandomSuffix: false,
@@ -150,8 +150,7 @@ export async function middleware(request) {
 
       const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
       for (const blob of blobs) {
-        // Match blobs ending with -<discordId>.json or containing -<discordId>-<suffix>.json
-        if (blob.pathname.match(`-${discordId}(?:-.+)?\.json$`)) {
+        if (blob.pathname.match(new RegExp(`-${discordId}(?:-.+)?\\.json$`))) {
           try {
             const userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
             if (userData.endTime < Math.floor(Date.now() / 1000)) {
@@ -193,15 +192,15 @@ export async function middleware(request) {
       }
 
       try {
-        const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
-        const blob = blobs.find(b => b.pathname.startsWith(`Users/${key}-`));
-        if (!blob) {
+        const { blobs } = await list({ prefix: `Users/${key}-`, token: BLOB_READ_WRITE_TOKEN });
+        if (blobs.length === 0) {
           const errorMessage = `[${timestamp}] /files/v1: Invalid key ${key}`;
           console.error(errorMessage);
           await sendWebhookLog(errorMessage);
           return NextResponse.json({ error: 'Invalid key' }, { status: 401 });
         }
 
+        const blob = blobs[0];
         const userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
 
         if (userData.endTime < Math.floor(Date.now() / 1000)) {
@@ -253,10 +252,10 @@ export async function middleware(request) {
       let userData = null;
       const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
       for (const blob of blobs) {
-        if (blob.pathname.match(`-${discordId}(?:-.+)?\.json$`)) {
+        if (blob.pathname.match(new RegExp(`-${discordId}(?:-.+)?\\.json$`))) {
           try {
             userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
-            userKey = blob.pathname.match(/^Users\/(.+?)(?:-.+)?\.json$/)[1];
+            userKey = userData.key; // Use key from blob content
             break;
           } catch (error) {
             const errorMessage = `[${timestamp}] Error reading blob ${blob.pathname} in /manage/v1: ${error.message}`;
@@ -334,7 +333,7 @@ export async function middleware(request) {
 
       const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
       for (const blob of blobs) {
-        if (blob.pathname.match(`-${discordId}(?:-.+)?\.json$`)) {
+        if (blob.pathname.match(new RegExp(`-${discordId}(?:-.+)?\\.json$`))) {
           const errorMessage = `[${timestamp}] /register/v1: User already registered with Discord ID ${discordId}`;
           console.error(errorMessage);
           await sendWebhookLog(errorMessage);
