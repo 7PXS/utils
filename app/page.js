@@ -8,6 +8,10 @@ export default function StatusDashboard() {
   const [lastUpdated, setLastUpdated] = useState('');
   const [logs, setLogs] = useState([]);
   const [scripts, setScripts] = useState([]);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [discordId, setDiscordId] = useState('');
+  const [username, setUsername] = useState('');
+  const [error, setError] = useState('');
 
   // Format timestamp
   const getFormattedTimestamp = () => {
@@ -44,7 +48,6 @@ export default function StatusDashboard() {
     }[type] || 'ℹ️';
 
     setLogs((prevLogs) => {
-      // Check if a log entry for this script's success or error already exists
       const existingLogIndex = prevLogs.findIndex(
         (log) =>
           log.message.includes(`Script "${scriptName}"`) &&
@@ -52,7 +55,6 @@ export default function StatusDashboard() {
       );
 
       if (existingLogIndex !== -1 && scriptName) {
-        // Update existing log entry's timestamp
         const updatedLogs = [...prevLogs];
         updatedLogs[existingLogIndex] = {
           ...updatedLogs[existingLogIndex],
@@ -61,13 +63,85 @@ export default function StatusDashboard() {
         };
         return updatedLogs;
       } else {
-        // Add new log entry
         return [
           ...prevLogs,
           { time: timestamp, message, type, icon },
         ];
       }
     });
+  };
+
+  // Check authentication
+  const checkAuth = async () => {
+    const storedUser = localStorage.getItem('user');
+    if (!storedUser) {
+      setIsAuthenticated(false);
+      return false;
+    }
+
+    try {
+      const user = JSON.parse(storedUser);
+      const response = await fetch(`/login/v1?ID=${user.discordId}&username=${user.username}`);
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        localStorage.removeItem('user');
+        setIsAuthenticated(false);
+        setError(data.error || 'Authentication failed');
+        return false;
+      }
+
+      setIsAuthenticated(true);
+      return true;
+    } catch (error) {
+      setError('Error checking authentication');
+      setIsAuthenticated(false);
+      return false;
+    }
+  };
+
+  // Handle login
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    try {
+      const response = await fetch(`/login/v1?ID=${discordId}&username=${username}`);
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setError(data.error || 'Login failed');
+        return;
+      }
+
+      localStorage.setItem('user', JSON.stringify({ discordId, username }));
+      setIsAuthenticated(true);
+      addOrUpdateLogEntry(`User ${username} logged in`, 'success');
+    } catch (error) {
+      setError('Error during login');
+    }
+  };
+
+  // Handle registration
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    try {
+      const response = await fetch(`/register/v1?ID=${discordId}&time=30d&username=${username}`);
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setError(data.error || 'Registration failed');
+        return;
+      }
+
+      localStorage.setItem('user', JSON.stringify({ discordId, username }));
+      setIsAuthenticated(true);
+      addOrUpdateLogEntry(`User ${username} registered`, 'success');
+    } catch (error) {
+      setError('Error during registration');
+    }
   };
 
   // Fetch list of scripts from /scripts-list endpoint
@@ -170,17 +244,79 @@ export default function StatusDashboard() {
 
   // Initialize dashboard
   useEffect(() => {
-    updateTimestamp();
-    addOrUpdateLogEntry('Dashboard initialized', 'success');
-    fetchAllScripts();
+    const init = async () => {
+      const authValid = await checkAuth();
+      if (authValid) {
+        updateTimestamp();
+        addOrUpdateLogEntry('Dashboard initialized', 'success');
+        fetchAllScripts();
 
-    const interval = setInterval(() => {
-      updateTimestamp();
-      fetchAllScripts();
-    }, 60000);
+        const interval = setInterval(() => {
+          updateTimestamp();
+          fetchAllScripts();
+        }, 60000);
 
-    return () => clearInterval(interval);
+        return () => clearInterval(interval);
+      }
+    };
+    init();
   }, []);
+
+  if (!isAuthenticated) {
+    return (
+      <div
+        className="min-h-screen text-gray-200 flex items-center justify-center"
+        style={{
+          backgroundColor: '#1a1a1a',
+          backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 40 40\'%3E%3Cg fill=\'%23222222\' fill-opacity=\'0.3\'%3E%3Cpath d=\'M0 0h40v40H0z\'/%3E%3Cpath d=\'M0 0h20v20H0zM20 20h20v20H20z\'/%3E%3C/g%3E%3C/svg%3E")',
+          fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+        }}
+      >
+        <div
+          className="rounded-xl p-8 shadow-lg max-w-md w-full"
+          style={{
+            background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
+            border: '1px solid #333',
+          }}
+        >
+          <h2 className="text-xl font-semibold mb-6 text-center">Login or Register</h2>
+          {error && (
+            <p className="text-red-400 mb-4 text-center">{error}</p>
+          )}
+          <div className="space-y-4">
+            <input
+              type="text"
+              placeholder="Discord ID"
+              value={discordId}
+              onChange={(e) => setDiscordId(e.target.value)}
+              className="w-full p-2 rounded bg-[#1e1e1e] text-gray-200 border border-[#444] focus:outline-none focus:border-green-500"
+            />
+            <input
+              type="text"
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full p-2 rounded bg-[#1e1e1e] text-gray-200 border border-[#444] focus:outline-none focus:border-green-500"
+            />
+            <div className="flex gap-4">
+              <button
+                onClick={handleLogin}
+                className="flex-1 p-2 rounded bg-green-500 text-white font-semibold hover:bg-green-600 transition"
+              >
+                Login
+              </button>
+              <button
+                onClick={handleRegister}
+                className="flex-1 p-2 rounded bg-blue-500 text-white font-semibold hover:bg-blue-600 transition"
+              >
+                Register
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -192,7 +328,6 @@ export default function StatusDashboard() {
       }}
     >
       <div className="container mx-auto p-6">
-        {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-xl font-semibold">Status Dashboard</h1>
           <div className="text-sm text-gray-500">
@@ -200,7 +335,6 @@ export default function StatusDashboard() {
           </div>
         </div>
 
-        {/* Service Status (Centered) */}
         <div className="flex justify-center">
           <div
             className="service-card rounded-xl shadow-lg max-w-[400px] p-4"
@@ -233,20 +367,19 @@ export default function StatusDashboard() {
           </div>
         </div>
 
-        {/* Scripts Cards */}
-    <div className="flex flex-wrap justify-center gap-6 mt-6">
-        {scripts.map((script, index) => (
-          <div
-            key={index}
-            className="rounded-xl p-5 shadow-lg w-full max-w-[400px]"
-            style={{
-              background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
-              border: '1px solid #333',
-              transition: 'transform 0.2s ease',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-            onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
-          >
+        <div className="flex flex-wrap justify-center gap-6 mt-6">
+          {scripts.map((script, index) => (
+            <div
+              key={index}
+              className="rounded-xl p-5 shadow-lg w-full max-w-[400px]"
+              style={{
+                background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
+                border: '1px solid #333',
+                transition: 'transform 0.2s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+              onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+            >
               <div className="flex justify-between items-center mb-3">
                 <div className="flex items-center">
                   <h3 className="text-md font-semibold">{script.name}</h3>
@@ -282,7 +415,6 @@ export default function StatusDashboard() {
           ))}
         </div>
 
-        {/* Status Cards (Logs) */}
         <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-1 gap-6 mt-6">
           <div
             className="rounded-xl p-5 shadow-lg"
