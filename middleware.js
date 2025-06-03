@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { get } from '@vercel/edge-config';
-import { put, get as getBlob, list } from '@vercel/blob';
+import { put, head, list } from '@vercel/blob';
 
 const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_utjs6NoOOU3BdeXE_0pNKDMi9ecw5Gh6ls3KB2OSOb2bKx5';
 const EDGE_CONFIG_URL = 'https://edge-config.vercel.com/ecfg_i4emvlr8if7stfth14z98b5qu0yk?token=b26cdde2-ba12-4a39-8fa9-8cef777d3276';
@@ -40,10 +40,12 @@ function parseTimeToSeconds(timeStr) {
 // Middleware function
 export async function middleware(request) {
   const { pathname, searchParams } = request.nextUrl;
+  console.log(`Middleware processing request for path: ${pathname}`);
 
   try {
     // /auth/v1/?key=&hwid=
-    if (pathname.startsWith('/auth/v1/')) {
+    if (pathname.startsWith('/auth/v1')) {
+      console.log('Handling /auth/v1');
       const key = searchParams.get('key');
       const hwid = searchParams.get('hwid');
 
@@ -52,8 +54,8 @@ export async function middleware(request) {
       }
 
       try {
-        const blob = await getBlob(`Users/${key}.json`, { access: 'public', token: BLOB_READ_WRITE_TOKEN });
-        const userData = JSON.parse(await blob.text());
+        const blob = await head(`Users/${key}.json`, { access: 'public', token: BLOB_READ_WRITE_TOKEN });
+        const userData = JSON.parse(await (await fetch(blob.url)).text());
 
         if (userData.hwid !== hwid) {
           return NextResponse.json({ error: 'Invalid HWID' }, { status: 401 });
@@ -70,17 +72,17 @@ export async function middleware(request) {
     }
 
     // /dAuth/v1/?ID=
-    if (pathname.startsWith('/dAuth/v1/')) {
+    if (pathname.startsWith('/dAuth/v1')) {
+      console.log('Handling /dAuth/v1');
       const discordId = searchParams.get('ID');
 
       if (!discordId) {
         return NextResponse.json({ error: 'Missing Discord ID' }, { status: 400 });
       }
 
-      // Search for user with matching Discord ID
       const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
       for (const blob of blobs) {
-        const userData = JSON.parse(await (await getBlob(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
+        const userData = JSON.parse(await (await fetch((await head(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).url)).text());
         
         if (userData.discordId === discordId) {
           if (userData.endTime < Math.floor(Date.now() / 1000)) {
@@ -94,7 +96,8 @@ export async function middleware(request) {
     }
 
     // /files/v1/?file=
-    if (pathname.startsWith('/files/v1/')) {
+    if (pathname.startsWith('/files/v1')) {
+      console.log('Handling /files/v1');
       const fileName = searchParams.get('file')?.toLowerCase();
       const key = request.headers.get('authorization')?.split(' ')[1];
 
@@ -102,9 +105,9 @@ export async function middleware(request) {
         return NextResponse.json({ error: 'Missing file name or key' }, { status: 400 });
       }
 
-      // Verify user key
       try {
-        const userData = JSON.parse(await (await getBlob(`Users/${key}.json`, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
+        const blob = await head(`Users/${key}.json`, { access: 'public', token: BLOB_READ_WRITE_TOKEN });
+        const userData = JSON.parse(await (await fetch(blob.url)).text());
         
         if (userData.endTime < Math.floor(Date.now() / 1000)) {
           return NextResponse.json({ error: 'Key expired' }, { status: 401 });
@@ -113,7 +116,6 @@ export async function middleware(request) {
         return NextResponse.json({ error: 'Invalid key' }, { status: 401 });
       }
 
-      // Get script from Edge Config
       const scripts = await get('scripts');
       const script = Object.keys(scripts).find(
         (key) => key.toLowerCase() === fileName
@@ -127,7 +129,8 @@ export async function middleware(request) {
     }
 
     // /manage/v1/?ID=&action=&value=
-    if (pathname.startsWith('/manage/v1/')) {
+    if (pathname.startsWith('/manage/v1')) {
+      console.log('Handling /manage/v1');
       const discordId = searchParams.get('ID');
       const action = searchParams.get('action');
       const value = searchParams.get('value');
@@ -136,12 +139,11 @@ export async function middleware(request) {
         return NextResponse.json({ error: 'Missing Discord ID or action' }, { status: 400 });
       }
 
-      // Find user
       let userKey = null;
       let userData = null;
       const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
       for (const blob of blobs) {
-        const data = JSON.parse(await (await getBlob(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
+        const data = JSON.parse(await (await fetch((await head(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).url)).text());
         if (data.discordId === discordId) {
           userKey = blob.pathname.replace('Users/', '').replace('.json', '');
           userData = data;
@@ -165,7 +167,6 @@ export async function middleware(request) {
         return NextResponse.json({ error: 'Invalid action or value' }, { status: 400 });
       }
 
-      // Update user data
       await put(`Users/${userKey}.json`, JSON.stringify(userData), {
         access: 'public',
         token: BLOB_READ_WRITE_TOKEN,
@@ -175,7 +176,8 @@ export async function middleware(request) {
     }
 
     // /register/v1/?ID=&time=
-    if (pathname.startsWith('/register/v1/')) {
+    if (pathname.startsWith('/register/v1')) {
+      console.log('Handling /register/v1');
       const discordId = searchParams.get('ID');
       const timeStr = searchParams.get('time');
 
@@ -183,16 +185,14 @@ export async function middleware(request) {
         return NextResponse.json({ error: 'Missing Discord ID or time' }, { status: 400 });
       }
 
-      // Parse time to seconds
       const durationSeconds = parseTimeToSeconds(timeStr);
       if (durationSeconds === null) {
         return NextResponse.json({ error: 'Invalid time format. Use format like 100s, 100m, 100h, 100d, 100mo, or 100yr' }, { status: 400 });
       }
 
-      // Check if user already exists
       const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
       for (const blob of blobs) {
-        const data = JSON.parse(await (await getBlob(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
+        const data = JSON.parse(await (await fetch((await head(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).url)).text());
         if (data.discordId === discordId) {
           return NextResponse.json({ error: 'User already registered' }, { status: 400 });
         }
@@ -216,6 +216,7 @@ export async function middleware(request) {
       return NextResponse.json({ success: true, key: newKey, user });
     }
 
+    console.log(`No matching route for ${pathname}, passing to Next.js`);
     return NextResponse.next();
   } catch (error) {
     console.error('Middleware error:', error);
@@ -224,5 +225,11 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: ['/auth/v1/:path*', '/dAuth/v1/:path*', '/files/v1/:path*', '/manage/v1/:path*', '/register/v1/:path*'],
+  matcher: [
+    '/auth/v1(.*)',
+    '/dAuth/v1(.*)',
+    '/files/v1(.*)',
+    '/manage/v1(.*)',
+    '/register/v1(.*)',
+  ],
 };
