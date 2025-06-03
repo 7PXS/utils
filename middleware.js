@@ -301,6 +301,8 @@ export async function middleware(request) {
         userData.endTime = Math.floor(Date.now() / 1000) + durationSeconds;
       } else if (action === 'resetHwid' && value) {
         userData.hwid = value;
+      } else if (action === 'setUsername' && value) {
+        userData.username = value;
       } else {
         const errorMessage = `[${timestamp}] /manage/v1: Invalid action or value for Discord ID ${discordId}`;
         console.error(errorMessage);
@@ -321,7 +323,7 @@ export async function middleware(request) {
       return NextResponse.json({ success: true, ...userData });
     }
 
-    // /register/v1/?ID=&time=
+    // /register/v1/?ID=&time=&username=
     if (pathname.startsWith('/register/v1')) {
       const logMessage = `[${timestamp}] Handling /register/v1`;
       console.log(logMessage);
@@ -329,12 +331,24 @@ export async function middleware(request) {
 
       const discordId = searchParams.get('ID');
       const timeStr = searchParams.get('time');
+      const username = searchParams.get('username');
 
-      if (!discordId || !timeStr) {
-        const errorMessage = `[${timestamp}] /register/v1: Missing Discord ID or time`;
+      if (!discordId || !timeStr || !username) {
+        const errorMessage = `[${timestamp}] /register/v1: Missing Discord ID, time, or username`;
         console.error(errorMessage);
         await sendWebhookLog(errorMessage);
-        return NextResponse.json({ error: 'Missing Discord ID or time' }, { status: 400 });
+        return NextResponse.json({ error: 'Missing Discord ID, time, or username' }, { status: 400 });
+      }
+
+      // Validate username
+      if (username.length < 3 || username.length > 20 || !/^[a-zA-Z0-9_]+$/.test(username)) {
+        const errorMessage = `[${timestamp}] /register/v1: Invalid username format`;
+        console.error(errorMessage);
+        await sendWebhookLog(errorMessage);
+        return NextResponse.json(
+          { error: 'Username must be 3-20 characters and contain only letters, numbers, or underscores' },
+          { status: 400 }
+        );
       }
 
       const durationSeconds = parseTimeToSeconds(timeStr);
@@ -356,6 +370,14 @@ export async function middleware(request) {
           await sendWebhookLog(errorMessage);
           return NextResponse.json({ error: 'User already registered' }, { status: 400 });
         }
+        const response = await fetch(blob.url);
+        const userData = await response.json();
+        if (userData.username === username) {
+          const errorMessage = `[${timestamp}] /register/v1: Username ${username} already taken`;
+          console.error(errorMessage);
+          await sendWebhookLog(errorMessage);
+          return NextResponse.json({ error: 'Username already taken' }, { status: 400 });
+        }
       }
 
       const newKey = generateKey();
@@ -364,6 +386,7 @@ export async function middleware(request) {
         key: newKey,
         hwid: '',
         discordId,
+        username,
         createTime,
         endTime: createTime + durationSeconds,
       };
@@ -374,11 +397,67 @@ export async function middleware(request) {
         addRandomSuffix: false,
       });
 
-      const successMessage = `[${timestamp}] /register/v1: Registered user with Discord ID ${discordId}, key ${newKey}`;
+      const successMessage = `[${timestamp}] /register/v1: Registered user ${username} with Discord ID ${discordId}, key ${newKey}`;
       console.log(successMessage);
       await sendWebhookLog(successMessage);
 
       return NextResponse.json({ success: true, ...user });
+    }
+
+    // /login/v1/?ID=&username=
+    if (pathname.startsWith('/login/v1')) {
+      const logMessage = `[${timestamp}] Handling /login/v1`;
+      console.log(logMessage);
+      await sendWebhookLog(logMessage);
+
+      const discordId = searchParams.get('ID');
+      const username = searchParams.get('username');
+
+      if (!discordId || !username) {
+        const errorMessage = `[${timestamp}] /login/v1: Missing Discord ID or username`;
+        console.error(errorMessage);
+        await sendWebhookLog(errorMessage);
+        return NextResponse.json({ error: 'Missing Discord ID or username' }, { status: 400 });
+      }
+
+      const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
+      for (const blob of blobs) {
+        if (blob.pathname.endsWith(`-${discordId}.json`)) {
+          try {
+            const response = await fetch(blob.url);
+            if (!response.ok) {
+              throw new Error(`Failed to fetch blob: ${response.statusText}`);
+            }
+            const userData = await response.json();
+
+            if (userData.username !== username) {
+              const errorMessage = `[${timestamp}] /login/v1: Invalid username for Discord ID ${discordId}`;
+              console.error(errorMessage);
+              await sendWebhookLog(errorMessage);
+              return NextResponse.json({ error: 'Invalid username' }, { status: 401 });
+            }
+
+            if (userData.endTime < Math.floor(Date.now() / 1000)) {
+              const errorMessage = `[${timestamp}] /login/v1: Key expired for Discord ID ${discordId}`;
+              console.error(errorMessage);
+              await sendWebhookLog(errorMessage);
+              return NextResponse.json({ error: 'Key expired' }, { status: 401 });
+            }
+
+            return NextResponse.json({ success: true, ...userData });
+          } catch (error) {
+            const errorMessage = `[${timestamp}] Error reading blob ${blob.pathname} in /login/v1: ${error.message}`;
+            console.error(errorMessage);
+            await sendWebhookLog(errorMessage);
+            continue;
+          }
+        }
+      }
+
+      const errorMessage = `[${timestamp}] /login/v1: No user found with Discord ID ${discordId}`;
+      console.error(errorMessage);
+      await sendWebhookLog(errorMessage);
+      return NextResponse.json({ error: 'No user found with this Discord ID' }, { status: 404 });
     }
 
     // /users/v1
@@ -432,6 +511,7 @@ export const config = {
     '/files/v1(.*)',
     '/manage/v1(.*)',
     '/register/v1(.*)',
+    '/login/v1(.*)',
     '/users/v1(.*)',
   ],
 };
