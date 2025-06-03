@@ -1,17 +1,16 @@
-import { NextRequest, BResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { get } from '@vercel/edge-config';
 import { put, list } from '@vercel/blob';
 
-const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_utjs6NoOOU3bdexe_0pNKDMi9ls3KB2OSOb2bKxs';
-const EDGE_CONFIG_URL = 'https://edge-config.vercel.com/api/v1/config/abc1231234567890?token=b26cdde2-ba12-4a39-abcd-1234567890abcdef';
-const WEBHOOK_URL = 'https://discord.com/api/webhooks/137893789123123456789/abcXYZ1234567890abcdefghijklmnopqrstuvwxyz1234567890';
-const BLOB_BASE_URL = 'https://utjs6nooou3bdexe.public.blob.vercel-storage.com/Users/';
+const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_utjs6NoOOU3BdeXE_0pNKDMi9ecw5Gh6ls3KB2OSOb2bKxs';
+const EDGE_CONFIG_URL = 'https://edge-config.vercel.com/ecfg_i4emvlr8if7stfth14z98b5qu0yk?token=b26cdde2-ba12-4a39-8fa9-8cef777d3276';
+const WEBHOOK_URL = 'https://discord.com/api/webhooks/1378937855199674508/nHwMtepJ3hKpzKDZErNkMdgIZPWhix80nkqSyMgYlbMMuOrLhHcF0HYsmLcq6CZeJrco';
 
 // Send log to Discord webhook
 async function sendWebhookLog(message) {
   if (!WEBHOOK_URL) {
     console.warn('WEBHOOK_URL not set, skipping webhook log');
-    return null;
+    return;
   }
 
   try {
@@ -21,7 +20,7 @@ async function sendWebhookLog(message) {
       body: JSON.stringify({ content: message }),
     });
   } catch (error) {
-    console.error('Failed to send webhook log: ', error.message);
+    console.error('Failed to send webhook log:', error.message);
   }
 }
 
@@ -29,10 +28,10 @@ async function sendWebhookLog(message) {
 function generateKey() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let key = '';
-  for (let t = 0; t < 14; t++) {
+  for (let i = 0; i < 14; i++) {
     key += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  return key.toString();
+  return key;
 }
 
 // Parse time string (e.g., "100s", "100mo") to seconds
@@ -90,7 +89,6 @@ export async function middleware(request) {
       }
 
       try {
-        // List blobs to find the Discord ID associated with the key
         const { blobs } = await list({ prefix: `Users/${key}-`, token: BLOB_READ_WRITE_TOKEN });
         if (blobs.length === 0) {
           const errorMessage = `[${timestamp}] /auth/v1: Invalid key ${key}`;
@@ -100,27 +98,15 @@ export async function middleware(request) {
         }
 
         const blob = blobs[0];
-        const discordId = blob.pathname.match(/Users\/[^-]+-(\d+)\.json$/)?.[1];
-        if (!discordId) {
-          const errorMessage = `[${timestamp}] /auth/v1: Invalid blob name format for key ${key}`;
-          console.error(errorMessage);
-          await sendWebhookLog(errorMessage);
-          return NextResponse.json({ error: 'Invalid key' }, { status: 401 });
-        }
-
-        const blobUrl = `${BLOB_BASE_URL}${key}-${discordId}.json`;
-        const response = await fetch(blobUrl);
+        const response = await fetch(blob.url);
         if (!response.ok) {
-          const errorMessage = `[${timestamp}] /auth/v1: Failed to fetch blob ${blobUrl}: ${response.statusText}`;
-          console.error(errorMessage);
-          await sendWebhookLog(errorMessage);
-          return NextResponse.json({ error: 'Invalid key' }, { status: 401 });
+          throw new Error(`Failed to fetch blob: ${response.statusText}`);
         }
         const userData = await response.json();
 
         if (userData.hwid === '' && hwid) {
           userData.hwid = hwid;
-          await put(`Users/${key}-${discordId}.json`, JSON.stringify(userData), {
+          await put(`Users/${key}-${userData.discordId}.json`, JSON.stringify(userData), {
             access: 'public',
             token: BLOB_READ_WRITE_TOKEN,
             addRandomSuffix: false,
@@ -170,8 +156,7 @@ export async function middleware(request) {
       for (const blob of blobs) {
         if (blob.pathname.endsWith(`-${discordId}.json`)) {
           try {
-            const blobUrl = `${BLOB_BASE_URL}${blob.pathname.split('/').pop()}`;
-            const response = await fetch(blobUrl);
+            const response = await fetch(blob.url);
             if (!response.ok) {
               throw new Error(`Failed to fetch blob: ${response.statusText}`);
             }
@@ -225,21 +210,9 @@ export async function middleware(request) {
         }
 
         const blob = blobs[0];
-        const discordId = blob.pathname.match(/Users\/[^-]+-(\d+)\.json$/)?.[1];
-        if (!discordId) {
-          const errorMessage = `[${timestamp}] /files/v1: Invalid blob name format for key ${key}`;
-          console.error(errorMessage);
-          await sendWebhookLog(errorMessage);
-          return NextResponse.json({ error: 'Invalid key' }, { status: 401 });
-        }
-
-        const blobUrl = `${BLOB_BASE_URL}${key}-${discordId}.json`;
-        const response = await fetch(blobUrl);
+        const response = await fetch(blob.url);
         if (!response.ok) {
-          const errorMessage = `[${timestamp}] /files/v1: Failed to fetch blob ${blobUrl}: ${response.statusText}`;
-          console.error(errorMessage);
-          await sendWebhookLog(errorMessage);
-          return NextResponse.json({ error: 'Invalid key' }, { status: 401 });
+          throw new Error(`Failed to fetch blob: ${response.statusText}`);
         }
         const userData = await response.json();
 
@@ -294,8 +267,7 @@ export async function middleware(request) {
       for (const blob of blobs) {
         if (blob.pathname.endsWith(`-${discordId}.json`)) {
           try {
-            const blobUrl = `${BLOB_BASE_URL}${blob.pathname.split('/').pop()}`;
-            const response = await fetch(blobUrl);
+            const response = await fetch(blob.url);
             if (!response.ok) {
               throw new Error(`Failed to fetch blob: ${response.statusText}`);
             }
@@ -420,8 +392,7 @@ export async function middleware(request) {
 
       for (const blob of blobs) {
         try {
-          const blobUrl = `${BLOB_BASE_URL}${blob.pathname.split('/').pop()}`;
-          const response = await fetch(blobUrl);
+          const response = await fetch(blob.url);
           if (!response.ok) {
             throw new Error(`Failed to fetch blob: ${response.statusText}`);
           }
