@@ -75,7 +75,7 @@ export async function middleware(request) {
     // /auth/v1/?key=&hwid=
     if (pathname.startsWith('/auth/v1')) {
       const logMessage = `[${timestamp}] Handling /auth/v1`;
-      console.log(logMessage`);
+      console.log(logMessage);
       await sendWebhookLog(logMessage);
 
       const key = searchParams.get('key');
