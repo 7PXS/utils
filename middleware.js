@@ -1,20 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { get } from '@vercel/edge-config';
-import { BlobServiceClient } from '@vercel/blob';
+import { put, get as getBlob, list } from '@vercel/blob';
 
-const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_utjs6NoOOU3BdeXE_0pNKDMi9ecw5Gh6ls3KB2OSOb2bKxs';
+const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_utjs6NoOOU3BdeXE_0pNKDMi9ecw5Gh6ls3KB2OSOb2/5';
 const EDGE_CONFIG_URL = 'https://edge-config.vercel.com/ecfg_i4emvlr8if7stfth14z98b5qu0yk?token=b26cdde2-ba12-4a39-8fa9-8cef777d3276';
 
-interface User {
-  key: string;
-  hwid: string;
-  discordId?: string;
-  createTime: number;
-  endTime: number;
-}
-
 // Generate a 14-character key
-function generateKey(): string {
+function generateKey() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let key = '';
   for (let i = 0; i < 14; i++) {
@@ -23,15 +15,9 @@ function generateKey(): string {
   return key;
 }
 
-// extinguish Initialize Blob client
-const blobServiceClient = BlobServiceClient.fromConnectionString(BLOB_READ_WRITE_TOKEN);
-
 // Middleware function
-export async function middleware(request: NextRequest) {
+export async function middleware(request) {
   const { pathname, searchParams } = request.nextUrl;
-
-  // Initialize Blob container client
-  const containerClient = blobServiceClient.getContainerClient('users');
 
   try {
     // /auth/v1/?key=&hwid=
@@ -43,10 +29,9 @@ export async function middleware(request: NextRequest) {
         return NextResponse.json({ error: 'Missing key or hwid' }, { status: 400 });
       }
 
-      const blobClient = containerClient.getBlobClient(`Users/${key}.json`);
       try {
-        const blob = await blobClient.download();
-        const userData: User = JSON.parse(await blob.content.text());
+        const blob = await getBlob(`Users/${key}.json`, { access: 'public', token: BLOB_READ_WRITE_TOKEN });
+        const userData = JSON.parse(await blob.text());
 
         if (userData.hwid !== hwid) {
           return NextResponse.json({ error: 'Invalid HWID' }, { status: 401 });
@@ -71,10 +56,9 @@ export async function middleware(request: NextRequest) {
       }
 
       // Search for user with matching Discord ID
-      const blobs = containerClient.listBlobsFlat({ prefix: 'Users/' });
-      for await (const blob of blobs) {
-        const blobClient = containerClient.getBlobClient(blob.name);
-        const userData: User = JSON.parse(await (await blobClient.download()).content.text());
+      const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
+      for (const blob of blobs) {
+        const userData = JSON.parse(await (await getBlob(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
         
         if (userData.discordId === discordId) {
           if (userData.endTime < Math.floor(Date.now() / 1000)) {
@@ -97,9 +81,8 @@ export async function middleware(request: NextRequest) {
       }
 
       // Verify user key
-      const blobClient = containerClient.getBlobClient(`Users/${key}.json`);
       try {
-        const userData: User = JSON.parse(await (await blobClient.download()).content.text());
+        const userData = JSON.parse(await (await getBlob(`Users/${key}.json`, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
         
         if (userData.endTime < Math.floor(Date.now() / 1000)) {
           return NextResponse.json({ error: 'Key expired' }, { status: 401 });
@@ -132,14 +115,13 @@ export async function middleware(request: NextRequest) {
       }
 
       // Find user
-      let userKey: string | null = null;
-      let userData: User | null = null;
-      const blobs = containerClient.listBlobsFlat({ prefix: 'Users/' });
-      for await (const blob of blobs) {
-        const blobClient = containerClient.getBlobClient(blob.name);
-        const data: User = JSON.parse(await (await blobClient.download()).content.text());
+      let userKey = null;
+      let userData = null;
+      const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
+      for (const blob of blobs) {
+        const data = JSON.parse(await (await getBlob(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
         if (data.discordId === discordId) {
-          userKey = blob.name.replace('Users/', '').replace('.json', '');
+          userKey = blob.pathname.replace('Users/', '').replace('.json', '');
           userData = data;
           break;
         }
@@ -158,8 +140,9 @@ export async function middleware(request: NextRequest) {
       }
 
       // Update user data
-      await containerClient.getBlobClient(`Users/${userKey}.json`).upload(JSON.stringify(userData), {
-        blobHTTPHeaders: { blobContentType: 'application/json' },
+      await put(`Users/${userKey}.json`, JSON.stringify(userData), {
+        access: 'public',
+        token: BLOB_READ_WRITE_TOKEN,
       });
 
       return NextResponse.json({ success: true, user: userData });
@@ -175,17 +158,16 @@ export async function middleware(request: NextRequest) {
       }
 
       // Check if user already exists
-      const blobs = containerClient.listBlobsFlat({ prefix: 'Users/' });
-      for await (const blob of blobs) {
-        const blobClient = containerClient.getBlobClient(blob.name);
-        const data: User = JSON.parse(await (await blobClient.download()).content.text());
+      const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
+      for (const blob of blobs) {
+        const data = JSON.parse(await (await getBlob(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
         if (data.discordId === discordId) {
           return NextResponse.json({ error: 'User already registered' }, { status: 400 });
         }
       }
 
       const newKey = generateKey();
-      const user: User = {
+      const user = {
         key: newKey,
         hwid: '',
         discordId,
@@ -193,8 +175,9 @@ export async function middleware(request: NextRequest) {
         endTime,
       };
 
-      await containerClient.getBlobClient(`Users/${newKey}.json`).upload(JSON.stringify(user), {
-        blobHTTPHeaders: { blobContentType: 'application/json' },
+      await put(`Users/${newKey}.json`, JSON.stringify(user), {
+        access: 'public',
+        token: BLOB_READ_WRITE_TOKEN,
       });
 
       return NextResponse.json({ success: true, key: newKey, user });
