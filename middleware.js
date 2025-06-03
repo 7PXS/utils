@@ -224,5 +224,5 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: ['/auth/v1/*', '/dAuth/v1/', '/files/v1/', '/manage/v1/', '/register/v1/'],
+  matcher: ['/auth/v1/:path*', '/dAuth/v1/:path*', '/files/v1/:path*', '/manage/v1/:path*', '/register/v1/:path*'],
 };
