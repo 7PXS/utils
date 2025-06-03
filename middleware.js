@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { get } from '@vercel/edge-config';
 import { put, download, list } from '@vercel/blob';
 
-const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_utjs6NoOOU3BdeXE_0pNKDMi9ecw5Gh6ls3KB2OSOb2bKxs';
+const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_utjs6NoOOU3BdeXE_0pNKDMi9ecw5Gh6ls3KB2OSOb2bKx5';
 const EDGE_CONFIG_URL = 'https://edge-config.vercel.com/ecfg_i4emvlr8if7stfth14z98b5qu0yk?token=b26cdde2-ba12-4a39-8fa9-8cef777d3276';
 
 // Generate a 14-character key
@@ -54,10 +54,24 @@ export async function middleware(request) {
       }
 
       try {
-        const blob = await download(`Users/${key}.json`, { access: 'public', token: BLOB_READ_WRITE_TOKEN });
-        const userData = JSON.parse(await blob.text());
+        // Find blob by key (must match key-<discordId>.json)
+        const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
+        const blob = blobs.find(b => b.pathname.startsWith(`Users/${key}-`));
+        if (!blob) {
+          return NextResponse.json({ error: 'Invalid key' }, { status: 401 });
+        }
 
-        if (userData.hwid !== hwid) {
+        const userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
+
+        // If hwid is empty in blob and request provides hwid, update it
+        if (userData.hwid === '' && hwid) {
+          userData.hwid = hwid;
+          await put(blob.pathname, JSON.stringify(userData), {
+            access: 'public',
+            token: BLOB_READ_WRITE_TOKEN,
+          });
+          console.log(`Updated HWID for key ${key} to ${hwid}`);
+        } else if (userData.hwid !== hwid) {
           return NextResponse.json({ error: 'Invalid HWID' }, { status: 401 });
         }
 
@@ -83,18 +97,17 @@ export async function middleware(request) {
 
       const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
       for (const blob of blobs) {
-        try {
-          const userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
-          
-          if (userData.discordId === discordId) {
+        if (blob.pathname.endsWith(`-${discordId}.json`)) {
+          try {
+            const userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
             if (userData.endTime < Math.floor(Date.now() / 1000)) {
               return NextResponse.json({ error: 'Key expired' }, { status: 401 });
             }
             return NextResponse.json({ success: true, user: userData });
+          } catch (error) {
+            console.error(`Error reading blob ${blob.pathname} in /dAuth/v1:`, error.message);
+            continue; // Skip invalid blobs
           }
-        } catch (error) {
-          console.error(`Error reading blob ${blob.pathname} in /dAuth/v1:`, error.message);
-          continue; // Skip invalid blobs
         }
       }
 
@@ -112,8 +125,13 @@ export async function middleware(request) {
       }
 
       try {
-        const blob = await download(`Users/${key}.json`, { access: 'public', token: BLOB_READ_WRITE_TOKEN });
-        const userData = JSON.parse(await blob.text());
+        const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
+        const blob = blobs.find(b => b.pathname.startsWith(`Users/${key}-`));
+        if (!blob) {
+          return NextResponse.json({ error: 'Invalid key' }, { status: 401 });
+        }
+
+        const userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
         
         if (userData.endTime < Math.floor(Date.now() / 1000)) {
           return NextResponse.json({ error: 'Key expired' }, { status: 401 });
@@ -150,16 +168,15 @@ export async function middleware(request) {
       let userData = null;
       const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
       for (const blob of blobs) {
-        try {
-          const data = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
-          if (data.discordId === discordId) {
-            userKey = blob.pathname.replace('Users/', '').replace('.json', '');
-            userData = data;
+        if (blob.pathname.endsWith(`-${discordId}.json`)) {
+          try {
+            userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
+            userKey = blob.pathname.replace('Users/', '').replace(`-${discordId}.json`, '');
             break;
+          } catch (error) {
+            console.error(`Error reading blob ${blob.pathname} in /manage/v1:`, error.message);
+            continue; // Skip invalid blobs
           }
-        } catch (error) {
-          console.error(`Error reading blob ${blob.pathname} in /manage/v1:`, error.message);
-          continue; // Skip invalid blobs
         }
       }
 
@@ -179,12 +196,12 @@ export async function middleware(request) {
         return NextResponse.json({ error: 'Invalid action or value' }, { status: 400 });
       }
 
-      await put(`Users/${userKey}.json`, JSON.stringify(userData), {
+      await put(`Users/${userKey}-${discordId}.json`, JSON.stringify(userData), {
         access: 'public',
         token: BLOB_READ_WRITE_TOKEN,
       });
 
-      return NextResponse.json({ success: true, user: userData });
+      return NextResponse.json({ success:aternity, user: userData });
     }
 
     // /register/v1/?ID=&time=
@@ -204,14 +221,8 @@ export async function middleware(request) {
 
       const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
       for (const blob of blobs) {
-        try {
-          const data = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
-          if (data.discordId === discordId) {
-            return NextResponse.json({ error: 'User already registered' }, { status: 400 });
-          }
-        } catch (error) {
-          console.error(`Error reading blob ${blob.pathname} in /register/v1:`, error.message);
-          continue; // Skip invalid blobs
+        if (blob.pathname.endsWith(`-${discordId}.json`)) {
+          return NextResponse.json({ error: 'User already registered' }, { status: 400 });
         }
       }
 
@@ -225,7 +236,7 @@ export async function middleware(request) {
         endTime: createTime + durationSeconds,
       };
 
-      await put(`Users/${newKey}.json`, JSON.stringify(user), {
+      await put(`Users/${newKey}-${discordId}.json`, JSON.stringify(user), {
         access: 'public',
         token: BLOB_READ_WRITE_TOKEN,
       });
