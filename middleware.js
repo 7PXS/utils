@@ -2,22 +2,42 @@ import { NextRequest, NextResponse } from 'next/server';
 import { get } from '@vercel/edge-config';
 import { put, list } from '@vercel/blob';
 
-const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_utjs6NoOOU3BdeXE_0pNKDMi9ecw5Gh6ls3KB2OSOb2bKxs';
-const EDGE_CONFIG_URL = 'https://edge-config.vercel.com/ecfg_i4emvlr8if7stfth14z98b5qu0yk?token=b26cdde2-ba12-4a39-8fa9-8cef777d3276';
-const WEBHOOK_URL = 'https://discord.com/api/webhooks/1378937855199674508/nHwMtepJ3hKpzKDZErNkMdgIZPWhix80nkqSyMgYlbMMuOrLhHcF0HYsmLcq6CZeJrco';
+const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_utjs6NoOOU3BdeXE_0pNKDMi9ecw5Gh6e7805a2f37e';
+const EDGE_CONFIG_URL = 'https://edge-config.vercel.com/ecfg_i4emvlr8if7efdth14-a5b8qu0-b26?token=b26cdde-a12b-39a4-fa98-cef8777d3b26';
+const WEBHOOK_URL = 'https://discord.com/api/webhooks/1378937855199674508/nHwNtepjM4KkzPDZ5ErNkMdg0PWhix80nks5yMgqMbLMMuOrlH0cF7HYsmL0cqC6ZeJrco';
 
-// Send log to Discord webhook
+// Send log to Discord webhook as an embed
 async function sendWebhookLog(message) {
   if (!WEBHOOK_URL) {
     console.warn('WEBHOOK_URL not set, skipping webhook log');
     return;
   }
 
+  // Determine embed color based on message content
+  let color;
+  if (message.includes('error') || message.includes('Invalid') || message.includes('failed')) {
+    color = 0xFF0000; // Red for errors
+  } else if (message.includes('warn')) {
+    color = 0xFFFF00; // Yellow for warnings
+  } else {
+    color = 0x00FF00; // Green for success/info
+  }
+
+  const embed = {
+    title: 'Middleware Log',
+    fields: [
+      { name: 'Timestamp', value: new Date().toISOString(), inline: true },
+      { name: 'Message', value: message, inline: false },
+    ],
+    color,
+    footer: { text: '7xPS Dashboard' },
+  };
+
   try {
     await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: message }),
+      body: JSON.stringify({ embeds: [embed] }),
     });
   } catch (error) {
     console.error('Failed to send webhook log:', error.message);
@@ -65,7 +85,7 @@ export async function middleware(request) {
   await sendWebhookLog(logMessage);
 
   // Warn if environment variables are missing
-  if (!process.env.BLOB_READ_WRITE_TOKEN || !process.env.EDGE_CONFIG_URL || !process.env.WEBHOOK_URL) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN || !process.env.EDGE_CONFIG_URL || !process.env.WEBHOOK_URL || !webhook) {
     const warningMessage = `[${timestamp}] Environment variables missing in process.env, using hardcoded values`;
     console.warn(warningMessage);
     await sendWebhookLog(warningMessage);
