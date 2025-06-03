@@ -97,8 +97,8 @@ export async function middleware(request) {
           return NextResponse.json({ error: 'Invalid key' }, { status: 401 });
         }
 
-        const blob = blobs[0]; // Take the first matching blob
-        const userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
+        const blob = blobs[0];
+        const userData = JSON.parse(await (await download(blob.pathname, { token: BLOB_READ_WRITE_TOKEN })).text());
 
         if (userData.hwid === '' && hwid) {
           userData.hwid = hwid;
@@ -150,9 +150,9 @@ export async function middleware(request) {
 
       const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
       for (const blob of blobs) {
-        if (blob.pathname.match(new RegExp(`-${discordId}(?:-.+)?\\.json$`))) {
+        if (blob.pathname.endsWith(`-${discordId}.json`)) {
           try {
-            const userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
+            const userData = JSON.parse(await (await download(blob.pathname, { token: BLOB_READ_WRITE_TOKEN })).text());
             if (userData.endTime < Math.floor(Date.now() / 1000)) {
               const errorMessage = `[${timestamp}] /dAuth/v1: Key expired for Discord ID ${discordId}`;
               console.error(errorMessage);
@@ -201,7 +201,7 @@ export async function middleware(request) {
         }
 
         const blob = blobs[0];
-        const userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
+        const userData = JSON.parse(await (await download(blob.pathname, { token: BLOB_READ_WRITE_TOKEN })).text());
 
         if (userData.endTime < Math.floor(Date.now() / 1000)) {
           const errorMessage = `[${timestamp}] /files/v1: Key expired for key ${key}`;
@@ -252,10 +252,10 @@ export async function middleware(request) {
       let userData = null;
       const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
       for (const blob of blobs) {
-        if (blob.pathname.match(new RegExp(`-${discordId}(?:-.+)?\\.json$`))) {
+        if (blob.pathname.endsWith(`-${discordId}.json`)) {
           try {
-            userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
-            userKey = userData.key; // Use key from blob content
+            userData = JSON.parse(await (await download(blob.pathname, { token: BLOB_READ_WRITE_TOKEN })).text());
+            userKey = userData.key;
             break;
           } catch (error) {
             const errorMessage = `[${timestamp}] Error reading blob ${blob.pathname} in /manage/v1: ${error.message}`;
@@ -333,7 +333,7 @@ export async function middleware(request) {
 
       const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
       for (const blob of blobs) {
-        if (blob.pathname.match(new RegExp(`-${discordId}(?:-.+)?\\.json$`))) {
+        if (blob.pathname.endsWith(`-${discordId}.json`)) {
           const errorMessage = `[${timestamp}] /register/v1: User already registered with Discord ID ${discordId}`;
           console.error(errorMessage);
           await sendWebhookLog(errorMessage);
@@ -375,7 +375,7 @@ export async function middleware(request) {
 
       for (const blob of blobs) {
         try {
-          const userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
+          const userData = JSON.parse(await (await download(blob.pathname, { token: BLOB_READ_WRITE_TOKEN })).text());
           users.push(userData);
         } catch (error) {
           const errorMessage = `[${timestamp}] Error reading blob ${blob.pathname} in /users/v1: ${error.message}`;
