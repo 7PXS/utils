@@ -370,13 +370,33 @@ export async function middleware(request) {
           await sendWebhookLog(errorMessage);
           return NextResponse.json({ error: 'User already registered' }, { status: 400 });
         }
-        const response = await fetch(blob.url);
-        const userData = await response.json();
-        if (userData.username === username) {
-          const errorMessage = `[${timestamp}] /register/v1: Username ${username} already taken`;
+        try {
+          const response = await fetch(blob.url);
+          if (!response.ok) {
+            const errorMessage = `[${timestamp}] /register/v1: Failed to fetch blob ${blob.pathname}: ${response.statusText}`;
+            console.error(errorMessage);
+            await sendWebhookLog(errorMessage);
+            continue; // Skip to the next blob
+          }
+          const contentType = response.headers.get('content-type');
+          if (!contentType || !contentType.includes('application/json')) {
+            const errorMessage = `[${timestamp}] /register/v1: Invalid content type for blob ${blob.pathname}: ${contentType}`;
+            console.error(errorMessage);
+            await sendWebhookLog(errorMessage);
+            continue; // Skip to the next blob
+          }
+          const userData = await response.json();
+          if (userData.username === username) {
+            const errorMessage = `[${timestamp}] /register/v1: Username ${username} already taken`;
+            console.error(errorMessage);
+            await sendWebhookLog(errorMessage);
+            return NextResponse.json({ error: 'Username already taken' }, { status: 400 });
+          }
+        } catch (error) {
+          const errorMessage = `[${timestamp}] /register/v1: Error reading blob ${blob.pathname}: ${error.message}`;
           console.error(errorMessage);
           await sendWebhookLog(errorMessage);
-          return NextResponse.json({ error: 'Username already taken' }, { status: 400 });
+          continue; // Skip to the next blob
         }
       }
 
