@@ -1,271 +1,212 @@
-const { NextResponse } = require('next/server');
-const { get } = require('@vercel/edge-config');
-const { put, get: getBlob, list } = require('@vercel/blob');
+import { NextRequest, NextResponse } from 'next/server';
+import { get } from '@vercel/edge-config';
+import { BlobServiceClient } from '@vercel/blob';
 
-// Constants
-const USERS_DIR = 'Users/';
-const ADMIN_AUTH = 'UserMode-2d93n2002n8';
+const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_utjs6NoOOU3BdeXE_0pNKDMi9ecw5Gh6ls3KB2OSOb2bKxs';
+const EDGE_CONFIG_URL = 'https://edge-config.vercel.com/ecfg_i4emvlr8if7stfth14z98b5qu0yk?token=b26cdde2-ba12-4a39-8fa9-8cef777d3276';
 
-// Input validation
-const validateInput = (str, name, maxLength = 100) => {
-    if (!str || typeof str !== 'string' || str.length > maxLength || /[^a-zA-Z0-9_-]/.test(str)) {
-        throw new Error(`Invalid ${name}: Must be alphanumeric, underscores, or hyphens`);
-    }
-    return str;
-};
+interface User {
+  key: string;
+  hwid: string;
+  discordId?: string;
+  createTime: number;
+  endTime: number;
+}
 
-// Blob storage operations
-const readUserBlob = async (discordID, keyPrefix = '') => {
-    validateInput(discordID, 'discordID');
-    const blobPath = `${USERS_DIR}user-${discordID}-${keyPrefix}.json`;
-    try {
-        const blob = await getBlob(blobPath, { access: 'public' });
-        if (!blob) throw new Error('User not found');
-        const data = await blob.text();
-        if (!data) throw new Error('Empty blob content');
-        const userData = JSON.parse(data);
-        userData.discordID = discordID;
-        return userData;
-    } catch (error) {
-        if (error.message.includes('not found')) {
-            throw new Error('User not found');
-        }
-        throw new Error(`Failed to read user blob: ${error.message}`);
-    }
-};
+// Generate a 14-character key
+function generateKey(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let key = '';
+  for (let i = 0; i < 14; i++) {
+    key += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return key;
+}
 
-const writeUserBlob = async (discordID, userData) => {
-    const keyPrefix = userData.Key ? userData.Key.slice(0, 7) : '';
-    validateInput(discordID, 'discordID');
-    const blobName = `${USERS_DIR}user-${discordID}-${keyPrefix}.json`;
-    const dataToSave = { ...userData };
-    delete dataToSave.discordID;
-    try {
-        await put(blobName, JSON.stringify(dataToSave, null, 2), {
-            access: 'public',
-            contentType: 'application/json',
-            addRandomSuffix: false,
-        });
-    } catch (error) {
-        throw new Error(`Failed to write user blob: ${error.message}`);
-    }
-};
+// Initialize Blob client
+const blobServiceClient = BlobServiceClient.fromConnectionString(BLOB_READ_WRITE_TOKEN);
 
-const userBlobExists = async (discordID, keyPrefix = '') => {
-    const blobName = `${USERS_DIR}user-${discordID}-${keyPrefix}.json`;
-    try {
-        await getBlob(blobName, { access: 'public' });
-        return true;
-    } catch (error) {
-        if (error.message.includes('not found')) {
-            return false;
-        }
-        throw new Error(`Failed to check user blob existence: ${error.message}`);
-    }
-};
+// Middleware function
+export async function middleware(request: NextRequest) {
+  const { pathname, searchParams } = request.nextUrl;
 
-const listUserBlobs = async () => {
-    try {
-        const { blobs } = await list({ prefix: USERS_DIR });
-        return blobs
-            .filter(blob => blob.pathname.endsWith('.json'))
-            .map(blob => blob.pathname.match(/user-([^-]+)-[^.]+\.json$/)?.[1])
-            .filter(Boolean);
-    } catch (error) {
-        throw new Error(`Failed to list user blobs: ${error.message}`);
-    }
-};
+  // Initialize Blob container client
+  const containerClient = blobServiceClient.getContainerClient('users');
 
-// Error response helper
-const errorResponse = (message, status) => {
-    return new NextResponse(
-        JSON.stringify({ success: false, message }),
-        { status, headers: { 'Content-Type': 'application/json' } }
-    );
-};
+  try {
+    // /auth/v1/?key=&hwid=
+    if (pathname.startsWith('/auth/v1/')) {
+      const key = searchParams.get('key');
+      const hwid = searchParams.get('hwid');
 
-// Middleware
-async function middleware(request) {
-    const { pathname, searchParams } = request.nextUrl;
+      if (!key || !hwid) {
+        return NextResponse.json({ error: 'Missing key or hwid' }, { status: 400 });
+      }
 
-    // Handle /auth?key=&hwid=&ID=
-    if (pathname === '/auth') {
-        const key = searchParams.get('key');
-        const hwid = searchParams.get('hwid');
-        const discordID = searchParams.get('ID');
+      const blobClient = containerClient.getBlobClient(`${key}.json`);
+      try {
+        const blob = await blobClient.download();
+        const userData: User = JSON.parse(await blob.content.text());
 
-        if (!key || !discordID) {
-            return errorResponse('Missing required parameters: key and ID are required', 400);
+        if (userData.hwid !== hwid) {
+          return NextResponse.json({ error: 'Invalid HWID' }, { status: 401 });
         }
 
-        try {
-            validateInput(discordID, 'discordID');
-            validateInput(key, 'key');
-            if (hwid) validateInput(hwid, 'hwid');
-
-            const user = await readUserBlob(discordID, key.slice(0, 7));
-
-            if (user.Key !== key) {
-                return errorResponse('Invalid key', 401);
-            }
-
-            if (!user.Hwid && hwid) {
-                user.Hwid = hwid;
-                await writeUserBlob(discordID, user);
-            } else if (user.Hwid && hwid && user.Hwid !== hwid) {
-                return errorResponse('Invalid HWID', 401);
-            }
-
-            return new NextResponse(
-                JSON.stringify({ success: true, message: 'Authentication successful', discordID, username: user.UserName, hwid: user.Hwid || '' }),
-                { status: 200, headers: { 'Content-Type': 'application/json' } }
-            );
-        } catch (error) {
-            return errorResponse(
-                error.message === 'User not found' ? 'User not found' : `Authentication failed: ${error.message}`,
-                error.message === 'User not found' ? 404 : 500
-            );
+        if (userData.endTime < Math.floor(Date.now() / 1000)) {
+          return NextResponse.json({ error: 'Key expired' }, { status: 401 });
         }
+
+        return NextResponse.json({ success: true, user: userData });
+      } catch (error) {
+        return NextResponse.json({ error: 'Invalid key' }, { status: 401 });
+      }
     }
 
-    // Handle /register?key=&discordID=&username=
-    if (pathname === '/register') {
-        const key = searchParams.get('key');
-        const discordID = searchParams.get('discordID');
-        const username = searchParams.get('username');
+    // /dAuth/v1/?ID=
+    if (pathname.startsWith('/dAuth/v1/')) {
+      const discordId = searchParams.get('ID');
 
-        if (!key || !discordID || !username) {
-            return errorResponse('Missing required parameters: key, discordID, and username are required', 400);
+      if (!discordId) {
+        return NextResponse.json({ error: 'Missing Discord ID' }, { status: 400 });
+      }
+
+      // Search for user with matching Discord ID
+      const blobs = containerClient.listBlobsFlat();
+      for await (const blob of blobs) {
+        const blobClient = containerClient.getBlobClient(blob.name);
+        const userData: User = JSON.parse(await (await blobClient.download()).content.text());
+        
+        if (userData.discordId === discordId) {
+          if (userData.endTime < Math.floor(Date.now() / 1000)) {
+            return NextResponse.json({ error: 'Key expired' }, { status: 401 });
+          }
+          return NextResponse.json({ success: true, user: userData });
         }
+      }
 
-        try {
-            validateInput(discordID, 'discordID');
-            validateInput(key, 'key');
-            validateInput(username, 'username');
-
-            if (await userBlobExists(discordID, key.slice(0, 7))) {
-                return errorResponse('User with this Discord ID already exists', 409);
-            }
-
-            const newUser = {
-                discordID,
-                UserName: username,
-                Key: key,
-                Hwid: ''
-            };
-
-            await writeUserBlob(discordID, newUser);
-
-            return new NextResponse(
-                JSON.stringify({ success: true, message: 'User registered successfully', discordID, username, key }),
-                { status: 201, headers: { 'Content-Type': 'application/json' } }
-            );
-        } catch (error) {
-            return errorResponse(`Registration failed: ${error.message}`, 500);
-        }
+      return NextResponse.json({ error: 'No user found with this Discord ID' }, { status: 404 });
     }
 
-    // Handle /users-list
-    if (pathname === '/users-list') {
-        const authHeader = request.headers.get('authorization');
+    // /files/v1/?file=
+    if (pathname.startsWith('/files/v1/')) {
+      const fileName = searchParams.get('file')?.toLowerCase();
+      const key = request.headers.get('authorization')?.split(' ')[1];
 
-        if (authHeader !== ADMIN_AUTH) {
-            return errorResponse('Unauthorized: Invalid authentication header', 401);
-        }
+      if (!fileName || !key) {
+        return NextResponse.json({ error: 'Missing file name or key' }, { status: 400 });
+      }
 
-        try {
-            const userIDs = await listUserBlobs();
-            return new NextResponse(
-                JSON.stringify({ success: true, users: userIDs }),
-                { status: 200, headers: { 'Content-Type': 'application/json' } }
-            );
-        } catch (error) {
-            return errorResponse(`Failed to fetch user list: ${error.message}`, 500);
+      // Verify user key
+      const blobClient = containerClient.getBlobClient(`${key}.json`);
+      try {
+        const userData: User = JSON.parse(await (await blobClient.download()).content.text());
+        
+        if (userData.endTime < Math.floor(Date.now() / 1000)) {
+          return NextResponse.json({ error: 'Key expired' }, { status: 401 });
         }
+      } catch (error) {
+        return NextResponse.json({ error: 'Invalid key' }, { status: 401 });
+      }
+
+      // Get script from Edge Config
+      const scripts = await get('scripts');
+      const script = Object.keys(scripts).find(
+        (key) => key.toLowerCase() === fileName
+      );
+
+      if (!script) {
+        return NextResponse.json({ error: 'File not found' }, { status: 404 });
+      }
+
+      return NextResponse.json(scripts[script]);
     }
 
-    // Handle /files/?filename=scriptname
-    if (pathname === '/files') {
-        const filename = searchParams.get('filename');
-        const authHeader = request.headers.get('authorization');
+    // /manage/v1/?ID=&action=&value=
+    if (pathname.startsWith('/manage/v1/')) {
+      const discordId = searchParams.get('ID');
+      const action = searchParams.get('action');
+      const value = searchParams.get('value');
 
-        if (authHeader !== ADMIN_AUTH) {
-            return errorResponse('Unauthorized: Invalid authentication header', 401);
+      if (!discordId || !action) {
+        return NextResponse.json({ error: 'Missing Discord ID or action' }, { status: 400 });
+      }
+
+      // Find user
+      let userKey: string | null = null;
+      let userData: User | null = null;
+      const blobs = containerClient.listBlobsFlat();
+      for await (const blob of blobs) {
+        const blobClient = containerClient.getBlobClient(blob.name);
+        const data: User = JSON.parse(await (await blobClient.download()).content.text());
+        if (data.discordId === discordId) {
+          userKey = blob.name.replace('.json', '');
+          userData = data;
+          break;
         }
+      }
 
-        if (!filename) {
-            return errorResponse('Filename parameter is required', 400);
-        }
+      if (!userKey || !userData) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
 
-        try {
-            validateInput(filename, 'filename');
-            if (filename.includes('..')) {
-                return errorResponse('Invalid filename: Directory traversal not allowed', 400);
-            }
+      if (action === 'setKeyTime' && value) {
+        userData.endTime = parseInt(value);
+      } else if (action === 'resetHwid' && value) {
+        userData.hwid = value;
+      } else {
+        return NextResponse.json({ error: 'Invalid action or value' }, { status: 400 });
+      }
 
-            const scripts = await get('scripts');
-            if (!scripts || !scripts[filename]) {
-                return errorResponse(`Script "${filename}" not found`, 404);
-            }
+      // Update user data
+      await containerClient.getBlobClient(`${userKey}.json`).upload(JSON.stringify(userData), {
+        blobHTTPHeaders: { blobContentType: 'application/json' },
+      });
 
-            const scriptUrl = scripts[filename].Code.endsWith('/')
-                ? scripts[filename].Code
-                : `${scripts[filename].Code}/`;
-
-            return new NextResponse(
-                JSON.stringify({ success: true, content: scriptUrl }),
-                { status: 200, headers: { 'Content-Type': 'application/json' } }
-            );
-        } catch (error) {
-            return errorResponse(`Failed to fetch script "${filename}": ${error.message}`, 500);
-        }
+      return NextResponse.json({ success: true, user: userData });
     }
 
-    // Handle /scripts-list
-    if (pathname === '/scripts-list') {
-        const authHeader = request.headers.get('authorization');
+    // /register/v1/?ID=&time=
+    if (pathname.startsWith('/register/v1/')) {
+      const discordId = searchParams.get('ID');
+      const endTime = parseInt(searchParams.get('time') || '0');
 
-        if (authHeader !== ADMIN_AUTH) {
-            return errorResponse('Unauthorized: Invalid authentication header', 401);
+      if (!discordId || !endTime) {
+        return NextResponse.json({ error: 'Missing Discord ID or time' }, { status: 400 });
+      }
+
+      // Check if user already exists
+      const blobs = containerClient.listBlobsFlat();
+      for await (const blob of blobs) {
+        const blobClient = containerClient.getBlobClient(blob.name);
+        const data: User = JSON.parse(await (await blobClient.download()).content.text());
+        if (data.discordId === discordId) {
+          return NextResponse.json({ error: 'User already registered' }, { status: 400 });
         }
+      }
 
-        try {
-            const scripts = await get('scripts');
-            const scriptNames = scripts ? Object.keys(scripts) : [];
-            return new NextResponse(
-                JSON.stringify({ success: true, scripts: scriptNames }),
-                { status: 200, headers: { 'Content-Type': 'application/json' } }
-            );
-        } catch (error) {
-            return errorResponse(`Failed to fetch script list: ${error.message}`, 500);
-        }
-    }
+      const newKey = generateKey();
+      const user: User = {
+        key: newKey,
+        hwid: '',
+        discordId,
+        createTime: Math.floor(Date.now() / 1000),
+        endTime,
+      };
 
-    // Handle /scripts-metadata
-    if (pathname === '/scripts-metadata') {
-        const authHeader = request.headers.get('authorization');
+      await containerClient.getBlobClient(`${newKey}.json`).upload(JSON.stringify(user), {
+        blobHTTPHeaders: { blobContentType: 'application/json' },
+      });
 
-        if (authHeader !== ADMIN_AUTH) {
-            return errorResponse('Unauthorized: Invalid authentication header', 401);
-        }
-
-        try {
-            const scripts = await get('scripts');
-            return new NextResponse(
-                JSON.stringify({ success: true, scripts: scripts || {} }),
-                { status: 200, headers: { 'Content-Type': 'application/json' } }
-            );
-        } catch (error) {
-            return errorResponse(`Failed to fetch scripts metadata: ${error.message}`, 500);
-        }
+      return NextResponse.json({ success: true, key: newKey, user });
     }
 
     return NextResponse.next();
+  } catch (error) {
+    console.error('Middleware error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }
 
-module.exports = {
-    middleware,
-    config: {
-        matcher: ['/files', '/scripts-list', '/scripts-metadata', '/auth', '/register', '/users-list']
-    }
+export const config = {
+  matcher: ['/auth/v1/:path*', '/dAuth/v1/:path*', '/files/v1/:path*', '/manage/v1/:path*', '/register/v1/:path*'],
 };
