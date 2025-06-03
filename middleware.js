@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { get } from '@vercel/edge-config';
 import { put, download, list } from '@vercel/blob';
 
-const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_utjs6NoOOU3BdeXE_0pNKDMi9ecw5Gh6ls3KB2OSOb2bKxs';
-const EDGE_CONFIG_URL = 'https://edge-config.vercel.com/ecfg_i4emvlr8if7stfth14z98b5qu0yk?token=b26cdde2-ba12-4a39-8fa9-8cef777d3276';
+const BLOB_READ_WRITE_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
+const EDGE_CONFIG_URL = process.env.EDGE_CONFIG_URL;
 
 // Generate a 14-character key
 function generateKey() {
@@ -42,6 +42,12 @@ export async function middleware(request) {
   const { pathname, searchParams } = request.nextUrl;
   console.log(`Middleware processing request for path: ${pathname}`);
 
+  // Check environment variables
+  if (!BLOB_READ_WRITE_TOKEN || !EDGE_CONFIG_URL) {
+    console.error('Missing environment variables: BLOB_READ_WRITE_TOKEN or EDGE_CONFIG_URL');
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+  }
+
   try {
     // /auth/v1/?key=&hwid=
     if (pathname.startsWith('/auth/v1')) {
@@ -54,7 +60,6 @@ export async function middleware(request) {
       }
 
       try {
-        // Find blob by key (must match key-<discordId>.json)
         const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
         const blob = blobs.find(b => b.pathname.startsWith(`Users/${key}-`));
         if (!blob) {
@@ -63,7 +68,6 @@ export async function middleware(request) {
 
         const userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
 
-        // If hwid is empty in blob and request provides hwid, update it
         if (userData.hwid === '' && hwid) {
           userData.hwid = hwid;
           await put(blob.pathname, JSON.stringify(userData), {
@@ -79,7 +83,7 @@ export async function middleware(request) {
           return NextResponse.json({ error: 'Key expired' }, { status: 401 });
         }
 
-        return NextResponse.json({ success: true, user: userData });
+        return NextResponse.json({ success: true, ...userData });
       } catch (error) {
         console.error(`Error in /auth/v1 for key ${key}:`, error.message);
         return NextResponse.json({ error: 'Invalid key' }, { status: 401 });
@@ -103,10 +107,10 @@ export async function middleware(request) {
             if (userData.endTime < Math.floor(Date.now() / 1000)) {
               return NextResponse.json({ error: 'Key expired' }, { status: 401 });
             }
-            return NextResponse.json({ success: true, user: userData });
+            return NextResponse.json({ success: true, ...userData });
           } catch (error) {
             console.error(`Error reading blob ${blob.pathname} in /dAuth/v1:`, error.message);
-            continue; // Skip invalid blobs
+            continue;
           }
         }
       }
@@ -141,7 +145,7 @@ export async function middleware(request) {
         return NextResponse.json({ error: 'Invalid key' }, { status: 401 });
       }
 
-      const scripts = await get('scripts');
+      const scripts = await get('scripts', { edgeConfig: EDGE_CONFIG_URL });
       const script = Object.keys(scripts).find(
         (key) => key.toLowerCase() === fileName
       );
@@ -175,7 +179,7 @@ export async function middleware(request) {
             break;
           } catch (error) {
             console.error(`Error reading blob ${blob.pathname} in /manage/v1:`, error.message);
-            continue; // Skip invalid blobs
+            continue;
           }
         }
       }
@@ -201,7 +205,7 @@ export async function middleware(request) {
         token: BLOB_READ_WRITE_TOKEN,
       });
 
-      return NextResponse.json({ success:aternity, user: userData });
+      return NextResponse.json({ success: true, ...userData });
     }
 
     // /register/v1/?ID=&time=
@@ -241,7 +245,26 @@ export async function middleware(request) {
         token: BLOB_READ_WRITE_TOKEN,
       });
 
-      return NextResponse.json({ success: true, key: newKey, user });
+      return NextResponse.json({ success: true, ...user });
+    }
+
+    // /users/v1
+    if (pathname.startsWith('/users/v1')) {
+      console.log('Handling /users/v1');
+      const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
+      const users = [];
+
+      for (const blob of blobs) {
+        try {
+          const userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
+          users.push(userData);
+        } catch (error) {
+          console.error(`Error reading blob ${blob.pathname} in /users/v1:`, error.message);
+          continue;
+        }
+      }
+
+      return NextResponse.json({ success: true, users });
     }
 
     console.log(`No matching route for ${pathname}, passing to Next.js`);
@@ -259,5 +282,6 @@ export const config = {
     '/files/v1(.*)',
     '/manage/v1(.*)',
     '/register/v1(.*)',
+    '/users/v1(.*)',
   ],
 };
