@@ -9,15 +9,19 @@ const WEBHOOK_URL = 'https://discord.com/api/webhooks/1378937855199674508/nHwNte
 // Send log to Discord webhook as an embed
 async function sendWebhookLog(message) {
   if (!WEBHOOK_URL) {
-    console.warn('WEBHOOK_URL not set, skipping webhook log');
+    const errorMessage = 'WEBHOOK_URL not set, skipping webhook log';
+    console.warn(errorMessage);
     return;
   }
 
+  // Truncate message to fit Discord's 2000-character limit for embed fields
+  const truncatedMessage = message.length > 1900 ? message.substring(0, 1900) + '...' : message;
+
   // Determine embed color based on message content
   let color;
-  if (message.includes('error') || message.includes('Invalid') || message.includes('failed')) {
+  if (truncatedMessage.includes('error') || truncatedMessage.includes('Invalid') || truncatedMessage.includes('failed')) {
     color = 0xFF0000; // Red for errors
-  } else if (message.includes('warn')) {
+  } else if (truncatedMessage.includes('warn')) {
     color = 0xFFFF00; // Yellow for warnings
   } else {
     color = 0x00FF00; // Green for success/info
@@ -27,20 +31,25 @@ async function sendWebhookLog(message) {
     title: 'Middleware Log',
     fields: [
       { name: 'Timestamp', value: new Date().toISOString(), inline: true },
-      { name: 'Message', value: message, inline: false },
+      { name: 'Message', value: truncatedMessage, inline: false },
     ],
     color,
-    footer: { text: '7xPS Dashboard' },
+    footer: { text: '7Px Dashboard' },
   };
 
   try {
-    await fetch(WEBHOOK_URL, {
+    const response = await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ embeds: [embed] }),
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Webhook request failed: ${response.status} ${response.statusText} - ${errorText}`);
+    }
   } catch (error) {
-    console.error('Failed to send webhook log:', error.message);
+    console.error(`Failed to send webhook log: ${error.message}`);
   }
 }
 
@@ -57,9 +66,7 @@ function generateKey() {
 // Parse time string (e.g., "100s", "100mo") to seconds
 function parseTimeToSeconds(timeStr) {
   const match = timeStr.match(/^(\d+)(s|m|h|d|mo|yr)$/);
-  if (!match) {
-    return null;
-  }
+  if (!match) return null;
 
   const value = parseInt(match[1]);
   const unit = match[2];
@@ -85,8 +92,8 @@ export async function middleware(request) {
   await sendWebhookLog(logMessage);
 
   // Warn if environment variables are missing
-  if (!process.env.BLOB_READ_WRITE_TOKEN || !process.env.EDGE_CONFIG_URL || !process.env.WEBHOOK_URL || !webhook) {
-    const warningMessage = `[${timestamp}] Environment variables missing in process.env, using hardcoded values`;
+  if (!BLOB_READ_WRITE_TOKEN || !EDGE_CONFIG_URL || !WEBHOOK_URL) {
+    const warningMessage = `[${timestamp}] Environment variables missing, using hardcoded values`;
     console.warn(warningMessage);
     await sendWebhookLog(warningMessage);
   }
