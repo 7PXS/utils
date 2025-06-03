@@ -23,7 +23,7 @@ function generateKey(): string {
   return key;
 }
 
-// Initialize Blob client
+// extinguish Initialize Blob client
 const blobServiceClient = BlobServiceClient.fromConnectionString(BLOB_READ_WRITE_TOKEN);
 
 // Middleware function
@@ -43,7 +43,7 @@ export async function middleware(request: NextRequest) {
         return NextResponse.json({ error: 'Missing key or hwid' }, { status: 400 });
       }
 
-      const blobClient = containerClient.getBlobClient(`${key}.json`);
+      const blobClient = containerClient.getBlobClient(`Users/${key}.json`);
       try {
         const blob = await blobClient.download();
         const userData: User = JSON.parse(await blob.content.text());
@@ -71,7 +71,7 @@ export async function middleware(request: NextRequest) {
       }
 
       // Search for user with matching Discord ID
-      const blobs = containerClient.listBlobsFlat();
+      const blobs = containerClient.listBlobsFlat({ prefix: 'Users/' });
       for await (const blob of blobs) {
         const blobClient = containerClient.getBlobClient(blob.name);
         const userData: User = JSON.parse(await (await blobClient.download()).content.text());
@@ -97,7 +97,7 @@ export async function middleware(request: NextRequest) {
       }
 
       // Verify user key
-      const blobClient = containerClient.getBlobClient(`${key}.json`);
+      const blobClient = containerClient.getBlobClient(`Users/${key}.json`);
       try {
         const userData: User = JSON.parse(await (await blobClient.download()).content.text());
         
@@ -134,12 +134,12 @@ export async function middleware(request: NextRequest) {
       // Find user
       let userKey: string | null = null;
       let userData: User | null = null;
-      const blobs = containerClient.listBlobsFlat();
+      const blobs = containerClient.listBlobsFlat({ prefix: 'Users/' });
       for await (const blob of blobs) {
         const blobClient = containerClient.getBlobClient(blob.name);
         const data: User = JSON.parse(await (await blobClient.download()).content.text());
         if (data.discordId === discordId) {
-          userKey = blob.name.replace('.json', '');
+          userKey = blob.name.replace('Users/', '').replace('.json', '');
           userData = data;
           break;
         }
@@ -158,7 +158,7 @@ export async function middleware(request: NextRequest) {
       }
 
       // Update user data
-      await containerClient.getBlobClient(`${userKey}.json`).upload(JSON.stringify(userData), {
+      await containerClient.getBlobClient(`Users/${userKey}.json`).upload(JSON.stringify(userData), {
         blobHTTPHeaders: { blobContentType: 'application/json' },
       });
 
@@ -175,7 +175,7 @@ export async function middleware(request: NextRequest) {
       }
 
       // Check if user already exists
-      const blobs = containerClient.listBlobsFlat();
+      const blobs = containerClient.listBlobsFlat({ prefix: 'Users/' });
       for await (const blob of blobs) {
         const blobClient = containerClient.getBlobClient(blob.name);
         const data: User = JSON.parse(await (await blobClient.download()).content.text());
@@ -193,7 +193,7 @@ export async function middleware(request: NextRequest) {
         endTime,
       };
 
-      await containerClient.getBlobClient(`${newKey}.json`).upload(JSON.stringify(user), {
+      await containerClient.getBlobClient(`Users/${newKey}.json`).upload(JSON.stringify(user), {
         blobHTTPHeaders: { blobContentType: 'application/json' },
       });
 
