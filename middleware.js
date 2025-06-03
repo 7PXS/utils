@@ -72,6 +72,35 @@ export async function middleware(request) {
   }
 
   try {
+    // /scripts-list
+    if (pathname.startsWith('/scripts-list')) {
+      const logMessage = `[${timestamp}] Handling /scripts-list`;
+      console.log(logMessage);
+      await sendWebhookLog(logMessage);
+
+      const authHeader = request.headers.get('authorization');
+      if (authHeader !== 'UserMode-2d93n2002n8') {
+        const errorMessage = `[${timestamp}] /scripts-list: Invalid authorization header`;
+        console.error(errorMessage);
+        await sendWebhookLog(errorMessage);
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      try {
+        const scripts = await get('scripts', { edgeConfig: EDGE_CONFIG_URL });
+        const scriptNames = Object.keys(scripts);
+        const successMessage = `[${timestamp}] /scripts-list: Retrieved ${scriptNames.length} scripts`;
+        console.log(successMessage);
+        await sendWebhookLog(successMessage);
+        return NextResponse.json(scriptNames);
+      } catch (error) {
+        const errorMessage = `[${timestamp}] /scripts-list: Failed to fetch scripts: ${error.message}`;
+        console.error(errorMessage);
+        await sendWebhookLog(errorMessage);
+        return NextResponse.json({ error: 'Failed to fetch scripts' }, { status: 500 });
+      }
+    }
+
     // /auth/v1/?key=&hwid=
     if (pathname.startsWith('/auth/v1')) {
       const logMessage = `[${timestamp}] Handling /auth/v1`;
@@ -376,14 +405,14 @@ export async function middleware(request) {
             const errorMessage = `[${timestamp}] /register/v1: Failed to fetch blob ${blob.pathname}: ${response.statusText}`;
             console.error(errorMessage);
             await sendWebhookLog(errorMessage);
-            continue; // Skip to the next blob
+            continue;
           }
           const contentType = response.headers.get('content-type');
           if (!contentType || !contentType.includes('application/json')) {
             const errorMessage = `[${timestamp}] /register/v1: Invalid content type for blob ${blob.pathname}: ${contentType}`;
             console.error(errorMessage);
             await sendWebhookLog(errorMessage);
-            continue; // Skip to the next blob
+            continue;
           }
           const userData = await response.json();
           if (userData.username === username) {
@@ -396,7 +425,7 @@ export async function middleware(request) {
           const errorMessage = `[${timestamp}] /register/v1: Error reading blob ${blob.pathname}: ${error.message}`;
           console.error(errorMessage);
           await sendWebhookLog(errorMessage);
-          continue; // Skip to the next blob
+          continue;
         }
       }
 
@@ -526,6 +555,7 @@ export async function middleware(request) {
 
 export const config = {
   matcher: [
+    '/scripts-list(.*)',
     '/auth/v1(.*)',
     '/dAuth/v1(.*)',
     '/files/v1(.*)',
