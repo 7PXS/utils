@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { get } from '@vercel/edge-config';
 import { put, get as getBlob, list } from '@vercel/blob';
 
-const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_utjs6NoOOU3BdeXE_0pNKDMi9ecw5Gh6ls3KB2OSOb2/5';
+const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_utjs6NoOOU3BdeXE_0pNKDMi9ecw5Gh6ls3KB2OSOb2bKx5';
 const EDGE_CONFIG_URL = 'https://edge-config.vercel.com/ecfg_i4emvlr8if7stfth14z98b5qu0yk?token=b26cdde2-ba12-4a39-8fa9-8cef777d3276';
 
 // Generate a 14-character key
@@ -13,6 +13,28 @@ function generateKey() {
     key += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return key;
+}
+
+// Parse time string (e.g., "100s", "100mo") to seconds
+function parseTimeToSeconds(timeStr) {
+  const match = timeStr.match(/^(\d+)(s|m|h|d|mo|yr)$/);
+  if (!match) {
+    return null;
+  }
+
+  const value = parseInt(match[1]);
+  const unit = match[2];
+
+  const secondsInUnit = {
+    s: 1, // seconds
+    m: 60, // minutes
+    h: 60 * 60, // hours
+    d: 60 * 60 * 24, // days
+    mo: 60 * 60 * 24 * 30, // months (approx 30 days)
+    yr: 60 * 60 * 24 * 365, // years (approx 365 days)
+  };
+
+  return value * secondsInUnit[unit];
 }
 
 // Middleware function
@@ -132,7 +154,11 @@ export async function middleware(request) {
       }
 
       if (action === 'setKeyTime' && value) {
-        userData.endTime = parseInt(value);
+        const durationSeconds = parseTimeToSeconds(value);
+        if (durationSeconds === null) {
+          return NextResponse.json({ error: 'Invalid time format' }, { status: 400 });
+        }
+        userData.endTime = Math.floor(Date.now() / 1000) + durationSeconds;
       } else if (action === 'resetHwid' && value) {
         userData.hwid = value;
       } else {
@@ -151,10 +177,16 @@ export async function middleware(request) {
     // /register/v1/?ID=&time=
     if (pathname.startsWith('/register/v1/')) {
       const discordId = searchParams.get('ID');
-      const endTime = parseInt(searchParams.get('time') || '0');
+      const timeStr = searchParams.get('time');
 
-      if (!discordId || !endTime) {
+      if (!discordId || !timeStr) {
         return NextResponse.json({ error: 'Missing Discord ID or time' }, { status: 400 });
+      }
+
+      // Parse time to seconds
+      const durationSeconds = parseTimeToSeconds(timeStr);
+      if (durationSeconds === null) {
+        return NextResponse.json({ error: 'Invalid time format. Use format like 100s, 100m, 100h, 100d, 100mo, or 100yr' }, { status: 400 });
       }
 
       // Check if user already exists
@@ -167,12 +199,13 @@ export async function middleware(request) {
       }
 
       const newKey = generateKey();
+      const createTime = Math.floor(Date.now() / 1000);
       const user = {
         key: newKey,
         hwid: '',
         discordId,
-        createTime: Math.floor(Date.now() / 1000),
-        endTime,
+        createTime,
+        endTime: createTime + durationSeconds,
       };
 
       await put(`Users/${newKey}.json`, JSON.stringify(user), {
@@ -191,5 +224,5 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: ['/auth/v1/:path*', '/dAuth/v1/:path*', '/files/v1/:path*', '/manage/v1/:path*', '/register/v1/:path*'],
+  matcher: ['/auth/v1/*', '/dAuth/v1/', '/files/v1/', '/manage/v1/', '/register/v1/'],
 };
