@@ -6,42 +6,35 @@ const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_utjs6NoOOU3BdeXE_0pNKDMi9ecw5Gh6ls
 const EDGE_CONFIG_URL = 'https://edge-config.vercel.com/ecfg_i4emvlr8if7efdth14-a5b8qu0-b26?token=b26cdde-a12b-39a4-fa98-cef8777d3b26';
 const WEBHOOK_URL = 'https://discord.com/api/webhooks/1378937855199674508/nHwNtepjM4KkzPDZ5ErNkMdg0PWhix80nks5yMgqMbLMMuOrlH0cF7HYsmL0cqC6ZeJrco';
 
-// Send log to Discord webhook as an embed
+// Send log to Discord webhook as plain text
 async function sendWebhookLog(message) {
   if (!WEBHOOK_URL) {
-    const errorMessage = 'WEBHOOK_URL not set, skipping webhook log';
-    console.warn(errorMessage);
+    console.warn('WEBHOOK_URL not set, skipping webhook log');
     return;
   }
 
-  // Truncate message to fit Discord's 2000-character limit for embed fields
-  const truncatedMessage = message.length > 1900 ? message.substring(0, 1900) + '...' : message;
-
-  // Determine embed color based on message content
-  let color;
-  if (truncatedMessage.includes('error') || truncatedMessage.includes('Invalid') || truncatedMessage.includes('failed')) {
-    color = 0xFF0000; // Red for errors
-  } else if (truncatedMessage.includes('warn')) {
-    color = 0xFFFF00; // Yellow for warnings
+  // Determine log type
+  let prefix;
+  if (message.includes('error') || message.includes('Invalid') || message.includes('failed')) {
+    prefix = '[ERROR]';
+  } else if (message.includes('warn')) {
+    prefix = '[WARN]';
   } else {
-    color = 0x00FF00; // Green for success/info
+    prefix = '[SUCCESS]';
   }
 
-  const embed = {
-    title: 'Middleware Log',
-    fields: [
-      { name: 'Timestamp', value: new Date().toISOString(), inline: true },
-      { name: 'Message', value: truncatedMessage, inline: false },
-    ],
-    color,
-    footer: { text: '7Px Dashboard' },
-  };
+  // Format message with timestamp
+  const timestamp = new Date().toISOString();
+  const formattedMessage = `${prefix} ${message}\n-# ${timestamp}`;
+
+  // Truncate to Discord's 2000-character limit
+  const truncatedMessage = formattedMessage.length > 2000 ? formattedMessage.substring(0, 1997) + '...' : formattedMessage;
 
   try {
     const response = await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ embeds: [embed] }),
+      body: JSON.stringify({ content: truncatedMessage }),
     });
 
     if (!response.ok) {
@@ -568,6 +561,104 @@ export async function middleware(request) {
       return NextResponse.json({ success: true, users });
     }
 
+    // /reset-hwid/v1
+    if (pathname.startsWith('/reset-hwid/v1')) {
+      const logMessage = `[${timestamp}] Handling /reset-hwid/v1`;
+      console.log(logMessage);
+      await sendWebhookLog(logMessage);
+
+      const authHeader = request.headers.get('authorization');
+      const discordId = authHeader?.split(' ')[1];
+
+      if (!discordId) {
+        const errorMessage = `[${timestamp}] /reset-hwid/v1: Missing Discord ID in authorization header`;
+        console.error(errorMessage);
+        await sendWebhookLog(errorMessage);
+        return NextResponse.json({ error: 'Missing Discord ID' }, { status: 400 });
+      }
+
+      try {
+        // Find user
+        let userBlob = null;
+        let userData = null;
+        const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
+        for (const blob of blobs) {
+          if (blob.pathname.endsWith(`-${discordId}.json`)) {
+            userBlob = blob;
+            const response = await fetch(blob.url);
+            if (!response.ok) {
+              throw new Error(`Failed to fetch blob: ${response.statusText}`);
+            }
+            userData = await response.json();
+            break;
+          }
+        }
+
+        if (!userData) {
+          const errorMessage = `[${timestamp}] /reset-hwid/v1: User not found with Discord ID ${discordId}`;
+          console.error(errorMessage);
+          await sendWebhookLog(errorMessage);
+          return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        }
+
+        if (!userData.hwid) {
+          const errorMessage = `[${timestamp}] /reset-hwid/v1: No HWID set for Discord ID ${discordId}`;
+          console.error(errorMessage);
+          await sendWebhookLog(errorMessage);
+          return NextResponse.json({ error: 'No HWID set' }, { status: 400 });
+        }
+
+        // Check reset limit
+        const today = new Date().toISOString().split('T')[0];
+        const resetKey = `HwidResets/${discordId}/${today}.json`;
+        let resetData = { count: 0, resets: [] };
+
+        const { blobs: resetBlobs } = await list({ prefix: resetKey, token: BLOB_READ_WRITE_TOKEN });
+        if (resetBlobs.length > 0) {
+          const resetResponse = await fetch(resetBlobs[0].url);
+          if (!resetResponse.ok) {
+            throw new Error(`Failed to fetch reset blob: ${resetResponse.statusText}`);
+          }
+          resetData = await resetResponse.json();
+        }
+
+        if (resetData.count >= 2) {
+          const errorMessage = `[${timestamp}] /reset-hwid/v1: HWID reset limit reached for Discord ID ${discordId}`;
+          console.error(errorMessage);
+          await sendWebhookLog(errorMessage);
+          return NextResponse.json({ error: 'HWID reset limit reached (2/day)' }, { status: 429 });
+        }
+
+        // Reset HWID
+        userData.hwid = '';
+        await put(`Users/${userData.key}-${discordId}.json`, JSON.stringify(userData), {
+          access: 'public',
+          token: BLOB_READ_WRITE_TOKEN,
+          addRandomSuffix: false,
+        });
+
+        // Update reset count
+        resetData.count += 1;
+        resetData.resets.push({ timestamp });
+        await put(resetKey, JSON.stringify(resetData), {
+          access: 'public',
+          token: BLOB_READ_WRITE_TOKEN,
+          addRandomSuffix: false,
+        });
+
+        const successMessage = `[${timestamp}] /reset-hwid/v1: HWID reset for Discord ID ${discordId} (${resetData.count}/2 today)`;
+        console.log(successMessage);
+        await sendWebhookLog(successMessage);
+
+        return NextResponse.json({ success: true, message: 'HWID reset successfully' });
+      } catch (error) {
+        const errorMessage = `[${timestamp}] Error in /reset-hwid/v1 for Discord ID ${discordId}: ${error.message}`;
+        console.error(errorMessage);
+        await sendWebhookLog(errorMessage);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+      }
+    }
+
     const noRouteMessage = `[${timestamp}] No matching route for ${pathname}, passing to Next.js`;
     console.log(noRouteMessage);
     await sendWebhookLog(noRouteMessage);
@@ -590,5 +681,6 @@ export const config = {
     '/register/v1(.*)',
     '/login/v1(.*)',
     '/users/v1(.*)',
+    '/reset-hwid/v1(.*)',
   ],
 };
