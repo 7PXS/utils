@@ -9,7 +9,7 @@ const WEBHOOK_URL = 'https://discord.com/api/webhooks/1378937855199674508/nHwMte
 // Send log to Discord webhook
 async function sendWebhookLog(message) {
   if (!WEBHOOK_URL) {
-    console.warn('WEBHOOK_URL not set, skipping webhook log');
+    console.warn('Webhook URL not set, skipping webhook log');
     return;
   }
 
@@ -49,8 +49,8 @@ function parseTimeToSeconds(timeStr) {
     m: 60, // minutes
     h: 60 * 60, // hours
     d: 60 * 60 * 24, // days
-    mo: 60 * 60 * 24 * 30, // months (approx 30 days)
-    yr: 60 * 60 * 24 * 365, // years (approx 365 days)
+    mo: 60 * 60 * 24 * 30, // months (approx. 30 days)
+    yr: 60 * 60 * 24 * 365, // years (approx. 365 days)
   };
 
   return value * secondsInUnit[unit];
@@ -64,7 +64,7 @@ export async function middleware(request) {
   console.log(logMessage);
   await sendWebhookLog(logMessage);
 
-  // Warn if environment variables are missing (for debugging)
+  // Warn if environment variables are missing
   if (!process.env.BLOB_READ_WRITE_TOKEN || !process.env.EDGE_CONFIG_URL || !process.env.WEBHOOK_URL) {
     const warningMessage = `[${timestamp}] Environment variables missing in process.env, using hardcoded values`;
     console.warn(warningMessage);
@@ -75,7 +75,7 @@ export async function middleware(request) {
     // /auth/v1/?key=&hwid=
     if (pathname.startsWith('/auth/v1')) {
       const logMessage = `[${timestamp}] Handling /auth/v1`;
-      console.log(logMessage);
+      console.log(logMessage`);
       await sendWebhookLog(logMessage);
 
       const key = searchParams.get('key');
@@ -98,13 +98,14 @@ export async function middleware(request) {
           return NextResponse.json({ error: 'Invalid key' }, { status: 401 });
         }
 
-        const userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
+        const userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN))).text());
 
         if (userData.hwid === '' && hwid) {
           userData.hwid = hwid;
           await put(blob.pathname, JSON.stringify(userData), {
             access: 'public',
             token: BLOB_READ_WRITE_TOKEN,
+            addRandomSuffix: false,
           });
           const hwidLogMessage = `[${timestamp}] /auth/v1: Updated HWID for key ${key} to ${hwid}`;
           console.log(hwidLogMessage);
@@ -149,7 +150,8 @@ export async function middleware(request) {
 
       const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
       for (const blob of blobs) {
-        if (blob.pathname.endsWith(`-${discordId}.json`)) {
+        // Match blobs ending with -<discordId>.json or containing -<discordId>-<suffix>.json
+        if (blob.pathname.match(`-${discordId}(?:-.+)?\.json$`)) {
           try {
             const userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
             if (userData.endTime < Math.floor(Date.now() / 1000)) {
@@ -251,10 +253,10 @@ export async function middleware(request) {
       let userData = null;
       const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
       for (const blob of blobs) {
-        if (blob.pathname.endsWith(`-${discordId}.json`)) {
+        if (blob.pathname.match(`-${discordId}(?:-.+)?\.json$`)) {
           try {
             userData = JSON.parse(await (await download(blob.pathname, { access: 'public', token: BLOB_READ_WRITE_TOKEN })).text());
-            userKey = blob.pathname.replace('Users/', '').replace(`-${discordId}.json`, '');
+            userKey = blob.pathname.match(/^Users\/(.+?)(?:-.+)?\.json$/)[1];
             break;
           } catch (error) {
             const errorMessage = `[${timestamp}] Error reading blob ${blob.pathname} in /manage/v1: ${error.message}`;
@@ -293,6 +295,7 @@ export async function middleware(request) {
       await put(`Users/${userKey}-${discordId}.json`, JSON.stringify(userData), {
         access: 'public',
         token: BLOB_READ_WRITE_TOKEN,
+        addRandomSuffix: false,
       });
 
       const successMessage = `[${timestamp}] /manage/v1: Updated user for Discord ID ${discordId} with action ${action}`;
@@ -331,7 +334,7 @@ export async function middleware(request) {
 
       const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
       for (const blob of blobs) {
-        if (blob.pathname.endsWith(`-${discordId}.json`)) {
+        if (blob.pathname.match(`-${discordId}(?:-.+)?\.json$`)) {
           const errorMessage = `[${timestamp}] /register/v1: User already registered with Discord ID ${discordId}`;
           console.error(errorMessage);
           await sendWebhookLog(errorMessage);
@@ -352,6 +355,7 @@ export async function middleware(request) {
       await put(`Users/${newKey}-${discordId}.json`, JSON.stringify(user), {
         access: 'public',
         token: BLOB_READ_WRITE_TOKEN,
+        addRandomSuffix: false,
       });
 
       const successMessage = `[${timestamp}] /register/v1: Registered user with Discord ID ${discordId}, key ${newKey}`;
