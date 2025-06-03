@@ -11,6 +11,7 @@ export default function StatusDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [discordId, setDiscordId] = useState('');
   const [username, setUsername] = useState('');
+  const [userData, setUserData] = useState(null);
   const [error, setError] = useState('');
 
   // Format timestamp
@@ -71,7 +72,7 @@ export default function StatusDashboard() {
     });
   };
 
-  // Check authentication
+  // Check authentication and load user data
   const checkAuth = async () => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
@@ -91,6 +92,7 @@ export default function StatusDashboard() {
         return false;
       }
 
+      setUserData(data);
       setIsAuthenticated(true);
       return true;
     } catch (error) {
@@ -115,6 +117,7 @@ export default function StatusDashboard() {
       }
 
       localStorage.setItem('user', JSON.stringify({ discordId, username }));
+      setUserData(data);
       setIsAuthenticated(true);
       addOrUpdateLogEntry(`User ${username} logged in`, 'success');
     } catch (error) {
@@ -137,6 +140,7 @@ export default function StatusDashboard() {
       }
 
       localStorage.setItem('user', JSON.stringify({ discordId, username }));
+      setUserData(data);
       setIsAuthenticated(true);
       addOrUpdateLogEntry(`User ${username} registered`, 'success');
     } catch (error) {
@@ -328,6 +332,50 @@ export default function StatusDashboard() {
       }}
     >
       <div className="container mx-auto p-6">
+        {/* User Info Card */}
+        {userData && (
+          <div
+            className="rounded-xl p-5 shadow-lg mb-6 max-w-[400px] mx-auto"
+            style={{
+              background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
+              border: '1px solid #333',
+              transition: 'transform 0.2s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+            onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+          >
+            <h2 className="text-lg font-semibold mb-3">User Information</h2>
+            <div className="space-y-2">
+              <p className="text-sm">
+                <span className="font-medium">Username:</span> {userData.username}
+              </p>
+              <p className="text-sm">
+                <span className="font-medium">Discord ID:</span> {userData.discordId}
+              </p>
+              <p className="text-sm">
+                <span className="font-medium">Key:</span> {userData.key}
+              </p>
+              <p className="text-sm">
+                <span className="font-medium">HWID:</span> {userData.hwid || 'Not set'}
+              </p>
+              <p className="text-sm">
+                <span className="font-medium">Subscription Ends:</span>{' '}
+                {new Date(userData.endTime * 1000).toLocaleString('en-US', {
+                  year: 'numeric',
+                  month: 'numeric',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: 'numeric',
+                  hour12: true,
+                  timeZone: 'America/Los_Angeles',
+                })}{' '}
+                PDT
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-xl font-semibold">Status Dashboard</h1>
           <div className="text-sm text-gray-500">
@@ -335,6 +383,7 @@ export default function StatusDashboard() {
           </div>
         </div>
 
+        {/* Service Status (Centered) */}
         <div className="flex justify-center">
           <div
             className="service-card rounded-xl shadow-lg max-w-[400px] p-4"
@@ -367,6 +416,7 @@ export default function StatusDashboard() {
           </div>
         </div>
 
+        {/* Scripts Cards */}
         <div className="flex flex-wrap justify-center gap-6 mt-6">
           {scripts.map((script, index) => (
             <div
@@ -415,6 +465,7 @@ export default function StatusDashboard() {
           ))}
         </div>
 
+        {/* Status Cards (Logs) */}
         <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-1 gap-6 mt-6">
           <div
             className="rounded-xl p-5 shadow-lg"
