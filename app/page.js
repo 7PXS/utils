@@ -8,7 +8,7 @@ export default function StatusDashboard() {
   const [lastUpdated, setLastUpdated] = useState('');
   const [logs, setLogs] = useState([]);
   const [scripts, setScripts] = useState([]);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(true); // Assume authenticated initially
   const [discordId, setDiscordId] = useState('');
   const [username, setUsername] = useState('');
   const [userData, setUserData] = useState(null);
@@ -160,10 +160,12 @@ export default function StatusDashboard() {
       const data = await response.json();
       if (!response.ok) {
         addOrUpdateLogEntry(`Scripts list request failed: ${data.error || 'Unknown error'}`, 'error');
-        if (response.status === 401) {
-          throw new Error('Unauthorized: Invalid authentication header');
-        }
         throw new Error(`HTTP error: ${response.status}`);
+      }
+      // Ensure data is an array
+      if (!Array.isArray(data)) {
+        addOrUpdateLogEntry('Scripts list response is not an array', 'error');
+        throw new Error('Invalid scripts list format');
       }
       return data;
     } catch (error) {
@@ -175,7 +177,7 @@ export default function StatusDashboard() {
   // Fetch individual script content and metadata
   const getScript = async (scriptName) => {
     try {
-      const response = await fetch(`/files?filename=${scriptName}`, {
+      const response = await fetch(`/files/v1?file=${scriptName}`, {
         method: 'GET',
         headers: {
           'Authorization': 'UserMode-2d93n2002n8',
@@ -184,16 +186,10 @@ export default function StatusDashboard() {
       const data = await response.json();
       if (!response.ok) {
         addOrUpdateLogEntry(`Script "${scriptName}" failed to load: ${data.error || 'Unknown error'}`, 'error', scriptName);
-        if (response.status === 401) {
-          throw new Error('Unauthorized: Invalid authentication header');
-        }
-        if (response.status === 404) {
-          throw new Error(`Script "${scriptName}" not found`);
-        }
         throw new Error(`HTTP error: ${response.status}`);
       }
       addOrUpdateLogEntry(`Script "${scriptName}" Loaded`, 'success', scriptName);
-      return data.content;
+      return data;
     } catch (error) {
       addOrUpdateLogEntry(`Script "${scriptName}" failed to load: ${error.message}`, 'error', scriptName);
       throw error;
@@ -210,16 +206,17 @@ export default function StatusDashboard() {
           'Authorization': 'UserMode-2d93n2002n8',
         },
       });
-      const metadataData = await metadataResponse.json();
-      if (!metadataResponse.ok) {
-        addOrUpdateLogEntry(`Metadata request failed: ${metadataData.error || 'Unknown error'}`, 'error');
-        throw new Error(`HTTP error: ${metadataResponse.status}`);
+      let metadataData = {};
+      if (metadataResponse.ok) {
+        metadataData = await metadataResponse.json();
+      } else {
+        addOrUpdateLogEntry(`Metadata request failed: ${metadataResponse.statusText}`, 'warning');
       }
 
       const scriptPromises = scriptNames.map(async (scriptName) => {
         try {
           const content = await getScript(scriptName);
-          const scriptData = metadataData.scripts[scriptName] || {};
+          const scriptData = metadataData.scripts?.[scriptName] || {};
 
           return {
             name: scriptName,
@@ -242,24 +239,22 @@ export default function StatusDashboard() {
       const scriptResults = await Promise.all(scriptPromises);
       setScripts(scriptResults);
     } catch (error) {
-      // Error already logged
+      addOrUpdateLogEntry(`Failed to fetch scripts: ${error.message}`, 'error');
     }
   };
 
   // Initialize dashboard
   useEffect(() => {
     const init = async () => {
+      updateTimestamp();
+      addOrUpdateLogEntry('Dashboard initialized', 'success');
       const authValid = await checkAuth();
       if (authValid) {
-        updateTimestamp();
-        addOrUpdateLogEntry('Dashboard initialized', 'success');
         fetchAllScripts();
-
         const interval = setInterval(() => {
           updateTimestamp();
           fetchAllScripts();
         }, 60000);
-
         return () => clearInterval(interval);
       }
     };
@@ -332,49 +327,6 @@ export default function StatusDashboard() {
       }}
     >
       <div className="container mx-auto p-6">
-        {/* User Info Card */}
-        {userData && (
-          <div
-            className="rounded-xl p-5 shadow-lg mb-6 max-w-[400px] mx-auto"
-            style={{
-              background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
-              border: '1px solid #333',
-              transition: 'transform 0.2s ease',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-            onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
-          >
-            <h2 className="text-lg font-semibold mb-3">User Information</h2>
-            <div className="space-y-2">
-              <p className="text-sm">
-                <span className="font-medium">Username:</span> {userData.username}
-              </p>
-              <p className="text-sm">
-                <span className="font-medium">Discord ID:</span> {userData.discordId}
-              </p>
-              <p className="text-sm">
-                <span className="font-medium">Key:</span> {userData.key}
-              </p>
-              <p className="text-sm">
-                <span className="font-medium">HWID:</span> {userData.hwid || 'Not set'}
-              </p>
-              <p className="text-sm">
-                <span className="font-medium">Subscription Ends:</span>{' '}
-                {new Date(userData.endTime * 1000).toLocaleString('en-US', {
-                  year: 'numeric',
-                  month: 'numeric',
-                  day: 'numeric',
-                  hour: 'numeric',
-                  minute: 'numeric',
-                  hour12: true,
-                  timeZone: 'America/Los_Angeles',
-                })}{' '}
-                PDT
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-xl font-semibold">Status Dashboard</h1>
@@ -416,53 +368,119 @@ export default function StatusDashboard() {
           </div>
         </div>
 
-        {/* Scripts Cards */}
-        <div className="flex flex-wrap justify-center gap-6 mt-6">
-          {scripts.map((script, index) => (
+        {/* User Info Card (Under Status Card) */}
+        {userData && (
+          <div
+            className="flex justify-center mt-6"
+          >
             <div
-              key={index}
-              className="rounded-xl p-5 shadow-lg w-full max-w-[400px]"
+              className="rounded-xl p-5 shadow-lg max-w-[400px] w-full"
               style={{
                 background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
                 border: '1px solid #333',
-                transition: 'transform 0.2s ease',
+                transition: 'transform 0.3s ease, box-shadow 0.3s ease',
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-              onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px)';
+                e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
             >
-              <div className="flex justify-between items-center mb-3">
-                <div className="flex items-center">
-                  <h3 className="text-md font-semibold">{script.name}</h3>
-                  <span
-                    className={`ml-2 h-4 w-4 rounded-full ${
-                      script.status === 'success' ? 'bg-green-500' : 'bg-red-500'
-                    } status-dot`}
-                    style={{ boxShadow: `0 0 8px rgba(${script.status === 'success' ? '0, 255, 0' : '255, 0, 0'}, 0.5)` }}
-                  ></span>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2 mb-4">
+              <h2 className="text-lg font-semibold mb-4 text-center text-green-400">User Profile</h2>
+              <div className="flex flex-wrap gap-2 mb-4 justify-center">
                 <span
                   className="text-gray-300 text-xs font-semibold px-2 py-1 rounded category-tag"
                   style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
                 >
-                  {script.language}
+                  Username: {userData.username}
                 </span>
                 <span
                   className="text-gray-300 text-xs font-semibold px-2 py-1 rounded category-tag"
                   style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
                 >
-                  {script.version}
+                  Discord: {userData.discordId}
+                </span>
+                <span
+                  className="text-gray-300 text-xs font-semibold px-2 py-1 rounded category-tag"
+                  style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                >
+                  Key: {userData.key}
+                </span>
+                <span
+                  className="text-gray-300 text-xs font-semibold px-2 py-1 rounded category-tag"
+                  style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                >
+                  HWID: {userData.hwid || 'Not set'}
+                </span>
+                <span
+                  className="text-gray-300 text-xs font-semibold px-2 py-1 rounded category-tag"
+                  style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                >
+                  Ends: {new Date(userData.endTime * 1000).toLocaleString('en-US', {
+                    month: 'numeric',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
                 </span>
               </div>
-              <p className="text-xs text-gray-500 mt-3">
-                Status: {script.status === 'success' ? 'Loaded' : 'Failed to load'}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Last Updated: {script.lastUpdated}
-              </p>
             </div>
-          ))}
+          </div>
+        )}
+
+        {/* Scripts Cards */}
+        <div className="flex flex-wrap justify-center gap-6 mt-6">
+          {scripts.length === 0 ? (
+            <p className="text-gray-500">No scripts available or loading...</p>
+          ) : (
+            scripts.map((script, index) => (
+              <div
+                key={index}
+                className="rounded-xl p-5 shadow-lg w-full max-w-[400px]"
+                style={{
+                  background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
+                  border: '1px solid #333',
+                  transition: 'transform 0.2s ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+                onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+              >
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex items-center">
+                    <h3 className="text-md font-semibold">{script.name}</h3>
+                    <span
+                      className={`ml-2 h-4 w-4 rounded-full ${
+                        script.status === 'success' ? 'bg-green-500' : 'bg-red-500'
+                      } status-dot`}
+                      style={{ boxShadow: `0 0 8px rgba(${script.status === 'success' ? '0, 255, 0' : '255, 0, 0'}, 0.5)` }}
+                    ></span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <span
+                    className="text-gray-300 text-xs font-semibold px-2 py-1 rounded category-tag"
+                    style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                  >
+                    {script.language}
+                  </span>
+                  <span
+                    className="text-gray-300 text-xs font-semibold px-2 py-1 rounded category-tag"
+                    style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                  >
+                    {script.version}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-3">
+                  Status: {script.status === 'success' ? 'Loaded' : 'Failed to load'}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Last Updated: {script.lastUpdated}
+                </p>
+              </div>
+            ))
+          )}
         </div>
 
         {/* Status Cards (Logs) */}
