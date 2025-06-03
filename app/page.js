@@ -3,12 +3,10 @@
 import { useState, useEffect } from 'react';
 
 export default function StatusDashboard() {
-  const versionPrefix = 'version-';
-  const [version, setVersion] = useState('');
   const [lastUpdated, setLastUpdated] = useState('');
   const [logs, setLogs] = useState([]);
   const [scripts, setScripts] = useState([]);
-  const [isAuthenticated, setIsAuthenticated] = useState(true); // Assume authenticated initially
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [discordId, setDiscordId] = useState('');
   const [username, setUsername] = useState('');
   const [userData, setUserData] = useState(null);
@@ -82,7 +80,7 @@ export default function StatusDashboard() {
 
     try {
       const user = JSON.parse(storedUser);
-      const response = await fetch(`/login/v1?ID=${user.discordId}&username=${user.username}`);
+      const response = await fetch(`/login/v1?ID=${encodeURIComponent(user.discordId)}&username=${encodeURIComponent(user.username)}`);
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -108,7 +106,7 @@ export default function StatusDashboard() {
     setError('');
 
     try {
-      const response = await fetch(`/login/v1?ID=${discordId}&username=${username}`);
+      const response = await fetch(`/login/v1?ID=${encodeURIComponent(discordId)}&username=${encodeURIComponent(username)}`);
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -119,9 +117,9 @@ export default function StatusDashboard() {
       localStorage.setItem('user', JSON.stringify({ discordId, username }));
       setUserData(data);
       setIsAuthenticated(true);
-      addOrUpdateLogEntry(`User ${username} logged in`, 'success');
+      addOrUpdateLogEntry(`User ${username} logged in successfully`, 'success');
     } catch (error) {
-      setError('Error during login');
+      setError('An error occurred during login');
     }
   };
 
@@ -131,7 +129,7 @@ export default function StatusDashboard() {
     setError('');
 
     try {
-      const response = await fetch(`/register/v1?ID=${discordId}&time=30d&username=${username}`);
+      const response = await fetch(`/register/v1?ID=${encodeURIComponent(discordId)}&time=30d&username=${encodeURIComponent(username)}`);
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -142,9 +140,39 @@ export default function StatusDashboard() {
       localStorage.setItem('user', JSON.stringify({ discordId, username }));
       setUserData(data);
       setIsAuthenticated(true);
-      addOrUpdateLogEntry(`User ${username} registered`, 'success');
+      addOrUpdateLogEntry(`User ${username} registered successfully`, 'success');
     } catch (error) {
-      setError('Error during registration');
+      setError('An error occurred during registration');
+    }
+  };
+
+  // Handle HWID reset
+  const handleHwidReset = async () => {
+    if (!userData?.discordId) {
+      setError('User not authenticated');
+      return;
+    }
+
+    try {
+      const response = await fetch('/reset-hwid/v1', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${userData.discordId}`,
+        },
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setError(data.error || 'HWID reset failed');
+        addOrUpdateLogEntry(`HWID reset failed: ${data.error || 'Unknown error'}`, 'error');
+        return;
+      }
+
+      setUserData({ ...userData, hwid: '' });
+      addOrUpdateLogEntry('HWID reset successfully', 'success');
+    } catch (error) {
+      setError('An error occurred during HWID reset');
+      addOrUpdateLogEntry(`HWID reset failed: ${error.message}`, 'error');
     }
   };
 
@@ -157,130 +185,119 @@ export default function StatusDashboard() {
           'Authorization': 'UserMode-2d93n2002n8',
         },
       });
+
       const data = await response.json();
       if (!response.ok) {
         addOrUpdateLogEntry(`Scripts list request failed: ${data.error || 'Unknown error'}`, 'error');
         throw new Error(`HTTP error: ${response.status}`);
       }
-      // Ensure data is an array
+
       if (!Array.isArray(data)) {
         addOrUpdateLogEntry('Scripts list response is not an array', 'error');
-        throw new Error('Invalid scripts list format');
+        throw new Error('Invalid response format');
       }
-      return data;
+
+      return data.length > 0 ? data : [];
     } catch (error) {
-      addOrUpdateLogEntry(`Scripts list request failed: ${error.message}`, 'error');
+      addOrUpdateLogEntry(`Failed to fetch scripts list: ${error.message}`, 'error');
       throw error;
     }
   };
 
-  // Fetch individual script content and metadata
-  const getScript = async (scriptName) => {
+  // Fetch individual script details (excluding Code)
+  const fetchIndividualScript = async (scriptName) => {
     try {
-      const response = await fetch(`/files/v1?file=${scriptName}`, {
+      const response = await fetch(`/files/v1?file=${encodeURIComponent(scriptName)}`, {
         method: 'GET',
         headers: {
           'Authorization': 'UserMode-2d93n2002n8',
         },
       });
+
       const data = await response.json();
       if (!response.ok) {
-        addOrUpdateLogEntry(`Script "${scriptName}" failed to load: ${data.error || 'Unknown error'}`, 'error', scriptName);
+        addOrUpdateLogEntry(`Failed to load script "${scriptName}" data: ${data.error || 'Unknown error'}`, 'error', scriptName);
         throw new Error(`HTTP error: ${response.status}`);
       }
-      addOrUpdateLogEntry(`Script "${scriptName}" Loaded`, 'success', scriptName);
-      return data;
+
+      addOrUpdateLogEntry(`Script "${scriptName}" loaded successfully`, 'success', scriptName);
+      return {
+        Lang: data.Lang || 'Unknown',
+        Version: data.Version || 'N/A',
+      };
     } catch (error) {
-      addOrUpdateLogEntry(`Script "${scriptName}" failed to load: ${error.message}`, 'error', scriptName);
-      throw error;
+      addOrUpdateLogEntry(`Failed to load script "${scriptName}" data: ${error.message}`, 'error', scriptName);
+      return {
+        Lang: 'Unknown',
+        Version: 'N/A',
+      };
     }
   };
 
   // Fetch all scripts and update state
-  const fetchAllScripts = async () => {
+  async function fetchAllScripts() {
     try {
       const scriptNames = await fetchScriptsList();
-      const metadataResponse = await fetch('/scripts-metadata', {
-        method: 'GET',
-        headers: {
-          'Authorization': 'UserMode-2d93n2002n8',
-        },
-      });
-      let metadataData = {};
-      if (metadataResponse.ok) {
-        metadataData = await metadataResponse.json();
-      } else {
-        addOrUpdateLogEntry(`Metadata request failed: ${metadataResponse.statusText}`, 'warning');
-      }
-
       const scriptPromises = scriptNames.map(async (scriptName) => {
-        try {
-          const content = await getScript(scriptName);
-          const scriptData = metadataData.scripts?.[scriptName] || {};
-
-          return {
-            name: scriptName,
-            language: scriptData.Lang || 'Unknown',
-            status: 'success',
-            version: scriptData.Version || 'N/A',
-            lastUpdated: getFormattedDate(),
-            content,
-          };
-        } catch (error) {
-          return {
-            name: scriptName,
-            language: 'Unknown',
-            status: 'error',
-            version: 'N/A',
-            lastUpdated: 'N/A',
-          };
-        }
+        const scriptData = await fetchIndividualScript(scriptName);
+        return {
+          name: scriptName,
+          language: scriptData.Lang,
+          status: scriptData.Lang !== 'Unknown' ? 'success' : 'error',
+          version: scriptData.Version,
+          lastUpdated: getFormattedDate(),
+        };
       });
+
       const scriptResults = await Promise.all(scriptPromises);
       setScripts(scriptResults);
     } catch (error) {
       addOrUpdateLogEntry(`Failed to fetch scripts: ${error.message}`, 'error');
     }
-  };
+  }
 
   // Initialize dashboard
   useEffect(() => {
-    const init = async () => {
+    const initialize = async () => {
       updateTimestamp();
       addOrUpdateLogEntry('Dashboard initialized', 'success');
       const authValid = await checkAuth();
       if (authValid) {
         fetchAllScripts();
-        const interval = setInterval(() => {
+        const intervalId = setInterval(() => {
           updateTimestamp();
           fetchAllScripts();
         }, 60000);
-        return () => clearInterval(interval);
+        return () => clearInterval(intervalId);
       }
     };
-    init();
+
+    initialize().catch((error) => {
+      console.error('Initialization error:', error);
+      setError('Failed to initialize dashboard');
+    });
   }, []);
 
   if (!isAuthenticated) {
     return (
       <div
-        className="min-h-screen text-gray-200 flex items-center justify-center"
+        className="min-h-screen flex items-center justify-center text-gray-300"
         style={{
           backgroundColor: '#1a1a1a',
-          backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 40 40\'%3E%3Cg fill=\'%23222222\' fill-opacity=\'0.3\'%3E%3Cpath d=\'M0 0h40v40H0z\'/%3E%3Cpath d=\'M0 0h20v20H0zM20 20h20v20H20z\'/%3E%3C/g%3E%3C/svg%3E")',
-          fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+          backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Cg fill=%22#222222%22 fill-opacity=%220.3%22%3E%3Cpath d=%22M0 0h40v20H0zM20 20h20v20H20z%22/%3E%3C/g%3E%3C/svg%3E")',
+          fontFamily: 'Inter, sans-serif',
         }}
       >
         <div
-          className="rounded-xl p-8 shadow-lg max-w-md w-full"
+          className="p-8 rounded-xl shadow-lg max-w-md w-full"
           style={{
             background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
             border: '1px solid #333',
           }}
         >
-          <h2 className="text-xl font-semibold mb-6 text-center">Login or Register</h2>
+          <h2 className="mb-6 text-center text-xl font-semibold">Login or Register</h2>
           {error && (
-            <p className="text-red-400 mb-4 text-center">{error}</p>
+            <p className="mb-4 text-center text-red-400">{error}</p>
           )}
           <div className="space-y-4">
             <input
@@ -300,13 +317,13 @@ export default function StatusDashboard() {
             <div className="flex gap-4">
               <button
                 onClick={handleLogin}
-                className="flex-1 p-2 rounded bg-green-500 text-white font-semibold hover:bg-green-600 transition"
+                className="flex-1 p-2 rounded bg-green-600 text-white font-semibold transition hover:bg-green-700"
               >
                 Login
               </button>
               <button
                 onClick={handleRegister}
-                className="flex-1 p-2 rounded bg-blue-500 text-white font-semibold hover:bg-blue-600 transition"
+                className="flex-1 p-2 rounded bg-blue-600 text-white font-semibold transition hover:bg-blue-700"
               >
                 Register
               </button>
@@ -322,13 +339,13 @@ export default function StatusDashboard() {
       className="min-h-screen text-gray-200"
       style={{
         backgroundColor: '#1a1a1a',
-        backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 40 40\'%3E%3Cg fill=\'%23222222\' fill-opacity=\'0.3\'%3E%3Cpath d=\'M0 0h40v40H0z\'/%3E%3Cpath d=\'M0 0h20v20H0zM20 20h20v20H20z\'/%3E%3C/g%3E%3C/svg%3E")',
-        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+        backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Cg fill=%22#222222%22 fill-opacity=%220.3%22%3E%3Cpath d=%22M0 0h40v40H0z%22/%3E%3Cpath d=%22M0 0h20v20H0zM20 20h20v20H20z%22/%3E%3C/g%3E%3C/svg%3E")',
+        fontFamily: 'Inter, sans-serif',
       }}
     >
       <div className="container mx-auto p-6">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="mb-6 flex items-center justify-between">
           <h1 className="text-xl font-semibold">Status Dashboard</h1>
           <div className="text-sm text-gray-500">
             Last Updated: {lastUpdated}
@@ -338,7 +355,7 @@ export default function StatusDashboard() {
         {/* Service Status (Centered) */}
         <div className="flex justify-center">
           <div
-            className="service-card rounded-xl shadow-lg max-w-[400px] p-4"
+            className="max-w-[400px] rounded-xl p-4 shadow-lg"
             style={{
               background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
               border: '1px solid #333',
@@ -347,34 +364,32 @@ export default function StatusDashboard() {
             onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
             onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
           >
-            <div className="flex justify-center items-center mb-3">
+            <div className="mb-3 flex items-center justify-center">
               <div className="flex items-center">
-                <h2 className="text-lg font-semibold text-center">Status</h2>
+                <h2 className="text-center text-lg font-semibold">Status</h2>
                 <span
-                  className="ml-2 h-4 w-4 rounded-full bg-green-500 status-dot"
+                  className="ml-2 h-4 w-4 rounded-full bg-green-500"
                   style={{ boxShadow: '0 0 8px rgba(0, 255, 0, 0.5)' }}
                 ></span>
               </div>
             </div>
-            <div className="flex flex-wrap gap-2 mb-4 justify-center">
+            <div className="mb-4 flex flex-wrap gap-2 justify-center">
               <span
-                className="text-gray-300 text-xs font-semibold px-2 py-1 rounded category-tag"
+                className="rounded px-2 py-1 text-xs font-semibold text-gray-300"
                 style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
               >
                 {getFormattedDate()}
               </span>
             </div>
-            <p className="text-xs text-gray-500 mt-3 text-center">Windows • {lastUpdated}</p>
+            <p className="mt-3 text-center text-xs text-gray-500">Windows • {lastUpdated}</p>
           </div>
         </div>
 
         {/* User Info Card (Under Status Card) */}
         {userData && (
-          <div
-            className="flex justify-center mt-6"
-          >
+          <div className="mt-6 flex justify-center">
             <div
-              className="rounded-xl p-5 shadow-lg max-w-[400px] w-full"
+              className="w-full max-w-[400px] rounded-xl p-5 shadow-lg"
               style={{
                 background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
                 border: '1px solid #333',
@@ -389,34 +404,34 @@ export default function StatusDashboard() {
                 e.currentTarget.style.boxShadow = 'none';
               }}
             >
-              <h2 className="text-lg font-semibold mb-4 text-center text-green-400">User Profile</h2>
-              <div className="flex flex-wrap gap-2 mb-4 justify-center">
+              <h2 className="mb-4 text-center text-lg font-semibold text-green-400">User Profile</h2>
+              <div className="mb-4 flex flex-wrap gap-2 justify-center">
                 <span
-                  className="text-gray-300 text-xs font-semibold px-2 py-1 rounded category-tag"
+                  className="rounded px-2 py-1 text-xs font-semibold text-gray-300"
                   style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
                 >
                   Username: {userData.username}
                 </span>
                 <span
-                  className="text-gray-300 text-xs font-semibold px-2 py-1 rounded category-tag"
+                  className="rounded px-2 py-1 text-xs font-semibold text-gray-300"
                   style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
                 >
                   Discord: {userData.discordId}
                 </span>
                 <span
-                  className="text-gray-300 text-xs font-semibold px-2 py-1 rounded category-tag"
+                  className="rounded px-2 py-1 text-xs font-semibold text-gray-300"
                   style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
                 >
                   Key: {userData.key}
                 </span>
                 <span
-                  className="text-gray-300 text-xs font-semibold px-2 py-1 rounded category-tag"
+                  className="rounded px-2 py-1 text-xs font-semibold text-gray-300"
                   style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
                 >
                   HWID: {userData.hwid || 'Not set'}
                 </span>
                 <span
-                  className="text-gray-300 text-xs font-semibold px-2 py-1 rounded category-tag"
+                  className="rounded px-2 py-1 text-xs font-semibold text-gray-300"
                   style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
                 >
                   Ends: {new Date(userData.endTime * 1000).toLocaleString('en-US', {
@@ -426,19 +441,32 @@ export default function StatusDashboard() {
                   })}
                 </span>
               </div>
+              <div className="flex justify-center">
+                <button
+                  onClick={handleHwidReset}
+                  disabled={!userData.hwid}
+                  className={`p-2 rounded text-white font-semibold transition ${
+                    userData.hwid
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : 'bg-gray-600 cursor-not-allowed'
+                  }`}
+                >
+                  Reset HWID
+                </button>
+              </div>
             </div>
           </div>
         )}
 
         {/* Scripts Cards */}
-        <div className="flex flex-wrap justify-center gap-6 mt-6">
+        <div className="mt-6 flex flex-wrap justify-center gap-6">
           {scripts.length === 0 ? (
             <p className="text-gray-500">No scripts available or loading...</p>
           ) : (
             scripts.map((script, index) => (
               <div
                 key={index}
-                className="rounded-xl p-5 shadow-lg w-full max-w-[400px]"
+                className="w-full max-w-[400px] rounded-xl p-5 shadow-lg"
                 style={{
                   background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
                   border: '1px solid #333',
@@ -447,35 +475,35 @@ export default function StatusDashboard() {
                 onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
                 onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
               >
-                <div className="flex justify-between items-center mb-3">
+                <div className="mb-3 flex items-center justify-between">
                   <div className="flex items-center">
                     <h3 className="text-md font-semibold">{script.name}</h3>
                     <span
                       className={`ml-2 h-4 w-4 rounded-full ${
                         script.status === 'success' ? 'bg-green-500' : 'bg-red-500'
-                      } status-dot`}
+                      }`}
                       style={{ boxShadow: `0 0 8px rgba(${script.status === 'success' ? '0, 255, 0' : '255, 0, 0'}, 0.5)` }}
                     ></span>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2 mb-4">
+                <div className="mb-4 flex flex-wrap gap-2">
                   <span
-                    className="text-gray-300 text-xs font-semibold px-2 py-1 rounded category-tag"
+                    className="rounded px-2 py-1 text-xs font-semibold text-gray-300"
                     style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
                   >
                     {script.language}
                   </span>
                   <span
-                    className="text-gray-300 text-xs font-semibold px-2 py-1 rounded category-tag"
+                    className="rounded px-2 py-1 text-xs font-semibold text-gray-300"
                     style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
                   >
                     {script.version}
                   </span>
                 </div>
-                <p className="text-xs text-gray-500 mt-3">
+                <p className="mt-3 text-xs text-gray-500">
                   Status: {script.status === 'success' ? 'Loaded' : 'Failed to load'}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="mt-1 text-xs text-gray-500">
                   Last Updated: {script.lastUpdated}
                 </p>
               </div>
@@ -484,7 +512,7 @@ export default function StatusDashboard() {
         </div>
 
         {/* Status Cards (Logs) */}
-        <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-1 gap-6 mt-6">
+        <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-1 lg:grid-cols-1">
           <div
             className="rounded-xl p-5 shadow-lg"
             style={{
@@ -495,16 +523,16 @@ export default function StatusDashboard() {
             onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
             onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
           >
-            <div className="flex justify-between items-center mb-3">
+            <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center">
                 <span
-                  className="text-gray-300 text-xs font-semibold px-2 py-1 rounded"
+                  className="rounded px-2 py-1 text-xs font-semibold text-gray-300"
                   style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
                 >
                   Service endpoint logs
                 </span>
               </div>
-              <span className="text-gray-400 font-medium">by 7PX$</span>
+              <span className="font-medium text-gray-400">by 7PX</span>
             </div>
             <div
               className="rounded-lg p-4"
@@ -519,14 +547,14 @@ export default function StatusDashboard() {
             >
               {logs.map((log, index) => (
                 <div key={index} className="log-entry flex items-center mb-2">
-                  <span className="log-icon mr-2">{log.icon}</span>
+                  <span className="mr-2">{log.icon}</span>
                   <span
                     className={
                       log.type === 'success'
-                        ? 'log-success text-green-400'
+                        ? 'text-green-400'
                         : log.type === 'warning'
-                        ? 'log-warning text-yellow-400'
-                        : 'log-error text-red-400'
+                        ? 'text-yellow-400'
+                        : 'text-red-400'
                     }
                   >
                     [{log.time}] {log.message}
