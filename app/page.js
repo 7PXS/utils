@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 
 export default function StatusDashboard() {
   const [lastUpdated, setLastUpdated] = useState('');
@@ -90,6 +91,7 @@ export default function StatusDashboard() {
         return false;
       }
 
+      setUsername(user.username);
       setIsAuthenticated(true);
       return true;
     } catch (error) {
@@ -175,7 +177,14 @@ export default function StatusDashboard() {
         addOrUpdateLogEntry('Executors response is not an array', 'error');
         throw new Error('Invalid response format');
       }
-      setExecutors(data);
+      // Filter for AWP, Visuial, and Wave
+      const filteredExecutors = data.filter(executor =>
+        ['AWP', 'Visuial', 'Wave'].includes(executor.title)
+      );
+      setExecutors(filteredExecutors);
+      if (filteredExecutors.length === 0) {
+        addOrUpdateLogEntry('No matching executors found for AWP, Visuial, or Wave', 'warning');
+      }
     } catch (error) {
       addOrUpdateLogEntry(`Failed to fetch executors: ${error.message}`, 'error');
     }
@@ -229,15 +238,15 @@ export default function StatusDashboard() {
             100% { transform: translateY(-100vh) translateX(10px); opacity: 0; }
           }
           @keyframes glowPulse {
-            0% { box-shadow: 0 0 5px rgba(0, 255, 128, 0.5); }
-            50% { box-shadow: 0 0 15px rgba(0, 255, 128, 0.8); }
-            100% { box-shadow: 0 0 5px rgba(0, 255, 128, 0.5); }
+            0% { box-shadow: 0 0 5px rgba(161, 0, 255, 0.5); }
+            50% { box-shadow: 0 0 15px rgba(161, 0, 255, 0.8); }
+            100% { box-shadow: 0 0 5px rgba(161, 0, 255, 0.5); }
           }
           .particle {
             position: absolute;
             width: 2px;
             height: 2px;
-            background: rgba(0, 255, 128, 0.5);
+            background: rgba(161, 0, 255, 0.5);
             border-radius: 50%;
             animation: particleFloat 10s infinite ease-in-out;
             pointer-events: none;
@@ -255,7 +264,7 @@ export default function StatusDashboard() {
           .input-field:not(:placeholder-shown) + .input-label {
             top: -8px;
             font-size: 12px;
-            color: #00ff80;
+            color: #a100ff;
           }
           .input-field {
             background: none;
@@ -264,7 +273,7 @@ export default function StatusDashboard() {
             transition: border-color 0.3s ease;
           }
           .input-field:focus {
-            border-color: #00ff80;
+            border-color: #a100ff;
             outline: none;
           }
           .ripple-button {
@@ -302,13 +311,13 @@ export default function StatusDashboard() {
           style={{
             background: 'rgba(30, 30, 30, 0.9)',
             backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(0, 255, 128, 0.3)',
-            boxShadow: '0 0 20px rgba(0, 255, 128, 0.3)',
+            border: '1px solid rgba(161, 0, 255, 0.3)',
+            boxShadow: '0 0 20px rgba(161, 0, 255, 0.3)',
             animation: 'glowPulse 2s infinite ease-in-out',
           }}
         >
           <h2 className="mb-8 text-center text-2xl font-bold text-white tracking-wide">
-            <span style={{ color: '#00ff80' }}>7Px</span> Dashboard
+            <span style={{ color: '#a100ff' }}>7Px</span> Dashboard
           </h2>
           {error && (
             <p className="mb-6 text-center text-red-400 animate-pulse">{error}</p>
@@ -357,8 +366,8 @@ export default function StatusDashboard() {
                 }}
                 className="ripple-button flex-1 p-3 rounded-lg text-white font-semibold transition-all duration-300"
                 style={{
-                  background: 'linear-gradient(90deg, #00ff80, #00cc66)',
-                  boxShadow: '0 0 10px rgba(0, 255, 128, 0.5)',
+                  background: 'linear-gradient(90deg, #a100ff, #7b00cc)',
+                  boxShadow: '0 0 10px rgba(161, 0, 255, 0.5)',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.filter = 'brightness(1.2)';
@@ -385,8 +394,8 @@ export default function StatusDashboard() {
                 }}
                 className="ripple-button flex-1 p-3 rounded-lg text-white font-semibold transition-all duration-300"
                 style={{
-                  background: 'linear-gradient(90deg, #00b7ff, #0088cc)',
-                  boxShadow: '0 0 10px rgba(0, 183, 255, 0.5)',
+                  background: 'linear-gradient(90deg, #a100ff, #7b00cc)',
+                  boxShadow: '0 0 10px rgba(161, 0, 255, 0.5)',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.filter = 'brightness(1.2)';
@@ -424,9 +433,9 @@ export default function StatusDashboard() {
           100% { background-position: 0% 50%; }
         }
         @keyframes glowPulse {
-          0% { box-shadow: 0 0 5px rgba(0, 255, 128, 0.5); }
-          50% { box-shadow: 0 0 15px rgba(0, 255, 128, 0.8); }
-          100% { box-shadow: 0 0 5px rgba(0, 255, 128, 0.5); }
+          0% { box-shadow: 0 0 5px rgba(161, 0, 255, 0.5); }
+          50% { box-shadow: 0 0 15px rgba(161, 0, 255, 0.8); }
+          100% { box-shadow: 0 0 5px rgba(161, 0, 255, 0.5); }
         }
         @keyframes rippleEffect {
           to {
@@ -447,12 +456,68 @@ export default function StatusDashboard() {
           pointer-events: none;
         }
       `}</style>
-      <div className="container mx-auto p-8">
+
+      {/* Topbar */}
+      <nav
+        className="fixed top-0 left-0 w-full z-50"
+        style={{
+          background: 'rgba(30, 30, 30, 0.95)',
+          backdropFilter: 'blur(10px)',
+          borderBottom: '1px solid rgba(161, 0, 255, 0.3)',
+          boxShadow: '0 4px 10px rgba(0, 0, 0, 0.5)',
+        }}
+      >
+        <div className="container mx-auto px-8 py-4 flex justify-between items-center">
+          <div className="flex items-center">
+            <h1
+              className="text-xl font-bold tracking-wide text-white"
+              style={{ textShadow: '0 0 10px rgba(161, 0, 255, 0.5)' }}
+            >
+              <span style={{ color: '#a100ff' }}>7Px</span> Dashboard
+            </h1>
+          </div>
+          <Link href="/profile">
+            <div
+              className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-all duration-300"
+              style={{
+                background: 'rgba(50, 50, 50, 0.8)',
+                border: '1px solid rgba(161, 0, 255, 0.2)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(70, 70, 70, 0.8)';
+                e.currentTarget.style.boxShadow = '0 0 10px rgba(161, 0, 255, 0.5)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(50, 50, 50, 0.8)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              <svg
+                className="w-5 h-5 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M5.121 17.804A7 7 0 1112 5a7 7 0 016.879 5.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm-3 7a3 3 0 00-3 3h6a3 3 0 00-3-3z"
+                />
+              </svg>
+              <span className="text-sm text-white">{username || 'User'}</span>
+            </div>
+          </Link>
+        </div>
+      </nav>
+
+      <div className="container mx-auto p-8 pt-24">
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <h1
             className="text-2xl font-bold tracking-wide"
-            style={{ color: '#00ff80', textShadow: '0 0 10px rgba(0, 255, 128, 0.5)' }}
+            style={{ color: '#a100ff', textShadow: '0 0 10px rgba(161, 0, 255, 0.5)' }}
           >
             Status Dashboard
           </h1>
@@ -462,7 +527,7 @@ export default function StatusDashboard() {
               background: 'rgba(30, 30, 30, 0.8)',
               padding: '4px 12px',
               borderRadius: '12px',
-              border: '1px solid rgba(0, 255, 128, 0.2)',
+              border: '1px solid rgba(161, 0, 255, 0.2)',
             }}
           >
             Last Updated: {lastUpdated}
@@ -476,27 +541,27 @@ export default function StatusDashboard() {
             style={{
               background: 'rgba(30, 30, 30, 0.9)',
               backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(0, 255, 128, 0.3)',
-              boxShadow: '0 0 20px rgba(0, 255, 128, 0.3)',
+              border: '1px solid rgba(161, 0, 255, 0.3)',
+              boxShadow: '0 0 20px rgba(161, 0, 255, 0.3)',
               transition: 'all 0.3s ease',
               animation: 'glowPulse 2s infinite ease-in-out',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = 'scale(1.03)';
-              e.currentTarget.style.boxShadow = '0 0 30px rgba(0, 255, 128, 0.5)';
+              e.currentTarget.style.boxShadow = '0 0 30px rgba(161, 0, 255, 0.5)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'scale(1)';
-              e.currentTarget.style.boxShadow = '0 0 20px rgba(0, 255, 128, 0.3)';
+              e.currentTarget.style.boxShadow = '0 0 20px rgba(161, 0, 255, 0.3)';
             }}
           >
             <div className="mb-4 flex items-center justify-center">
               <div className="flex items-center">
                 <h2 className="text-center text-xl font-semibold text-white">Roblox Version</h2>
                 <span
-                  className="ml-3 h-5 w-5 rounded-full bg-green-500"
+                  className="ml-3 h-5 w-5 rounded-full bg-purple-500"
                   style={{
-                    boxShadow: '0 0 15px rgba(0, 255, 0, 0.7)',
+                    boxShadow: '0 0 15px rgba(161, 0, 255, 0.7)',
                     animation: 'glowPulse 1.5s infinite ease-in-out',
                   }}
                 ></span>
@@ -507,7 +572,7 @@ export default function StatusDashboard() {
                 className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
                 style={{
                   background: 'rgba(50, 50, 50, 0.8)',
-                  border: '1px solid rgba(0, 255, 128, 0.2)',
+                  border: '1px solid rgba(161, 0, 255, 0.2)',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px',
                 }}
@@ -524,7 +589,9 @@ export default function StatusDashboard() {
         {/* Executors Cards */}
         <div className="mt-8 flex flex-wrap justify-center gap-8">
           {executors.length === 0 ? (
-            <p className="text-gray-400 animate-pulse">No executors available or loading...</p>
+            <p className="text-gray-400 animate-pulse">
+              No matching executors found for AWP, Visuial, or Wave.
+            </p>
           ) : (
             executors.map((executor, index) => (
               <div
@@ -533,18 +600,18 @@ export default function StatusDashboard() {
                 style={{
                   background: 'rgba(30, 30, 30, 0.9)',
                   backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(0, 255, 128, 0.3)',
-                  boxShadow: '0 0 20px rgba(0, 255, 128, 0.3)',
+                  border: '1px solid rgba(161, 0, 255, 0.3)',
+                  boxShadow: '0 0 20px rgba(161, 0, 255, 0.3)',
                   transition: 'all 0.3s ease',
                   animation: 'glowPulse 2s infinite ease-in-out',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = 'scale(1.03)';
-                  e.currentTarget.style.boxShadow = '0 0 30px rgba(0, 255, 128, 0.5)';
+                  e.currentTarget.style.boxShadow = '0 0 30px rgba(161, 0, 255, 0.5)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = 'scale(1)';
-                  e.currentTarget.style.boxShadow = '0 0 20px rgba(0, 255, 128, 0.3)';
+                  e.currentTarget.style.boxShadow = '0 0 20px rgba(161, 0, 255, 0.3)';
                 }}
               >
                 <div className="mb-4 flex items-center justify-between">
@@ -552,11 +619,11 @@ export default function StatusDashboard() {
                     <h3 className="text-lg font-semibold text-white">{executor.title}</h3>
                     <span
                       className={`ml-3 h-5 w-5 rounded-full ${
-                        executor.detected ? 'bg-red-500' : 'bg-green-500'
+                        executor.detected ? 'bg-red-500' : 'bg-purple-500'
                       }`}
                       style={{
                         boxShadow: `0 0 15px rgba(${
-                          executor.detected ? '255, 0, 0' : '0, 255, 0'
+                          executor.detected ? '255, 0, 0' : '161, 0, 255'
                         }, 0.7)`,
                         animation: 'glowPulse 1.5s infinite ease-in-out',
                       }}
@@ -568,7 +635,7 @@ export default function StatusDashboard() {
                     className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
                     style={{
                       background: 'rgba(50, 50, 50, 0.8)',
-                      border: '1px solid rgba(0, 255, 128, 0.2)',
+                      border: '1px solid rgba(161, 0, 255, 0.2)',
                       textTransform: 'uppercase',
                       letterSpacing: '0.5px',
                     }}
@@ -579,7 +646,7 @@ export default function StatusDashboard() {
                     className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
                     style={{
                       background: 'rgba(50, 50, 50, 0.8)',
-                      border: '1px solid rgba(0, 255, 128, 0.2)',
+                      border: '1px solid rgba(161, 0, 255, 0.2)',
                       textTransform: 'uppercase',
                       letterSpacing: '0.5px',
                     }}
@@ -625,18 +692,18 @@ export default function StatusDashboard() {
             style={{
               background: 'rgba(30, 30, 30, 0.9)',
               backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(0, 255, 128, 0.3)',
-              boxShadow: '0 0 20px rgba(0, 255, 128, 0.3)',
+              border: '1px solid rgba(161, 0, 255, 0.3)',
+              boxShadow: '0 0 20px rgba(161, 0, 255, 0.3)',
               transition: 'all 0.3s ease',
               animation: 'glowPulse 2s infinite ease-in-out',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = 'scale(1.03)';
-              e.currentTarget.style.boxShadow = '0 0 30px rgba(0, 255, 128, 0.5)';
+              e.currentTarget.style.boxShadow = '0 0 30px rgba(161, 0, 255, 0.5)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'scale(1)';
-              e.currentTarget.style.boxShadow = '0 0 20px rgba(0, 255, 128, 0.3)';
+              e.currentTarget.style.boxShadow = '0 0 20px rgba(161, 0, 255, 0.3)';
             }}
           >
             <div className="mb-4 flex items-center justify-between">
@@ -645,7 +712,7 @@ export default function StatusDashboard() {
                   className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
                   style={{
                     background: 'rgba(50, 50, 50, 0.8)',
-                    border: '1px solid rgba(0, 255, 128, 0.2)',
+                    border: '1px solid rgba(161, 0, 255, 0.2)',
                     textTransform: 'uppercase',
                     letterSpacing: '0.5px',
                   }}
@@ -659,7 +726,7 @@ export default function StatusDashboard() {
               className="rounded-lg p-4"
               style={{
                 background: '#1e1e1e',
-                border: '1px solid rgba(0, 255, 128, 0.2)',
+                border: '1px solid rgba(161, 0, 255, 0.2)',
                 fontFamily: 'Courier New, Courier, monospace',
                 fontSize: '0.9rem',
                 maxHeight: '200px',
@@ -672,7 +739,7 @@ export default function StatusDashboard() {
                   <span
                     className={
                       log.type === 'success'
-                        ? 'text-green-400'
+                        ? 'text-purple-400'
                         : log.type === 'warning'
                         ? 'text-yellow-400'
                         : 'text-red-400'
