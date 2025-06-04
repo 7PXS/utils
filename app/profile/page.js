@@ -260,7 +260,7 @@ export default function UserProfile() {
 
   const endpointOptions = {
     '/register/v1': ['ID', 'time', 'username'],
-    '/auth/v1': ['ID', 'key'],
+    '/auth/v1': ['hwid', 'key'],
     '/dAuth/v1': ['ID'],
     '/reset-hwid/v1': [],
   };
