@@ -179,7 +179,7 @@ export default function StatusDashboard() {
       }
       // Filter for AWP, Visuial, and Wave
       const filteredExecutors = data.filter(executor =>
-        ['AWP', 'Visuial', 'Wave'].includes(executor.title)
+        ['AWP.GG', 'Visual', 'Wave'].includes(executor.title)
       );
       setExecutors(filteredExecutors);
       if (filteredExecutors.length === 0) {
