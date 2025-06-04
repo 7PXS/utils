@@ -5,11 +5,11 @@ import { useState, useEffect } from 'react';
 export default function StatusDashboard() {
   const [lastUpdated, setLastUpdated] = useState('');
   const [logs, setLogs] = useState([]);
-  const [scripts, setScripts] = useState([]);
+  const [executors, setExecutors] = useState([]);
+  const [robloxVersion, setRobloxVersion] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [discordId, setDiscordId] = useState('');
   const [username, setUsername] = useState('');
-  const [userData, setUserData] = useState(null);
   const [error, setError] = useState('');
 
   // Format timestamp
@@ -37,7 +37,7 @@ export default function StatusDashboard() {
   };
 
   // Add or update log entry
-  const addOrUpdateLogEntry = (message, type = 'info', scriptName = null) => {
+  const addOrUpdateLogEntry = (message, type = 'info', executorName = null) => {
     const timestamp = getFormattedTimestamp();
     const icon = {
       success: '✅',
@@ -49,11 +49,11 @@ export default function StatusDashboard() {
     setLogs((prevLogs) => {
       const existingLogIndex = prevLogs.findIndex(
         (log) =>
-          log.message.includes(`Script "${scriptName}"`) &&
+          log.message.includes(`Executor "${executorName}"`) &&
           (log.type === 'success' || log.type === 'error')
       );
 
-      if (existingLogIndex !== -1 && scriptName) {
+      if (existingLogIndex !== -1 && executorName) {
         const updatedLogs = [...prevLogs];
         updatedLogs[existingLogIndex] = {
           ...updatedLogs[existingLogIndex],
@@ -90,7 +90,6 @@ export default function StatusDashboard() {
         return false;
       }
 
-      setUserData(data);
       setIsAuthenticated(true);
       return true;
     } catch (error) {
@@ -115,7 +114,6 @@ export default function StatusDashboard() {
       }
 
       localStorage.setItem('user', JSON.stringify({ discordId, username }));
-      setUserData(data);
       setIsAuthenticated(true);
       addOrUpdateLogEntry(`User ${username} logged in successfully`, 'success');
     } catch (error) {
@@ -138,7 +136,6 @@ export default function StatusDashboard() {
       }
 
       localStorage.setItem('user', JSON.stringify({ discordId, username }));
-      setUserData(data);
       setIsAuthenticated(true);
       addOrUpdateLogEntry(`User ${username} registered successfully`, 'success');
     } catch (error) {
@@ -146,115 +143,43 @@ export default function StatusDashboard() {
     }
   };
 
-  // Handle HWID reset
-  const handleHwidReset = async () => {
-    if (!userData?.discordId) {
-      setError('User not authenticated');
-      return;
-    }
-
+  // Fetch Roblox Windows version
+  const fetchRobloxVersion = async () => {
     try {
-      const response = await fetch('/reset-hwid/v1', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${userData.discordId}`,
-        },
+      const response = await fetch('https://whatexpsare.online/api/versions/current', {
+        headers: { 'User-Agent': 'WEAO-3PService' },
       });
       const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        setError(data.error || 'HWID reset failed');
-        addOrUpdateLogEntry(`HWID reset failed: ${data.error || 'Unknown error'}`, 'error');
-        return;
+      if (!response.ok) {
+        addOrUpdateLogEntry(`Failed to fetch Roblox version: ${data.error || 'Unknown error'}`, 'error');
+        throw new Error(`HTTP error: ${response.status}`);
       }
-
-      setUserData({ ...userData, hwid: '' });
-      addOrUpdateLogEntry('HWID reset successfully', 'success');
+      setRobloxVersion(data.Windows);
     } catch (error) {
-      setError('An error occurred during HWID reset');
-      addOrUpdateLogEntry(`HWID reset failed: ${error.message}`, 'error');
+      addOrUpdateLogEntry(`Failed to fetch Roblox version: ${error.message}`, 'error');
     }
   };
 
-  // Fetch list of scripts from /scripts-list endpoint
-  const fetchScriptsList = async () => {
+  // Fetch executors
+  const fetchExecutors = async () => {
     try {
-      const response = await fetch('/scripts-list', {
-        method: 'GET',
-        headers: {
-          'Authorization': 'UserMode-2d93n2002n8',
-        },
+      const response = await fetch('https://whatexpsare.online/api/status/exploits', {
+        headers: { 'User-Agent': 'WEAO-3PService' },
       });
-
       const data = await response.json();
       if (!response.ok) {
-        addOrUpdateLogEntry(`Scripts list request failed: ${data.error || 'Unknown error'}`, 'error');
+        addOrUpdateLogEntry(`Failed to fetch executors: ${data.error || 'Unknown error'}`, 'error');
         throw new Error(`HTTP error: ${response.status}`);
       }
-
       if (!Array.isArray(data)) {
-        addOrUpdateLogEntry('Scripts list response is not an array', 'error');
+        addOrUpdateLogEntry('Executors response is not an array', 'error');
         throw new Error('Invalid response format');
       }
-
-      return data.length > 0 ? data : [];
+      setExecutors(data);
     } catch (error) {
-      addOrUpdateLogEntry(`Failed to fetch scripts list: ${error.message}`, 'error');
-      throw error;
+      addOrUpdateLogEntry(`Failed to fetch executors: ${error.message}`, 'error');
     }
   };
-
-  // Fetch individual script details (excluding Code)
-  const fetchIndividualScript = async (scriptName) => {
-    try {
-      const response = await fetch(`/files/v1?file=${encodeURIComponent(scriptName)}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': 'UserMode-2d93n2002n8',
-        },
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        addOrUpdateLogEntry(`Failed to load script "${scriptName}" data: ${data.error || 'Unknown error'}`, 'error', scriptName);
-        throw new Error(`HTTP error: ${response.status}`);
-      }
-
-      addOrUpdateLogEntry(`Script "${scriptName}" loaded successfully`, 'success', scriptName);
-      return {
-        Lang: data.Lang || 'Unknown',
-        Version: data.Version || 'N/A',
-      };
-    } catch (error) {
-      addOrUpdateLogEntry(`Failed to load script "${scriptName}" data: ${error.message}`, 'error', scriptName);
-      return {
-        Lang: 'Unknown',
-        Version: 'N/A',
-      };
-    }
-  };
-
-  // Fetch all scripts and update state
-  async function fetchAllScripts() {
-    try {
-      const scriptNames = await fetchScriptsList();
-      const scriptPromises = scriptNames.map(async (scriptName) => {
-        const scriptData = await fetchIndividualScript(scriptName);
-        return {
-          name: scriptName,
-          language: scriptData.Lang,
-          status: scriptData.Lang !== 'Unknown' ? 'success' : 'error',
-          version: scriptData.Version,
-          lastUpdated: getFormattedDate(),
-        };
-      });
-
-      const scriptResults = await Promise.all(scriptPromises);
-      setScripts(scriptResults);
-    } catch (error) {
-      addOrUpdateLogEntry(`Failed to fetch scripts: ${error.message}`, 'error');
-    }
-  }
 
   // Initialize dashboard
   useEffect(() => {
@@ -263,10 +188,12 @@ export default function StatusDashboard() {
       addOrUpdateLogEntry('Dashboard initialized', 'success');
       const authValid = await checkAuth();
       if (authValid) {
-        fetchAllScripts();
+        fetchRobloxVersion();
+        fetchExecutors();
         const intervalId = setInterval(() => {
           updateTimestamp();
-          fetchAllScripts();
+          fetchRobloxVersion();
+          fetchExecutors();
         }, 60000);
         return () => clearInterval(intervalId);
       }
@@ -395,9 +322,7 @@ export default function StatusDashboard() {
                 value={discordId}
                 onChange={(e) => setDiscordId(e.target.value)}
                 className="input-field w-full p-3 text-gray-200 rounded-t"
-                style={{
-                  borderBottom: '2px solid #444',
-                }}
+                style={{ borderBottom: '2px solid #444' }}
               />
               <label htmlFor="discordId" className="input-label">
                 Discord ID
@@ -411,9 +336,7 @@ export default function StatusDashboard() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="input-field w-full p-3 text-gray-200 rounded-t"
-                style={{
-                  borderBottom: '2px solid #444',
-                }}
+                style={{ borderBottom: '2px solid #444' }}
               />
               <label htmlFor="username" className="input-label">
                 Username
@@ -529,10 +452,7 @@ export default function StatusDashboard() {
         <div className="mb-8 flex items-center justify-between">
           <h1
             className="text-2xl font-bold tracking-wide"
-            style={{
-              color: '#00ff80',
-              textShadow: '0 0 10px rgba(0, 255, 128, 0.5)',
-            }}
+            style={{ color: '#00ff80', textShadow: '0 0 10px rgba(0, 255, 128, 0.5)' }}
           >
             Status Dashboard
           </h1>
@@ -549,7 +469,7 @@ export default function StatusDashboard() {
           </div>
         </div>
 
-        {/* Service Status (Centered) */}
+        {/* Roblox Version Card (Centered) */}
         <div className="flex justify-center">
           <div
             className="max-w-[400px] rounded-2xl p-6"
@@ -572,7 +492,7 @@ export default function StatusDashboard() {
           >
             <div className="mb-4 flex items-center justify-center">
               <div className="flex items-center">
-                <h2 className="text-center text-xl font-semibold text-white">Status</h2>
+                <h2 className="text-center text-xl font-semibold text-white">Roblox Version</h2>
                 <span
                   className="ml-3 h-5 w-5 rounded-full bg-green-500"
                   style={{
@@ -592,151 +512,21 @@ export default function StatusDashboard() {
                   letterSpacing: '0.5px',
                 }}
               >
-                {getFormattedDate()}
+                {robloxVersion || 'Loading...'}
               </span>
             </div>
             <p className="mt-3 text-center text-xs text-gray-400">
-              Windows • {lastUpdated}
+              Updated: {lastUpdated}
             </p>
           </div>
         </div>
 
-        {/* User Info Card (Under Status Card) */}
-        {userData && (
-          <div className="mt-8 flex justify-center">
-            <div
-              className="w-full max-w-[400px] rounded-2xl p-6"
-              style={{
-                background: 'rgba(30, 30, 30, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(0, 255, 128, 0.3)',
-                boxShadow: '0 0 20px rgba(0, 255, 128, 0.3)',
-                transition: 'all 0.3s ease',
-                animation: 'glowPulse 2s infinite ease-in-out',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'scale(1.03)';
-                e.currentTarget.style.boxShadow = '0 0 30px rgba(0, 255, 128, 0.5)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'scale(1)';
-                e.currentTarget.style.boxShadow = '0 0 20px rgba(0, 255, 128, 0.3)';
-              }}
-            >
-              <h2 className="mb-4 text-center text-xl font-semibold text-green-400">
-                User Profile
-              </h2>
-              <div className="mb-4 flex flex-wrap gap-2 justify-center">
-                <span
-                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
-                  style={{
-                    background: 'rgba(50, 50, 50, 0.8)',
-                    border: '1px solid rgba(0, 255, 128, 0.2)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  Username: {userData.username}
-                </span>
-                <span
-                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
-                  style={{
-                    background: 'rgba(50, 50, 50, 0.8)',
-                    border: '1px solid rgba(0, 255, 128, 0.2)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  Discord: {userData.discordId}
-                </span>
-                <span
-                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
-                  style={{
-                    background: 'rgba(50, 50, 50, 0.8)',
-                    border: '1px solid rgba(0, 255, 128, 0.2)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  Key: {userData.key}
-                </span>
-                <span
-                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
-                  style={{
-                    background: 'rgba(50, 50, 50, 0.8)',
-                    border: '1px solid rgba(0, 255, 128, 0.2)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  HWID: {userData.hwid || 'Not set'}
-                </span>
-                <span
-                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
-                  style={{
-                    background: 'rgba(50, 50, 50, 0.8)',
-                    border: '1px solid rgba(0, 255, 128, 0.2)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  Ends: {new Date(userData.endTime * 1000).toLocaleString('en-US', {
-                    month: 'numeric',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
-                </span>
-              </div>
-              <div className="flex justify-center">
-                <button
-                  onClick={(e) => {
-                    handleHwidReset();
-                    const button = e.currentTarget;
-                    const rect = button.getBoundingClientRect();
-                    const ripple = document.createElement('span');
-                    ripple.className = 'ripple';
-                    ripple.style.left = `${e.clientX - rect.left}px`;
-                    ripple.style.top = `${e.clientY - rect.top}px`;
-                    button.appendChild(ripple);
-                    setTimeout(() => ripple.remove(), 600);
-                  }}
-                  disabled={!userData.hwid}
-                  className="ripple-button p-3 rounded-lg text-white font-semibold transition-all duration-300"
-                  style={{
-                    background: userData.hwid
-                      ? 'linear-gradient(90deg, #ff3333, #cc0000)'
-                      : 'rgba(50, 50, 50, 0.8)',
-                    boxShadow: userData.hwid
-                      ? '0 0 10px rgba(255, 51, 51, 0.5)'
-                      : 'none',
-                    cursor: userData.hwid ? 'pointer' : 'not-allowed',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (userData.hwid) {
-                      e.currentTarget.style.filter = 'brightness(1.2)';
-                      e.currentTarget.style.transform = 'scale(1.05)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (userData.hwid) {
-                      e.currentTarget.style.filter = 'brightness(1)';
-                      e.currentTarget.style.transform = 'scale(1)';
-                    }
-                  }}
-                >
-                  Reset HWID
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Scripts Cards */}
+        {/* Executors Cards */}
         <div className="mt-8 flex flex-wrap justify-center gap-8">
-          {scripts.length === 0 ? (
-            <p className="text-gray-400 animate-pulse">No scripts available or loading...</p>
+          {executors.length === 0 ? (
+            <p className="text-gray-400 animate-pulse">No executors available or loading...</p>
           ) : (
-            scripts.map((script, index) => (
+            executors.map((executor, index) => (
               <div
                 key={index}
                 className="w-full max-w-[400px] rounded-2xl p-6"
@@ -759,14 +549,14 @@ export default function StatusDashboard() {
               >
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center">
-                    <h3 className="text-lg font-semibold text-white">{script.name}</h3>
+                    <h3 className="text-lg font-semibold text-white">{executor.title}</h3>
                     <span
                       className={`ml-3 h-5 w-5 rounded-full ${
-                        script.status === 'success' ? 'bg-green-500' : 'bg-red-500'
+                        executor.detected ? 'bg-red-500' : 'bg-green-500'
                       }`}
                       style={{
                         boxShadow: `0 0 15px rgba(${
-                          script.status === 'success' ? '0, 255, 0' : '255, 0, 0'
+                          executor.detected ? '255, 0, 0' : '0, 255, 0'
                         }, 0.7)`,
                         animation: 'glowPulse 1.5s infinite ease-in-out',
                       }}
@@ -783,7 +573,7 @@ export default function StatusDashboard() {
                       letterSpacing: '0.5px',
                     }}
                   >
-                    {script.language}
+                    Version: {executor.version}
                   </span>
                   <span
                     className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
@@ -794,15 +584,35 @@ export default function StatusDashboard() {
                       letterSpacing: '0.5px',
                     }}
                   >
-                    {script.version}
+                    Platform: {executor.platform}
                   </span>
                 </div>
                 <p className="mt-3 text-xs text-gray-400">
-                  Status: {script.status === 'success' ? 'Loaded' : 'Failed to load'}
+                  Status: {executor.detected ? 'Detected' : 'Undetected'}
                 </p>
                 <p className="mt-1 text-xs text-gray-400">
-                  Last Updated: {script.lastUpdated}
+                  Updated: {executor.updatedDate}
                 </p>
+                {executor.websitelink && (
+                  <a
+                    href={executor.websitelink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-block text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    Website
+                  </a>
+                )}
+                {executor.discordlink && (
+                  <a
+                    href={executor.discordlink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-block text-purple-400 hover:text-purple-300 transition-colors"
+                  >
+                    Discord
+                  </a>
+                )}
               </div>
             ))
           )}
