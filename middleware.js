@@ -4,7 +4,7 @@ import { put, list } from '@vercel/blob';
 
 const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_utjs6NoOOU3BdeXE_0pNKDMi9ecw5Gh6ls3KB2OSOb2bKxs';
 const EDGE_CONFIG_URL = 'https://edge-config.vercel.com/ecfg_i4emvlr8if7efdth14-a5b8qu0-b26?token=b26cdde-a12b-39a4-fa98-cef8777d3b26';
-const WEBHOOK_URL = 'https://discord.com/api/webhooks/1378937855199674508/nHwNtepjM4KkzPDZ5ErNkMdg0PWhix80nks5yMgqMbLMMuOrlH0cF7HYsmL0cqC6ZeJrco';
+const WEBHOOK_URL = 'https://discord.com/api/webhooks/1378937855199674508/nHwMtepJ3hKpzKDZErNkMdgIZPWhix80nkqSyMgYlbMMuOrLhHcF0HYsmLcq6CZeJrco';
 
 // Send log to Discord webhook as plain text
 async function sendWebhookLog(message) {
