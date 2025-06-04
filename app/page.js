@@ -745,7 +745,7 @@ export default function StatusDashboard() {
                       onClick={() => window.open(executor.websitelink, '_blank', 'noopener,noreferrer')}
                       className="ripple-button p-2 rounded-lg text-white font-semibold transition-all duration-300"
                       style={{
-                        background: 'rgba(50, 50,  secondaryColor: 'rgba(70, 70, 70, 0.8)',
+                        background: 'rgba(50, 50, 50, 0.8)',
                         border: '1px solid rgba(161, 0, 255, 0.2)',
                       }}
                       onMouseEnter={(e) => {
