@@ -69,7 +69,12 @@ export default function UserProfile() {
   };
 
   const fetchUsers = async () => {
+    if (!discordId) {
+      setError('Discord ID not set. Please refresh the page.');
+      return;
+    }
     try {
+      console.log('Fetching users with Authorization header:', `Bearer ${discordId}`); // Debug log
       const response = await fetch('/manage/v1?action=list', {
         headers: {
           Authorization: `Bearer ${discordId}`,
