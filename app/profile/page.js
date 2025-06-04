@@ -140,42 +140,13 @@ export default function UserProfile() {
         }}
       >
         <div className="container mx-auto px-8 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            <Link href="/">
-              <button
-                className="ripple-button p-2 rounded-lg text-white font-semibold transition-all duration-300"
-                style={{
-                  background: 'rgba(50, 50, 50, 0.8)',
-                  border: '1px solid rgba(161, 0, 255, 0.2)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(70, 70, 70, 0.8)';
-                  e.currentTarget.style.boxShadow = '0 0 10px rgba(161, 0, 255, 0.5)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(50, 50, 50, 0.8)';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
-                onClick={(e) => {
-                  const button = e.currentTarget;
-                  const rect = button.getBoundingClientRect();
-                  const ripple = document.createElement('span');
-                  ripple.className = 'ripple';
-                  ripple.style.left = `${e.clientX - rect.left}px`;
-                  ripple.style.top = `${e.clientY - rect.top}px`;
-                  button.appendChild(ripple);
-                  setTimeout(() => ripple.remove(), 600);
-                }}
-              >
-                Back to Home
-              </button>
-            </Link>
-            <h1
-              className="text-xl font-bold tracking-wide text-white"
+          <div className="flex items-center">
+            <img
+              src="/app/nebulaText.ico"
+              alt="Nebula"
+              className="h-6"
               style={{ textShadow: '0 0 10px rgba(161, 0, 255, 0.5)' }}
-            >
-              <span style={{ color: '#a100ff' }}>7Px</span> Profile
-            </h1>
+            />
           </div>
           <Link href="/">
             <div
@@ -207,7 +178,7 @@ export default function UserProfile() {
                   d="M5.121 17.804A7 7 0 1112 5a7 7 0 016.879 5.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm-3 7a3 3 0 00-3 3h6a3 3 0 00-3-3z"
                 />
               </svg>
-              <span className="text-sm text-white">{username || 'User'}</span>
+              <span className="text-sm text-white">Back to Home</span>
             </div>
           </Link>
         </div>
