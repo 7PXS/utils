@@ -1,8 +1,101 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+
+// Topbar component to handle useSearchParams
+function Topbar({ username }) {
+  const { useSearchParams } = require('next/navigation');
+  const searchParams = useSearchParams();
+  const fromProfile = searchParams.get('from') === 'profile';
+
+  return (
+    <nav
+      className="fixed top-0 left-0 w-full z-50"
+      style={{
+        background: 'rgba(30, 30, 30, 0.95)',
+        backdropFilter: 'blur(10px)',
+        borderBottom: '1px solid rgba(161, 0, 255, 0.3)',
+        boxShadow: '0 4px 10px rgba(0, 0, 0, 0.5)',
+      }}
+    >
+      <div className="container mx-auto px-8 py-4 flex justify-between items-center">
+        <div className="flex items-center space-x-4">
+          {fromProfile && (
+            <Link href="/profile">
+              <button
+                className="ripple-button p-2 rounded-lg text-white font-semibold transition-all duration-300"
+                style={{
+                  background: 'rgba(50, 50, 50, 0.8)',
+                  border: '1px solid rgba(161, 0, 255, 0.2)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(70, 70, 70, 0.8)';
+                  e.currentTarget.style.boxShadow = '0 0 10px rgba(161, 0, 255, 0.5)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(50, 50, 50, 0.8)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+                onClick={(e) => {
+                  const button = e.currentTarget;
+                  const rect = button.getBoundingClientRect();
+                  const ripple = document.createElement('span');
+                  ripple.className = 'ripple';
+                  ripple.style.left = `${e.clientX - rect.left}px`;
+                  ripple.style.top = `${e.clientY - rect.top}px`;
+                  button.appendChild(ripple);
+                  setTimeout(() => ripple.remove(), 600);
+                }}
+              >
+                Back to Profile
+              </button>
+            </Link>
+          )}
+          <h1
+            className="text-xl font-bold tracking-wide text-white"
+            style={{ textShadow: '0 0 10px rgba(161, 0, 255, 0.5)' }}
+          >
+            <span style={{ color: '#a100ff' }}>7Px</span> Dashboard
+          </h1>
+        </div>
+        <Link href="/profile?from=dashboard">
+          <div
+            className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-all duration-300"
+            style={{
+              background: 'rgba(50, 50, 50, 0.8)',
+              border: '1px solid rgba(161, 0, 255, 0.2)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(70, 70, 70, 0.8)';
+              e.currentTarget.style.boxShadow = '0 0 10px rgba(161, 0, 255, 0.5)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(50, 50, 50, 0.8)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            <svg
+              className="w-5 h-5 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M5.121 17.804A7 7 0 1112 5a7 7 0 016.879 5.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm-3 7a3 3 0 00-3 3h6a3 3 0 00-3-3z"
+              />
+            </svg>
+            <span className="text-sm text-white">{username || 'User'}</span>
+          </div>
+        </Link>
+      </div>
+    </nav>
+  );
+}
 
 export default function StatusDashboard() {
   const [lastUpdated, setLastUpdated] = useState('');
@@ -13,8 +106,6 @@ export default function StatusDashboard() {
   const [discordId, setDiscordId] = useState('');
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
-  const searchParams = useSearchParams();
-  const fromProfile = searchParams.get('from') === 'profile';
 
   // Format timestamp
   const getFormattedTimestamp = () => {
@@ -465,91 +556,40 @@ export default function StatusDashboard() {
         }
       `}</style>
 
-      {/* Topbar */}
-      <nav
-        className="fixed top-0 left-0 w-full z-50"
-        style={{
-          background: 'rgba(30, 30, 30, 0.95)',
-          backdropFilter: 'blur(10px)',
-          borderBottom: '1px solid rgba(161, 0, 255, 0.3)',
-          boxShadow: '0 4px 10px rgba(0, 0, 0, 0.5)',
-        }}
-      >
-        <div className="container mx-auto px-8 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            {fromProfile && (
-              <Link href="/profile">
-                <button
-                  className="ripple-button p-2 rounded-lg text-white font-semibold transition-all duration-300"
-                  style={{
-                    background: 'rgba(50, 50, 50, 0.8)',
-                    border: '1px solid rgba(161, 0, 255, 0.2)',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(70, 70, 70, 0.8)';
-                    e.currentTarget.style.boxShadow = '0 0 10px rgba(161, 0, 255, 0.5)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(50, 50, 50, 0.8)';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                  onClick={(e) => {
-                    const button = e.currentTarget;
-                    const rect = button.getBoundingClientRect();
-                    const ripple = document.createElement('span');
-                    ripple.className = 'ripple';
-                    ripple.style.left = `${e.clientX - rect.left}px`;
-                    ripple.style.top = `${e.clientY - rect.top}px`;
-                    button.appendChild(ripple);
-                    setTimeout(() => ripple.remove(), 600);
-                  }}
-                >
-                  Back to Profile
-                </button>
-              </Link>
-            )}
-            <h1
-              className="text-xl font-bold tracking-wide text-white"
-              style={{ textShadow: '0 0 10px rgba(161, 0, 255, 0.5)' }}
-            >
-              <span style={{ color: '#a100ff' }}>7Px</span> Dashboard
-            </h1>
-          </div>
-          <Link href="/profile?from=dashboard">
-            <div
-              className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-all duration-300"
-              style={{
-                background: 'rgba(50, 50, 50, 0.8)',
-                border: '1px solid rgba(161, 0, 255, 0.2)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(70, 70, 70, 0.8)';
-                e.currentTarget.style.boxShadow = '0 0 10px rgba(161, 0, 255, 0.5)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(50, 50, 50, 0.8)';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              <svg
-                className="w-5 h-5 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
+      {/* Topbar with Suspense */}
+      <Suspense
+        fallback={
+          <nav
+            className="fixed top-0 left-0 w-full z-50"
+            style={{
+              background: 'rgba(30, 30, 30, 0.95)',
+              backdropFilter: 'blur(10px)',
+              borderBottom: '1px solid rgba(161, 0, 255, 0.3)',
+              boxShadow: '0 4px 10px rgba(0, 0, 0, 0.5)',
+            }}
+          >
+            <div className="container mx-auto px-8 py-4 flex justify-between items-center">
+              <h1
+                className="text-xl font-bold tracking-wide text-white"
+                style={{ textShadow: '0 0 10px rgba(161, 0, 255, 0.5)' }}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M5.121 17.804A7 7 0 1112 5a7 7 0 016.879 5.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm-3 7a3 3 0 00-3 3h6a3 3 0 00-3-3z"
-                />
-              </svg>
-              <span className="text-sm text-white">{username || 'User'}</span>
+                <span style={{ color: '#a100ff' }}>7Px</span> Dashboard
+              </h1>
+              <div
+                className="flex items-center space-x-2 p-2 rounded-lg"
+                style={{
+                  background: 'rgba(50, 50, 50, 0.8)',
+                  border: '1px solid rgba(161, 0, 255, 0.2)',
+                }}
+              >
+                <span className="text-sm text-white">Loading...</span>
+              </div>
             </div>
-          </Link>
-        </div>
-      </nav>
+          </nav>
+        }
+      >
+        <Topbar username={username} />
+      </Suspense>
 
       <div className="container mx-auto p-8 pt-24">
         {/* Header */}
@@ -705,7 +745,7 @@ export default function StatusDashboard() {
                       onClick={() => window.open(executor.websitelink, '_blank', 'noopener,noreferrer')}
                       className="ripple-button p-2 rounded-lg text-white font-semibold transition-all duration-300"
                       style={{
-                        background: 'rgba(50, 50, 50, 0.8)',
+                        background: 'rgba(50, 50,  secondaryColor: 'rgba(70, 70, 70, 0.8)',
                         border: '1px solid rgba(161, 0, 255, 0.2)',
                       }}
                       onMouseEnter={(e) => {
