@@ -9,6 +9,7 @@ export default function UserProfile() {
   const [joinDate, setJoinDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [hwid, setHwid] = useState('');
+  const [key, setKey] = useState('');
   const [error, setError] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -43,6 +44,7 @@ export default function UserProfile() {
       }
 
       setHwid(data.hwid || 'Not set');
+      setKey(data.key || 'Not set');
       setJoinDate(new Date(data.createTime * 1000).toLocaleString('en-US', {
         year: 'numeric',
         month: 'numeric',
@@ -57,7 +59,7 @@ export default function UserProfile() {
         day: 'numeric',
         hour: 'numeric',
         minute: 'numeric',
-        hour12: 'true',
+        hour12: true,
       }));
 
       if (user.discordId === '1272720391462457400') {
@@ -74,7 +76,6 @@ export default function UserProfile() {
       return;
     }
     try {
-      console.log('Fetching users with Authorization header:', `Bearer ${discordId}`); // Debug log
       const response = await fetch('/manage/v1?action=list', {
         headers: {
           Authorization: `Bearer ${discordId}`,
@@ -287,6 +288,13 @@ export default function UserProfile() {
           50% { box-shadow: 0 0 15px rgba(161, 0, 255, 0.8); }
           100% { box-shadow: 0 0 5px rgba(161, 0, 255, 0.5); }
         }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .profile-card {
+          animation: fadeIn 0.5s ease-in-out;
+        }
         .ripple-button {
           position: relative;
           overflow: hidden;
@@ -325,6 +333,7 @@ export default function UserProfile() {
           box-shadow: 0 0 20px rgba(161, 0, 255, 0.3);
           max-width: 500px;
           width: 90%;
+          animation: fadeIn 0.3s ease-in-out;
         }
       `}</style>
 
@@ -383,57 +392,143 @@ export default function UserProfile() {
       </nav>
 
       <div className="container mx-auto p-8 pt-24">
-        {error && <p className="text-red-400 animate-pulse mb-4">{error}</p>}
-
-        <div
-          className="flex items-center p-4 rounded-lg max-w-md w-full mb-8"
-          style={{
-            background: 'rgba(50, 50, 50, 0.8)',
-            border: '1px solid rgba(161, 0, 255, 0.3)',
-            boxShadow: '0 0 20px rgba(161, 0, 255, 0.3)',
-            animation: 'glowPulse 2s infinite ease-in-out',
-          }}
-        >
-          <span
-            className="text-4xl font-bold text-white mr-4"
-            style={{ textShadow: '0 0 5px rgba(161, 0, 255, 0.5)' }}
+        {error && (
+          <p
+            className="text-red-400 animate-pulse mb-4 text-center"
+            style={{ textShadow: '0 0 5px rgba(255, 0, 0, 0.3)' }}
           >
-            7
-          </span>
-          <div className="flex-1">
-            <h1 className="text-xl font-semibold text-purple-400">{username || 'Loading...'}</h1>
-            <p className="text-sm text-gray-300">Discord ID: {discordId || 'Loading...'}</p>
-            <p className="text-sm text-gray-300">Joined: {joinDate || 'Loading...'}</p>
-            <p className="text-sm text-gray-300">Subscription Ends: {endDate || 'Loading...'}</p>
-            <p className="text-sm text-gray-300">HWID: {hwid}</p>
-            <button
-              onClick={(e) => {
-                handleResetHwid();
-                const button = e.currentTarget;
-                const rect = button.getBoundingClientRect();
-                const ripple = document.createElement('span');
-                ripple.className = 'ripple';
-                ripple.style.left = `${e.clientX - rect.left}px`;
-                ripple.style.top = `${e.clientY - rect.top}px`;
-                button.appendChild(ripple);
-                setTimeout(() => ripple.remove(), 600);
-              }}
-              className="ripple-button mt-2 p-2 rounded-lg text-white font-semibold transition-all duration-300"
-              style={{
-                background: 'linear-gradient(90deg, #a100ff, #7b00cc)',
-                boxShadow: '0 0 10px rgba(161, 0, 255, 0.5)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.filter = 'brightness(1.2)';
-                e.currentTarget.style.transform = 'scale(1.05)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.filter = 'brightness(1)';
-                e.currentTarget.style.transform = 'scale(1)';
-              }}
-            >
-              Reset HWID {isAdmin && '(Unlimited)'}
-            </button>
+            {error}
+          </p>
+        )}
+
+        <div className="flex justify-center mb-8">
+          <div
+            className="profile-card p-6 rounded-2xl w-full max-w-lg"
+            style={{
+              background: 'rgba(40, 40, 40, 0.9)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(161, 0, 255, 0.4)',
+              boxShadow: '0 0 25px rgba(161, 0, 255, 0.4)',
+              animation: 'glowPulse 2s infinite ease-in-out',
+            }}
+          >
+            <div className="flex items-center mb-4">
+              <span
+                className="text-5xl font-extrabold mr-4"
+                style={{
+                  color: '#a100ff',
+                  textShadow: '0 0 10px rgba(161, 0, 255, 0.7)',
+                }}
+              >
+                7
+              </span>
+              <h1
+                className="text-2xl font-bold"
+                style={{
+                  color: '#ffffff',
+                  textShadow: '0 0 5px rgba(255, 255, 255, 0.3)',
+                }}
+              >
+                {username || 'Loading...'}
+              </h1>
+            </div>
+            <div className="space-y-2">
+              <div className="mb-4 flex flex-wrap gap-2 justify-center">
+                <span
+                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
+                  style={{
+                    background: 'rgba(50, 50, 50, 0.8)',
+                    border: '1px solid rgba(161, 0, 255, 0.2)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  Discord ID: {discordId || 'Loading...'}
+                </span>
+              </div>
+              <div className="mb-4 flex flex-wrap gap-2 justify-center">
+                <span
+                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
+                  style={{
+                    background: 'rgba(50, 50, 50, 0.8)',
+                    border: '1px solid rgba(161, 0, 255, 0.2)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  Joined: {joinDate || 'Loading...'}
+                </span>
+              </div>
+              <div className="mb-4 flex flex-wrap gap-2 justify-center">
+                <span
+                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
+                  style={{
+                    background: 'rgba(50, 50, 50, 0.8)',
+                    border: '1px solid rgba(161, 0, 255, 0.2)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  Subscription Ends: {endDate || 'Loading...'}
+                </span>
+              </div>
+              <div className="mb-4 flex flex-wrap gap-2 justify-center">
+                <span
+                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
+                  style={{
+                    background: 'rgba(50, 50, 50, 0.8)',
+                    border: '1px solid rgba(161, 0, 255, 0.2)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  HWID: {hwid}
+                </span>
+              </div>
+              <div className="mb-4 flex flex-wrap gap-2 justify-center">
+                <span
+                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
+                  style={{
+                    background: 'rgba(50, 50, 50, 0.8)',
+                    border: '1px solid rgba(161, 0, 255, 0.2)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  Key: {key}
+                </span>
+              </div>
+              <div className="flex justify-center">
+                <button
+                  onClick={(e) => {
+                    handleResetHwid();
+                    const button = e.currentTarget;
+                    const rect = button.getBoundingClientRect();
+                    const ripple = document.createElement('span');
+                    ripple.className = 'ripple';
+                    ripple.style.left = `${e.clientX - rect.left}px`;
+                    ripple.style.top = `${e.clientY - rect.top}px`;
+                    button.appendChild(ripple);
+                    setTimeout(() => ripple.remove(), 600);
+                  }}
+                  className="ripple-button mt-4 px-6 py-2 rounded-lg text-white font-semibold transition-all duration-300"
+                  style={{
+                    background: 'linear-gradient(90deg, #a100ff, #7b00cc)',
+                    boxShadow: '0 0 15px rgba(161, 0, 255, 0.6)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.filter = 'brightness(1.2)';
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.filter = 'brightness(1)';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                >
+                  Reset HWID {isAdmin && '(Unlimited)'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
