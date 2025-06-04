@@ -227,18 +227,19 @@ export async function middleware(request) {
           return NextResponse.json({ error: 'Key expired' }, { status: 401 });
         }
 
-        // Validate gameId if provided
-        let gamesData = { ValidGame: false };
+        // Validate gameId if provided and fetch script Code
+        let gamesData = { ValidGame: false, Code: null };
         if (gameId) {
           try {
             const scripts = await get('scripts', { edgeConfig: EDGE_CONFIG_URL });
-            const isValidGame = Object.values(scripts).some(
-              (script) => script.GameID === gameId
+            const matchingScriptEntry = Object.entries(scripts).find(
+              ([_, script]) => script.GameID === gameId
             );
-            gamesData.ValidGame = isValidGame;
-            if (isValidGame) {
-              gamesData.Code = `GAME_${gameId}`; // Example code generation
-              const gameLogMessage = `[${timestamp}] /auth/v1: Valid game found for gameId ${gameId}`;
+            if (matchingScriptEntry) {
+              const [scriptName, scriptData] = matchingScriptEntry;
+              gamesData.ValidGame = true;
+              gamesData.Code = scriptData.Code; // Directly include the script's Code URL
+              const gameLogMessage = `[${timestamp}] /auth/v1: Valid game found for gameId ${gameId}, script: ${scriptName}`;
               console.log(gameLogMessage);
               await sendWebhookLog(request, gameLogMessage);
             } else {
@@ -306,17 +307,18 @@ export async function middleware(request) {
             }
 
             // Validate gameId if provided
-            let gamesData = { ValidGame: false };
+            let gamesData = { ValidGame: false, Code: null };
             if (gameId) {
               try {
                 const scripts = await get('scripts', { edgeConfig: EDGE_CONFIG_URL });
-                const isValidGame = Object.values(scripts).some(
-                  (script) => script.GameID === gameId
+                const matchingScriptEntry = Object.entries(scripts).find(
+                  ([_, script]) => script.GameID === gameId
                 );
-                gamesData.ValidGame = isValidGame;
-                if (isValidGame) {
-                  gamesData.Code = `GAME_${gameId}`; // Example code generation
-                  const gameLogMessage = `[${timestamp}] /dAuth/v1: Valid game found for gameId ${gameId}`;
+                if (matchingScriptEntry) {
+                  const [scriptName, scriptData] = matchingScriptEntry;
+                  gamesData.ValidGame = true;
+                  gamesData.Code = scriptData.Code;
+                  const gameLogMessage = `[${timestamp}] /dAuth/v1: Valid game found for gameId ${gameId}, script: ${scriptName}`;
                   console.log(gameLogMessage);
                   await sendWebhookLog(request, gameLogMessage);
                 } else {
