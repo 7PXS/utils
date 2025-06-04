@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 export default function StatusDashboard() {
   const [lastUpdated, setLastUpdated] = useState('');
@@ -12,6 +13,8 @@ export default function StatusDashboard() {
   const [discordId, setDiscordId] = useState('');
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
+  const searchParams = useSearchParams();
+  const fromProfile = searchParams.get('from') === 'profile';
 
   // Format timestamp
   const getFormattedTimestamp = () => {
@@ -75,16 +78,20 @@ export default function StatusDashboard() {
   const checkAuth = async () => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
+      console.log('No user found in localStorage');
       setIsAuthenticated(false);
       return false;
     }
 
     try {
       const user = JSON.parse(storedUser);
+      console.log('Checking auth for user:', { discordId: user.discordId, username: user.username });
       const response = await fetch(`/login/v1?ID=${encodeURIComponent(user.discordId)}&username=${encodeURIComponent(user.username)}`);
       const data = await response.json();
+      console.log('Auth response:', { status: response.status, data });
 
       if (!response.ok || !data.success) {
+        console.log('Auth failed:', data.error || 'Authentication failed');
         localStorage.removeItem('user');
         setIsAuthenticated(false);
         setError(data.error || 'Authentication failed');
@@ -95,6 +102,7 @@ export default function StatusDashboard() {
       setIsAuthenticated(true);
       return true;
     } catch (error) {
+      console.error('Error checking authentication:', error.message);
       setError('Error checking authentication');
       setIsAuthenticated(false);
       return false;
@@ -177,13 +185,13 @@ export default function StatusDashboard() {
         addOrUpdateLogEntry('Executors response is not an array', 'error');
         throw new Error('Invalid response format');
       }
-      // Filter for AWP, Visuial, and Wave
+      // Filter for AWP.GG, Visual, and Wave
       const filteredExecutors = data.filter(executor =>
         ['AWP.GG', 'Visual', 'Wave'].includes(executor.title)
       );
       setExecutors(filteredExecutors);
       if (filteredExecutors.length === 0) {
-        addOrUpdateLogEntry('No matching executors found for AWP, Visuial, or Wave', 'warning');
+        addOrUpdateLogEntry('No matching executors found for AWP.GG, Visual, or Wave', 'warning');
       }
     } catch (error) {
       addOrUpdateLogEntry(`Failed to fetch executors: ${error.message}`, 'error');
@@ -468,7 +476,38 @@ export default function StatusDashboard() {
         }}
       >
         <div className="container mx-auto px-8 py-4 flex justify-between items-center">
-          <div className="flex items-center">
+          <div className="flex items-center space-x-4">
+            {fromProfile && (
+              <Link href="/profile">
+                <button
+                  className="ripple-button p-2 rounded-lg text-white font-semibold transition-all duration-300"
+                  style={{
+                    background: 'rgba(50, 50, 50, 0.8)',
+                    border: '1px solid rgba(161, 0, 255, 0.2)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(70, 70, 70, 0.8)';
+                    e.currentTarget.style.boxShadow = '0 0 10px rgba(161, 0, 255, 0.5)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(50, 50, 50, 0.8)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                  onClick={(e) => {
+                    const button = e.currentTarget;
+                    const rect = button.getBoundingClientRect();
+                    const ripple = document.createElement('span');
+                    ripple.className = 'ripple';
+                    ripple.style.left = `${e.clientX - rect.left}px`;
+                    ripple.style.top = `${e.clientY - rect.top}px`;
+                    button.appendChild(ripple);
+                    setTimeout(() => ripple.remove(), 600);
+                  }}
+                >
+                  Back to Profile
+                </button>
+              </Link>
+            )}
             <h1
               className="text-xl font-bold tracking-wide text-white"
               style={{ textShadow: '0 0 10px rgba(161, 0, 255, 0.5)' }}
@@ -476,7 +515,7 @@ export default function StatusDashboard() {
               <span style={{ color: '#a100ff' }}>7Px</span> Dashboard
             </h1>
           </div>
-          <Link href="/profile">
+          <Link href="/profile?from=dashboard">
             <div
               className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-all duration-300"
               style={{
@@ -590,7 +629,7 @@ export default function StatusDashboard() {
         <div className="mt-8 flex flex-wrap justify-center gap-8">
           {executors.length === 0 ? (
             <p className="text-gray-400 animate-pulse">
-              No matching executors found for AWP, Visuial, or Wave.
+              No matching executors found for AWP.GG, Visual, or Wave.
             </p>
           ) : (
             executors.map((executor, index) => (
@@ -660,26 +699,68 @@ export default function StatusDashboard() {
                 <p className="mt-1 text-xs text-gray-400">
                   Updated: {executor.updatedDate}
                 </p>
-                {executor.websitelink && (
-                  <a
-                    href={executor.websitelink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-block text-blue-400 hover:text-blue-300 transition-colors"
-                  >
-                    Website
-                  </a>
-                )}
-                {executor.discordlink && (
-                  <a
-                    href={executor.discordlink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-1 inline-block text-purple-400 hover:text-purple-300 transition-colors"
-                  >
-                    Discord
-                  </a>
-                )}
+                <div className="mt-2 flex gap-2">
+                  {executor.websitelink && (
+                    <button
+                      onClick={() => window.open(executor.websitelink, '_blank', 'noopener,noreferrer')}
+                      className="ripple-button p-2 rounded-lg text-white font-semibold transition-all duration-300"
+                      style={{
+                        background: 'rgba(50, 50, 50, 0.8)',
+                        border: '1px solid rgba(161, 0, 255, 0.2)',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(70, 70, 70, 0.8)';
+                        e.currentTarget.style.boxShadow = '0 0 10px rgba(161, 0, 255, 0.5)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(50, 50, 50, 0.8)';
+                        e.currentTarget.style.boxShadow = 'none';
+                      }}
+                      onClick={(e) => {
+                        const button = e.currentTarget;
+                        const rect = button.getBoundingClientRect();
+                        const ripple = document.createElement('span');
+                        ripple.className = 'ripple';
+                        ripple.style.left = `${e.clientX - rect.left}px`;
+                        ripple.style.top = `${e.clientY - rect.top}px`;
+                        button.appendChild(ripple);
+                        setTimeout(() => ripple.remove(), 600);
+                      }}
+                    >
+                      Website
+                    </button>
+                  )}
+                  {executor.discordlink && (
+                    <button
+                      onClick={() => window.open(executor.discordlink, '_blank', 'noopener,noreferrer')}
+                      className="ripple-button p-2 rounded-lg text-white font-semibold transition-all duration-300"
+                      style={{
+                        background: 'rgba(50, 50, 50, 0.8)',
+                        border: '1px solid rgba(161, 0, 255, 0.2)',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(70, 70, 70, 0.8)';
+                        e.currentTarget.style.boxShadow = '0 0 10px rgba(161, 0, 255, 0.5)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(50, 50, 50, 0.8)';
+                        e.currentTarget.style.boxShadow = 'none';
+                      }}
+                      onClick={(e) => {
+                        const button = e.currentTarget;
+                        const rect = button.getBoundingClientRect();
+                        const ripple = document.createElement('span');
+                        ripple.className = 'ripple';
+                        ripple.style.left = `${e.clientX - rect.left}px`;
+                        ripple.style.top = `${e.clientY - rect.top}px`;
+                        button.appendChild(ripple);
+                        setTimeout(() => ripple.remove(), 600);
+                      }}
+                    >
+                      Discord
+                    </button>
+                  )}
+                </div>
               </div>
             ))
           )}
