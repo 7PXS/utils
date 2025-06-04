@@ -5,9 +5,10 @@ import { put, list } from '@vercel/blob';
 const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_utjs6NoOOU3BdeXE_0pNKDMi9ecw5Gh6ls3KB2OSOb2bKxs';
 const EDGE_CONFIG_URL = 'https://edge-config.vercel.com/ecfg_i4emvlr8if7efdth14-a5b8qu0-b26?token=b26cdde-a12b-39a4-fa98-cef8777d3b26';
 const WEBHOOK_URL = 'https://discord.com/api/webhooks/1378937855199674508/nHwMtepJ3hKpzKDZErNkMdgIZPWhix80nkqSyMgYlbMMuOrLhHcF0HYsmLcq6CZeJrco';
+const SITE_URL = 'https://utils32.vercel.app';
 
-// Send log to Discord webhook as plain text
-async function sendWebhookLog(message) {
+// Send log to Discord webhook as an embed
+async function sendWebhookLog(request, message) {
   if (!WEBHOOK_URL) {
     console.warn('WEBHOOK_URL not set, skipping webhook log');
     return;
@@ -23,14 +24,27 @@ async function sendWebhookLog(message) {
   }
 
   const timestamp = new Date().toISOString();
-  const formattedMessage = `${prefix} ${message}\n-# ${timestamp}`;
-  const truncatedMessage = formattedMessage.length > 2000 ? formattedMessage.substring(0, 1997) + '...' : formattedMessage;
+  const url = new URL(request.url);
+  const fullUrl = `${SITE_URL}${url.pathname}${url.search ? url.search : ''}`;
+  const searchParams = Object.fromEntries(url.searchParams.entries());
+
+  const embed = {
+    title: `${prefix} Log Entry`,
+    description: message,
+    color: prefix === '[ERROR]' ? 15158332 : prefix === '[WARN]' ? 16763904 : 65280,
+    fields: [
+      { name: 'Timestamp', value: timestamp, inline: true },
+      { name: 'URL', value: fullUrl, inline: true },
+      { name: 'Search Params', value: JSON.stringify(searchParams) || 'None', inline: true },
+    ],
+    footer: { text: 'Nebula Middleware Logs' },
+  };
 
   try {
     const response = await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: truncatedMessage }),
+      body: JSON.stringify({ embeds: [embed] }),
     });
 
     if (!response.ok) {
@@ -38,7 +52,6 @@ async function sendWebhookLog(message) {
     }
   } catch (error) {
     console.error(`Failed to send webhook log: ${error.message}`);
-    // Optionally disable webhook if it fails repeatedly
     if (error.message.includes('401')) {
       console.warn('Webhook token may be invalid. Consider updating WEBHOOK_URL.');
     }
@@ -81,25 +94,25 @@ export async function middleware(request) {
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] Middleware processing request for path: ${pathname}`;
   console.log(logMessage);
-  await sendWebhookLog(logMessage);
+  await sendWebhookLog(request, logMessage);
 
   if (!BLOB_READ_WRITE_TOKEN || !EDGE_CONFIG_URL || !WEBHOOK_URL) {
     const warningMessage = `[${timestamp}] Environment variables missing, using hardcoded values`;
     console.warn(warningMessage);
-    await sendWebhookLog(warningMessage);
+    await sendWebhookLog(request, warningMessage);
   }
 
   try {
     if (pathname.startsWith('/scripts-list')) {
       const logMessage = `[${timestamp}] Handling /scripts-list`;
       console.log(logMessage);
-      await sendWebhookLog(logMessage);
+      await sendWebhookLog(request, logMessage);
 
       const authHeader = request.headers.get('authorization');
       if (authHeader !== 'UserMode-2d93n2002n8') {
         const errorMessage = `[${timestamp}] /scripts-list: Invalid authorization header`;
         console.error(errorMessage);
-        await sendWebhookLog(errorMessage);
+        await sendWebhookLog(request, errorMessage);
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
 
@@ -108,12 +121,12 @@ export async function middleware(request) {
         const scriptNames = Object.keys(scripts);
         const successMessage = `[${timestamp}] /scripts-list: Retrieved ${scriptNames.length} scripts`;
         console.log(successMessage);
-        await sendWebhookLog(successMessage);
+        await sendWebhookLog(request, successMessage);
         return NextResponse.json(scriptNames);
       } catch (error) {
         const errorMessage = `[${timestamp}] /scripts-list: Failed to fetch scripts: ${error.message}`;
         console.error(errorMessage);
-        await sendWebhookLog(errorMessage);
+        await sendWebhookLog(request, errorMessage);
         return NextResponse.json({ error: 'Failed to fetch scripts' }, { status: 500 });
       }
     }
@@ -121,7 +134,7 @@ export async function middleware(request) {
     if (pathname.startsWith('/auth/v1')) {
       const logMessage = `[${timestamp}] Handling /auth/v1`;
       console.log(logMessage);
-      await sendWebhookLog(logMessage);
+      await sendWebhookLog(request, logMessage);
 
       const key = searchParams.get('key');
       const hwid = searchParams.get('hwid');
@@ -129,7 +142,7 @@ export async function middleware(request) {
       if (!key || !hwid) {
         const errorMessage = `[${timestamp}] /auth/v1: Missing key or hwid`;
         console.error(errorMessage);
-        await sendWebhookLog(errorMessage);
+        await sendWebhookLog(request, errorMessage);
         return NextResponse.json({ error: 'Missing key or hwid' }, { status: 400 });
       }
 
@@ -138,7 +151,7 @@ export async function middleware(request) {
         if (blobs.length === 0) {
           const errorMessage = `[${timestamp}] /auth/v1: Invalid key ${key}`;
           console.error(errorMessage);
-          await sendWebhookLog(errorMessage);
+          await sendWebhookLog(request, errorMessage);
           return NextResponse.json({ error: 'Invalid key' }, { status: 401 });
         }
 
@@ -158,18 +171,18 @@ export async function middleware(request) {
           });
           const hwidLogMessage = `[${timestamp}] /auth/v1: Updated HWID for key ${key} to ${hwid}`;
           console.log(hwidLogMessage);
-          await sendWebhookLog(hwidLogMessage);
+          await sendWebhookLog(request, hwidLogMessage);
         } else if (userData.hwid !== hwid) {
           const errorMessage = `[${timestamp}] /auth/v1: Invalid HWID for key ${key}`;
           console.error(errorMessage);
-          await sendWebhookLog(errorMessage);
+          await sendWebhookLog(request, errorMessage);
           return NextResponse.json({ error: 'Invalid HWID' }, { status: 401 });
         }
 
         if (userData.endTime < Math.floor(Date.now() / 1000)) {
           const errorMessage = `[${timestamp}] /auth/v1: Key expired for key ${key}`;
           console.error(errorMessage);
-          await sendWebhookLog(errorMessage);
+          await sendWebhookLog(request, errorMessage);
           return NextResponse.json({ error: 'Key expired' }, { status: 401 });
         }
 
@@ -177,7 +190,7 @@ export async function middleware(request) {
       } catch (error) {
         const errorMessage = `[${timestamp}] Error in /auth/v1 for key ${key}: ${error.message}`;
         console.error(errorMessage);
-        await sendWebhookLog(errorMessage);
+        await sendWebhookLog(request, errorMessage);
         return NextResponse.json({ error: 'Invalid key' }, { status: 401 });
       }
     }
@@ -185,14 +198,14 @@ export async function middleware(request) {
     if (pathname.startsWith('/dAuth/v1')) {
       const logMessage = `[${timestamp}] Handling /dAuth/v1`;
       console.log(logMessage);
-      await sendWebhookLog(logMessage);
+      await sendWebhookLog(request, logMessage);
 
       const discordId = searchParams.get('ID');
 
       if (!discordId) {
         const errorMessage = `[${timestamp}] /dAuth/v1: Missing Discord ID`;
         console.error(errorMessage);
-        await sendWebhookLog(errorMessage);
+        await sendWebhookLog(request, errorMessage);
         return NextResponse.json({ error: 'Missing Discord ID' }, { status: 400 });
       }
 
@@ -209,14 +222,14 @@ export async function middleware(request) {
             if (userData.endTime < Math.floor(Date.now() / 1000)) {
               const errorMessage = `[${timestamp}] /dAuth/v1: Key expired for Discord ID ${discordId}`;
               console.error(errorMessage);
-              await sendWebhookLog(errorMessage);
+              await sendWebhookLog(request, errorMessage);
               return NextResponse.json({ error: 'Key expired' }, { status: 401 });
             }
             return NextResponse.json({ success: true, ...userData });
           } catch (error) {
             const errorMessage = `[${timestamp}] Error reading blob ${blob.pathname} in /dAuth/v1: ${error.message}`;
             console.error(errorMessage);
-            await sendWebhookLog(errorMessage);
+            await sendWebhookLog(request, errorMessage);
             continue;
           }
         }
@@ -224,14 +237,14 @@ export async function middleware(request) {
 
       const errorMessage = `[${timestamp}] /dAuth/v1: No user found with Discord ID ${discordId}`;
       console.error(errorMessage);
-      await sendWebhookLog(errorMessage);
+      await sendWebhookLog(request, errorMessage);
       return NextResponse.json({ error: 'No user found with this Discord ID' }, { status: 404 });
     }
 
     if (pathname.startsWith('/files/v1')) {
       const logMessage = `[${timestamp}] Handling /files/v1`;
       console.log(logMessage);
-      await sendWebhookLog(logMessage);
+      await sendWebhookLog(request, logMessage);
 
       const fileName = searchParams.get('file')?.toLowerCase();
       const key = request.headers.get('authorization')?.split(' ')[1];
@@ -239,7 +252,7 @@ export async function middleware(request) {
       if (!fileName || !key) {
         const errorMessage = `[${timestamp}] /files/v1: Missing file name or key`;
         console.error(errorMessage);
-        await sendWebhookLog(errorMessage);
+        await sendWebhookLog(request, errorMessage);
         return NextResponse.json({ error: 'Missing file name or key' }, { status: 400 });
       }
 
@@ -248,7 +261,7 @@ export async function middleware(request) {
         if (blobs.length === 0) {
           const errorMessage = `[${timestamp}] /files/v1: Invalid key ${key}`;
           console.error(errorMessage);
-          await sendWebhookLog(errorMessage);
+          await sendWebhookLog(request, errorMessage);
           return NextResponse.json({ error: 'Invalid key' }, { status: 401 });
         }
 
@@ -262,13 +275,13 @@ export async function middleware(request) {
         if (userData.endTime < Math.floor(Date.now() / 1000)) {
           const errorMessage = `[${timestamp}] /files/v1: Key expired for key ${key}`;
           console.error(errorMessage);
-          await sendWebhookLog(errorMessage);
+          await sendWebhookLog(request, errorMessage);
           return NextResponse.json({ error: 'Key expired' }, { status: 401 });
         }
       } catch (error) {
         const errorMessage = `[${timestamp}] Error in /files/v1 for key ${key}: ${error.message}`;
         console.error(errorMessage);
-        await sendWebhookLog(errorMessage);
+        await sendWebhookLog(request, errorMessage);
         return NextResponse.json({ error: 'Invalid key' }, { status: 401 });
       }
 
@@ -280,7 +293,7 @@ export async function middleware(request) {
       if (!script) {
         const errorMessage = `[${timestamp}] /files/v1: File not found: ${fileName}`;
         console.error(errorMessage);
-        await sendWebhookLog(errorMessage);
+        await sendWebhookLog(request, errorMessage);
         return NextResponse.json({ error: 'File not found' }, { status: 404 });
       }
 
@@ -290,20 +303,20 @@ export async function middleware(request) {
     if (pathname.startsWith('/manage/v1')) {
       const logMessage = `[${timestamp}] Handling /manage/v1`;
       console.log(logMessage);
-      await sendWebhookLog(logMessage);
+      await sendWebhookLog(request, logMessage);
 
       const authHeader = request.headers.get('authorization');
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
         const errorMessage = `[${timestamp}] /manage/v1: Missing or invalid Authorization header`;
         console.error(errorMessage);
-        await sendWebhookLog(errorMessage);
+        await sendWebhookLog(request, errorMessage);
         return NextResponse.json({ error: 'Missing or invalid Authorization header' }, { status: 401 });
       }
       const discordId = authHeader.split(' ')[1];
       if (discordId !== '1272720391462457400') {
         const errorMessage = `[${timestamp}] /manage/v1: Unauthorized - Admin access required`;
         console.error(errorMessage);
-        await sendWebhookLog(errorMessage);
+        await sendWebhookLog(request, errorMessage);
         return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 403 });
       }
 
@@ -311,7 +324,7 @@ export async function middleware(request) {
       if (!action) {
         const errorMessage = `[${timestamp}] /manage/v1: Missing action parameter`;
         console.error(errorMessage);
-        await sendWebhookLog(errorMessage);
+        await sendWebhookLog(request, errorMessage);
         return NextResponse.json({ error: 'Missing action parameter' }, { status: 400 });
       }
 
@@ -330,21 +343,21 @@ export async function middleware(request) {
           } catch (error) {
             const errorMessage = `[${timestamp}] Error reading blob ${blob.pathname} in /manage/v1: ${error.message}`;
             console.error(errorMessage);
-            await sendWebhookLog(errorMessage);
+            await sendWebhookLog(request, errorMessage);
             continue;
           }
         }
 
         const successMessage = `[${timestamp}] /manage/v1: Retrieved ${users.length} users`;
         console.log(successMessage);
-        await sendWebhookLog(successMessage);
+        await sendWebhookLog(request, successMessage);
         return NextResponse.json({ success: true, users });
       } else if (action === 'update') {
         const body = await request.json();
         if (!body.discordId || !body.username || !body.endTime) {
           const errorMessage = `[${timestamp}] /manage/v1: Missing required fields in request body`;
           console.error(errorMessage);
-          await sendWebhookLog(errorMessage);
+          await sendWebhookLog(request, errorMessage);
           return NextResponse.json({ error: 'Missing required fields (discordId, username, endTime)' }, { status: 400 });
         }
 
@@ -367,7 +380,7 @@ export async function middleware(request) {
         if (!userData) {
           const errorMessage = `[${timestamp}] /manage/v1: User not found with Discord ID ${body.discordId}`;
           console.error(errorMessage);
-          await sendWebhookLog(errorMessage);
+          await sendWebhookLog(request, errorMessage);
           return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
@@ -383,14 +396,14 @@ export async function middleware(request) {
 
         const successMessage = `[${timestamp}] /manage/v1: Updated user ${body.discordId}`;
         console.log(successMessage);
-        await sendWebhookLog(successMessage);
+        await sendWebhookLog(request, successMessage);
         return NextResponse.json({ success: true, user: userData });
       } else if (action === 'delete') {
         const body = await request.json();
         if (!body.discordId) {
           const errorMessage = `[${timestamp}] /manage/v1: Missing discordId in request body`;
           console.error(errorMessage);
-          await sendWebhookLog(errorMessage);
+          await sendWebhookLog(request, errorMessage);
           return NextResponse.json({ error: 'Missing discordId' }, { status: 400 });
         }
 
@@ -400,21 +413,20 @@ export async function middleware(request) {
         if (!userBlob) {
           const errorMessage = `[${timestamp}] /manage/v1: User not found with Discord ID ${body.discordId}`;
           console.error(errorMessage);
-          await sendWebhookLog(errorMessage);
+          await sendWebhookLog(request, errorMessage);
           return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
-        // Delete the blob
         await fetch(userBlob.url, { method: 'DELETE', token: BLOB_READ_WRITE_TOKEN });
 
         const successMessage = `[${timestamp}] /manage/v1: Deleted user ${body.discordId}`;
         console.log(successMessage);
-        await sendWebhookLog(successMessage);
+        await sendWebhookLog(request, successMessage);
         return NextResponse.json({ success: true });
       } else {
         const errorMessage = `[${timestamp}] /manage/v1: Invalid action ${action}`;
         console.error(errorMessage);
-        await sendWebhookLog(errorMessage);
+        await sendWebhookLog(request, errorMessage);
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
       }
     }
@@ -422,7 +434,7 @@ export async function middleware(request) {
     if (pathname.startsWith('/register/v1')) {
       const logMessage = `[${timestamp}] Handling /register/v1`;
       console.log(logMessage);
-      await sendWebhookLog(logMessage);
+      await sendWebhookLog(request, logMessage);
 
       const discordId = searchParams.get('ID');
       const timeStr = searchParams.get('time');
@@ -431,14 +443,14 @@ export async function middleware(request) {
       if (!discordId || !timeStr || !username) {
         const errorMessage = `[${timestamp}] /register/v1: Missing Discord ID, time, or username`;
         console.error(errorMessage);
-        await sendWebhookLog(errorMessage);
+        await sendWebhookLog(request, errorMessage);
         return NextResponse.json({ error: 'Missing Discord ID, time, or username' }, { status: 400 });
       }
 
       if (username.length < 3 || username.length > 20 || !/^[a-zA-Z0-9_]+$/.test(username)) {
         const errorMessage = `[${timestamp}] /register/v1: Invalid username format`;
         console.error(errorMessage);
-        await sendWebhookLog(errorMessage);
+        await sendWebhookLog(request, errorMessage);
         return NextResponse.json(
           { error: 'Username must be 3-20 characters and contain only letters, numbers, or underscores' },
           { status: 400 }
@@ -449,7 +461,7 @@ export async function middleware(request) {
       if (durationSeconds === null) {
         const errorMessage = `[${timestamp}] /register/v1: Invalid time format: ${timeStr}`;
         console.error(errorMessage);
-        await sendWebhookLog(errorMessage);
+        await sendWebhookLog(request, errorMessage);
         return NextResponse.json(
           { error: 'Invalid time format. Use format like 100s, 100m, 100h, 100d, 100mo, or 100yr' },
           { status: 400 }
@@ -461,7 +473,7 @@ export async function middleware(request) {
         if (blob.pathname.endsWith(`-${discordId}.json`)) {
           const errorMessage = `[${timestamp}] /register/v1: User already registered with Discord ID ${discordId}`;
           console.error(errorMessage);
-          await sendWebhookLog(errorMessage);
+          await sendWebhookLog(request, errorMessage);
           return NextResponse.json({ error: 'User already registered' }, { status: 400 });
         }
         try {
@@ -469,27 +481,27 @@ export async function middleware(request) {
           if (!response.ok) {
             const errorMessage = `[${timestamp}] /register/v1: Failed to fetch blob ${blob.pathname}: ${response.statusText}`;
             console.error(errorMessage);
-            await sendWebhookLog(errorMessage);
+            await sendWebhookLog(request, errorMessage);
             continue;
           }
           const contentType = response.headers.get('content-type');
           if (!contentType || !contentType.includes('application/json')) {
             const errorMessage = `[${timestamp}] /register/v1: Invalid content type for blob ${blob.pathname}: ${contentType}`;
             console.error(errorMessage);
-            await sendWebhookLog(errorMessage);
+            await sendWebhookLog(request, errorMessage);
             continue;
           }
           const userData = await response.json();
           if (userData.username === username) {
             const errorMessage = `[${timestamp}] /register/v1: Username ${username} already taken`;
             console.error(errorMessage);
-            await sendWebhookLog(errorMessage);
+            await sendWebhookLog(request, errorMessage);
             return NextResponse.json({ error: 'Username already taken' }, { status: 400 });
           }
         } catch (error) {
           const errorMessage = `[${timestamp}] /register/v1: Error reading blob ${blob.pathname}: ${error.message}`;
           console.error(errorMessage);
-          await sendWebhookLog(errorMessage);
+          await sendWebhookLog(request, errorMessage);
           continue;
         }
       }
@@ -513,7 +525,7 @@ export async function middleware(request) {
 
       const successMessage = `[${timestamp}] /register/v1: Registered user ${username} with Discord ID ${discordId}, key ${newKey}`;
       console.log(successMessage);
-      await sendWebhookLog(successMessage);
+      await sendWebhookLog(request, successMessage);
 
       return NextResponse.json({ success: true, ...user });
     }
@@ -521,7 +533,7 @@ export async function middleware(request) {
     if (pathname.startsWith('/login/v1')) {
       const logMessage = `[${timestamp}] Handling /login/v1`;
       console.log(logMessage);
-      await sendWebhookLog(logMessage);
+      await sendWebhookLog(request, logMessage);
 
       const discordId = searchParams.get('ID');
       const username = searchParams.get('username');
@@ -529,7 +541,7 @@ export async function middleware(request) {
       if (!discordId || !username) {
         const errorMessage = `[${timestamp}] /login/v1: Missing Discord ID or username`;
         console.error(errorMessage);
-        await sendWebhookLog(errorMessage);
+        await sendWebhookLog(request, errorMessage);
         return NextResponse.json({ error: 'Missing Discord ID or username' }, { status: 400 });
       }
 
@@ -546,14 +558,14 @@ export async function middleware(request) {
             if (userData.username !== username) {
               const errorMessage = `[${timestamp}] /login/v1: Invalid username for Discord ID ${discordId}`;
               console.error(errorMessage);
-              await sendWebhookLog(errorMessage);
+              await sendWebhookLog(request, errorMessage);
               return NextResponse.json({ error: 'Invalid username' }, { status: 401 });
             }
 
             if (userData.endTime < Math.floor(Date.now() / 1000)) {
               const errorMessage = `[${timestamp}] /login/v1: Key expired for Discord ID ${discordId}`;
               console.error(errorMessage);
-              await sendWebhookLog(errorMessage);
+              await sendWebhookLog(request, errorMessage);
               return NextResponse.json({ error: 'Key expired' }, { status: 401 });
             }
 
@@ -561,7 +573,7 @@ export async function middleware(request) {
           } catch (error) {
             const errorMessage = `[${timestamp}] Error reading blob ${blob.pathname} in /login/v1: ${error.message}`;
             console.error(errorMessage);
-            await sendWebhookLog(errorMessage);
+            await sendWebhookLog(request, errorMessage);
             continue;
           }
         }
@@ -569,14 +581,14 @@ export async function middleware(request) {
 
       const errorMessage = `[${timestamp}] /login/v1: No user found with Discord ID ${discordId}`;
       console.error(errorMessage);
-      await sendWebhookLog(errorMessage);
+      await sendWebhookLog(request, errorMessage);
       return NextResponse.json({ error: 'No user found with this Discord ID' }, { status: 404 });
     }
 
     if (pathname.startsWith('/users/v1')) {
       const logMessage = `[${timestamp}] Handling /users/v1`;
       console.log(logMessage);
-      await sendWebhookLog(logMessage);
+      await sendWebhookLog(request, logMessage);
 
       const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
       const users = [];
@@ -592,14 +604,14 @@ export async function middleware(request) {
         } catch (error) {
           const errorMessage = `[${timestamp}] Error reading blob ${blob.pathname} in /users/v1: ${error.message}`;
           console.error(errorMessage);
-          await sendWebhookLog(errorMessage);
+          await sendWebhookLog(request, errorMessage);
           continue;
         }
       }
 
       const successMessage = `[${timestamp}] /users/v1: Retrieved ${users.length} users`;
       console.log(successMessage);
-      await sendWebhookLog(successMessage);
+      await sendWebhookLog(request, successMessage);
 
       return NextResponse.json({ success: true, users });
     }
@@ -607,7 +619,7 @@ export async function middleware(request) {
     if (pathname.startsWith('/reset-hwid/v1')) {
       const logMessage = `[${timestamp}] Handling /reset-hwid/v1`;
       console.log(logMessage);
-      await sendWebhookLog(logMessage);
+      await sendWebhookLog(request, logMessage);
 
       const authHeader = request.headers.get('authorization');
       const discordId = authHeader?.split(' ')[1];
@@ -615,7 +627,7 @@ export async function middleware(request) {
       if (!discordId) {
         const errorMessage = `[${timestamp}] /reset-hwid/v1: Missing Discord ID in authorization header`;
         console.error(errorMessage);
-        await sendWebhookLog(errorMessage);
+        await sendWebhookLog(request, errorMessage);
         return NextResponse.json({ error: 'Missing Discord ID' }, { status: 400 });
       }
 
@@ -638,14 +650,14 @@ export async function middleware(request) {
         if (!userData) {
           const errorMessage = `[${timestamp}] /reset-hwid/v1: User not found with Discord ID ${discordId}`;
           console.error(errorMessage);
-          await sendWebhookLog(errorMessage);
+          await sendWebhookLog(request, errorMessage);
           return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
         if (!userData.hwid) {
           const errorMessage = `[${timestamp}] /reset-hwid/v1: No HWID set for Discord ID ${discordId}`;
           console.error(errorMessage);
-          await sendWebhookLog(errorMessage);
+          await sendWebhookLog(request, errorMessage);
           return NextResponse.json({ error: 'No HWID set' }, { status: 400 });
         }
 
@@ -665,7 +677,7 @@ export async function middleware(request) {
         if (resetData.count >= 2 && discordId !== '1272720391462457400') {
           const errorMessage = `[${timestamp}] /reset-hwid/v1: HWID reset limit reached for Discord ID ${discordId}`;
           console.error(errorMessage);
-          await sendWebhookLog(errorMessage);
+          await sendWebhookLog(request, errorMessage);
           return NextResponse.json({ error: 'HWID reset limit reached (2/day)' }, { status: 429 });
         }
 
@@ -686,25 +698,25 @@ export async function middleware(request) {
 
         const successMessage = `[${timestamp}] /reset-hwid/v1: HWID reset for Discord ID ${discordId} (${resetData.count}/2 today)`;
         console.log(successMessage);
-        await sendWebhookLog(successMessage);
+        await sendWebhookLog(request, successMessage);
 
         return NextResponse.json({ success: true, message: 'HWID reset successfully' });
       } catch (error) {
         const errorMessage = `[${timestamp}] Error in /reset-hwid/v1 for Discord ID ${discordId}: ${error.message}`;
         console.error(errorMessage);
-        await sendWebhookLog(errorMessage);
+        await sendWebhookLog(request, errorMessage);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
       }
     }
 
     const noRouteMessage = `[${timestamp}] No matching route for ${pathname}, passing to Next.js`;
     console.log(noRouteMessage);
-    await sendWebhookLog(noRouteMessage);
+    await sendWebhookLog(request, noRouteMessage);
     return NextResponse.next();
   } catch (error) {
     const errorMessage = `[${timestamp}] Middleware error: ${error.message}`;
     console.error(errorMessage);
-    await sendWebhookLog(errorMessage);
+    await sendWebhookLog(request, errorMessage);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
