@@ -7,6 +7,11 @@ const EDGE_CONFIG_URL = 'https://edge-config.vercel.com/ecfg_i4emvlr8if7efdth14-
 const WEBHOOK_URL = 'https://discord.com/api/webhooks/1378937855199674508/nHwMtepJ3hKpzKDZErNkMdgIZPWhix80nkqSyMgYlbMMuOrLhHcF0HYsmLcq6CZeJrco';
 const SITE_URL = 'https://utils32.vercel.app';
 
+// Queue to store logs temporarily
+let logQueue = [];
+let debounceTimer = null;
+const DEBOUNCE_DELAY = 1000; // 1 second delay to batch logs
+
 // Send log to Discord webhook as an embed
 async function sendWebhookLog(request, message) {
   if (!WEBHOOK_URL) {
@@ -28,34 +33,69 @@ async function sendWebhookLog(request, message) {
   const fullUrl = `${SITE_URL}${url.pathname}${url.search ? url.search : ''}`;
   const searchParams = Object.fromEntries(url.searchParams.entries());
 
-  const embed = {
-    title: `${prefix} Log Entry`,
-    description: message,
-    color: prefix === '[ERROR]' ? 15158332 : prefix === '[WARN]' ? 16763904 : 65280,
-    fields: [
-      { name: 'Timestamp', value: timestamp, inline: true },
-      { name: 'URL', value: fullUrl, inline: true },
-      { name: 'Search Params', value: JSON.stringify(searchParams) || 'None', inline: true },
-    ],
-    footer: { text: 'Nebula Middleware Logs' },
-  };
+  // Add log to queue
+  logQueue.push({
+    prefix,
+    message,
+    timestamp,
+    fullUrl,
+    searchParams,
+  });
 
-  try {
-    const response = await fetch(WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ embeds: [embed] }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Webhook request failed: ${response.status} ${response.statusText} - ${await response.text()}`);
-    }
-  } catch (error) {
-    console.error(`Failed to send webhook log: ${error.message}`);
-    if (error.message.includes('401')) {
-      console.warn('Webhook token may be invalid. Consider updating WEBHOOK_URL.');
-    }
+  // Clear any existing timer and set a new one
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
   }
+
+  debounceTimer = setTimeout(async () => {
+    // Process the batch of logs
+    if (logQueue.length === 0) return;
+
+    // Determine overall color based on the most severe log
+    const hasError = logQueue.some((log) => log.prefix === '[ERROR]');
+    const hasWarn = logQueue.some((log) => log.prefix === '[WARN]');
+    const embedColor = hasError ? 15158332 : hasWarn ? 16763904 : 65280;
+
+    // Combine messages into a single description
+    const combinedDescription = logQueue
+      .map((log) => `${log.prefix} ${log.message}`)
+      .join('\n');
+
+    // Use the details of the first log for URL and search params (or adjust as needed)
+    const firstLog = logQueue[0];
+    const embed = {
+      title: 'Middleware Logs Batch',
+      description: combinedDescription,
+      color: embedColor,
+      fields: [
+        { name: 'Timestamp', value: firstLog.timestamp, inline: true },
+        { name: 'URL', value: firstLog.fullUrl, inline: true },
+        { name: 'Search Params', value: JSON.stringify(firstLog.searchParams) || 'None', inline: true },
+      ],
+      footer: { text: 'Nebula Middleware Logs' },
+    };
+
+    try {
+      const response = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ embeds: [embed] }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Webhook request failed: ${response.status} ${response.statusText} - ${await response.text()}`);
+      }
+    } catch (error) {
+      console.error(`Failed to send webhook log batch: ${error.message}`);
+      if (error.message.includes('401')) {
+        console.warn('Webhook token may be invalid. Consider updating WEBHOOK_URL.');
+      }
+    }
+
+    // Clear the queue after sending
+    logQueue = [];
+    debounceTimer = null;
+  }, DEBOUNCE_DELAY);
 }
 
 // Generate a 14-character key
