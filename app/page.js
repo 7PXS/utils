@@ -281,49 +281,198 @@ export default function StatusDashboard() {
   if (!isAuthenticated) {
     return (
       <div
-        className="min-h-screen flex items-center justify-center text-gray-300"
+        className="min-h-screen flex items-center justify-center text-gray-200 overflow-hidden"
         style={{
-          backgroundColor: '#1a1a1a',
-          backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Cg fill=%22#222222%22 fill-opacity=%220.3%22%3E%3Cpath d=%22M0 0h40v20H0zM20 20h20v20H20z%22/%3E%3C/g%3E%3C/svg%3E")',
+          background: 'linear-gradient(135deg, #1a1a1a, #2c2c2c)',
+          animation: 'gradientShift 15s ease infinite',
+          backgroundSize: '400% 400%',
           fontFamily: 'Inter, sans-serif',
+          position: 'relative',
         }}
       >
+        <style jsx global>{`
+          @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+          }
+          @keyframes particleFloat {
+            0% { transform: translateY(0) translateX(0); opacity: 0.3; }
+            50% { opacity: 0.6; }
+            100% { transform: translateY(-100vh) translateX(10px); opacity: 0; }
+          }
+          @keyframes glowPulse {
+            0% { box-shadow: 0 0 5px rgba(0, 255, 128, 0.5); }
+            50% { box-shadow: 0 0 15px rgba(0, 255, 128, 0.8); }
+            100% { box-shadow: 0 0 5px rgba(0, 255, 128, 0.5); }
+          }
+          .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: rgba(0, 255, 128, 0.5);
+            border-radius: 50%;
+            animation: particleFloat 10s infinite ease-in-out;
+            pointer-events: none;
+          }
+          .input-label {
+            position: absolute;
+            top: 50%;
+            left: 12px;
+            transform: translateY(-50%);
+            color: #888;
+            transition: all 0.3s ease;
+            pointer-events: none;
+          }
+          .input-field:focus + .input-label,
+          .input-field:not(:placeholder-shown) + .input-label {
+            top: -8px;
+            font-size: 12px;
+            color: #00ff80;
+          }
+          .input-field {
+            background: none;
+            border: none;
+            border-bottom: 2px solid #444;
+            transition: border-color 0.3s ease;
+          }
+          .input-field:focus {
+            border-color: #00ff80;
+            outline: none;
+          }
+          .ripple-button {
+            position: relative;
+            overflow: hidden;
+          }
+          .ripple {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            transform: scale(0);
+            animation: rippleEffect 0.6s linear;
+            pointer-events: none;
+          }
+          @keyframes rippleEffect {
+            to {
+              transform: scale(4);
+              opacity: 0;
+            }
+          }
+        `}</style>
+        {/* Particles Background */}
+        {[...Array(20)].map((_, i) => (
+          <div
+            key={i}
+            className="particle"
+            style={{
+              left: `${Math.random() * 100}vw`,
+              animationDelay: `${Math.random() * 5}s`,
+            }}
+          />
+        ))}
         <div
-          className="p-8 rounded-xl shadow-lg max-w-md w-full"
+          className="p-10 rounded-2xl max-w-md w-full relative z-10"
           style={{
-            background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
-            border: '1px solid #333',
+            background: 'rgba(30, 30, 30, 0.9)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(0, 255, 128, 0.3)',
+            boxShadow: '0 0 20px rgba(0, 255, 128, 0.3)',
+            animation: 'glowPulse 2s infinite ease-in-out',
           }}
         >
-          <h2 className="mb-6 text-center text-xl font-semibold">Login or Register</h2>
+          <h2 className="mb-8 text-center text-2xl font-bold text-white tracking-wide">
+            <span style={{ color: '#00ff80' }}>7Px</span> Dashboard
+          </h2>
           {error && (
-            <p className="mb-4 text-center text-red-400">{error}</p>
+            <p className="mb-6 text-center text-red-400 animate-pulse">{error}</p>
           )}
-          <div className="space-y-4">
-            <input
-              type="text"
-              placeholder="Discord ID"
-              value={discordId}
-              onChange={(e) => setDiscordId(e.target.value)}
-              className="w-full p-2 rounded bg-[#1e1e1e] text-gray-200 border border-[#444] focus:outline-none focus:border-green-500"
-            />
-            <input
-              type="text"
-              placeholder="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full p-2 rounded bg-[#1e1e1e] text-gray-200 border border-[#444] focus:outline-none focus:border-green-500"
-            />
+          <div className="space-y-6">
+            <div className="relative">
+              <input
+                type="text"
+                id="discordId"
+                placeholder=" "
+                value={discordId}
+                onChange={(e) => setDiscordId(e.target.value)}
+                className="input-field w-full p-3 text-gray-200 rounded-t"
+                style={{
+                  borderBottom: '2px solid #444',
+                }}
+              />
+              <label htmlFor="discordId" className="input-label">
+                Discord ID
+              </label>
+            </div>
+            <div className="relative">
+              <input
+                type="text"
+                id="username"
+                placeholder=" "
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="input-field w-full p-3 text-gray-200 rounded-t"
+                style={{
+                  borderBottom: '2px solid #444',
+                }}
+              />
+              <label htmlFor="username" className="input-label">
+                Username
+              </label>
+            </div>
             <div className="flex gap-4">
               <button
-                onClick={handleLogin}
-                className="flex-1 p-2 rounded bg-green-600 text-white font-semibold transition hover:bg-green-700"
+                onClick={(e) => {
+                  handleLogin(e);
+                  const button = e.currentTarget;
+                  const rect = button.getBoundingClientRect();
+                  const ripple = document.createElement('span');
+                  ripple.className = 'ripple';
+                  ripple.style.left = `${e.clientX - rect.left}px`;
+                  ripple.style.top = `${e.clientY - rect.top}px`;
+                  button.appendChild(ripple);
+                  setTimeout(() => ripple.remove(), 600);
+                }}
+                className="ripple-button flex-1 p-3 rounded-lg text-white font-semibold transition-all duration-300"
+                style={{
+                  background: 'linear-gradient(90deg, #00ff80, #00cc66)',
+                  boxShadow: '0 0 10px rgba(0, 255, 128, 0.5)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.filter = 'brightness(1.2)';
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.filter = 'brightness(1)';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
               >
                 Login
               </button>
               <button
-                onClick={handleRegister}
-                className="flex-1 p-2 rounded bg-blue-600 text-white font-semibold transition hover:bg-blue-700"
+                onClick={(e) => {
+                  handleRegister(e);
+                  const button = e.currentTarget;
+                  const rect = button.getBoundingClientRect();
+                  const ripple = document.createElement('span');
+                  ripple.className = 'ripple';
+                  ripple.style.left = `${e.clientX - rect.left}px`;
+                  ripple.style.top = `${e.clientY - rect.top}px`;
+                  button.appendChild(ripple);
+                  setTimeout(() => ripple.remove(), 600);
+                }}
+                className="ripple-button flex-1 p-3 rounded-lg text-white font-semibold transition-all duration-300"
+                style={{
+                  background: 'linear-gradient(90deg, #00b7ff, #0088cc)',
+                  boxShadow: '0 0 10px rgba(0, 183, 255, 0.5)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.filter = 'brightness(1.2)';
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.filter = 'brightness(1)';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
               >
                 Register
               </button>
@@ -336,18 +485,66 @@ export default function StatusDashboard() {
 
   return (
     <div
-      className="min-h-screen text-gray-200"
+      className="min-h-screen text-gray-200 overflow-hidden"
       style={{
-        backgroundColor: '#1a1a1a',
-        backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Cg fill=%22#222222%22 fill-opacity=%220.3%22%3E%3Cpath d=%22M0 0h40v40H0z%22/%3E%3Cpath d=%22M0 0h20v20H0zM20 20h20v20H20z%22/%3E%3C/g%3E%3C/svg%3E")',
+        background: 'linear-gradient(135deg, #1a1a1a, #2c2c2c)',
+        animation: 'gradientShift 15s ease infinite',
+        backgroundSize: '400% 400%',
         fontFamily: 'Inter, sans-serif',
+        position: 'relative',
       }}
     >
-      <div className="container mx-auto p-6">
+      <style jsx global>{`
+        @keyframes gradientShift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes glowPulse {
+          0% { box-shadow: 0 0 5px rgba(0, 255, 128, 0.5); }
+          50% { box-shadow: 0 0 15px rgba(0, 255, 128, 0.8); }
+          100% { box-shadow: 0 0 5px rgba(0, 255, 128, 0.5); }
+        }
+        @keyframes rippleEffect {
+          to {
+            transform: scale(4);
+            opacity: 0;
+          }
+        }
+        .ripple-button {
+          position: relative;
+          overflow: hidden;
+        }
+        .ripple {
+          position: absolute;
+          background: rgba(255, 255, 255, 0.3);
+          border-radius: 50%;
+          transform: scale(0);
+          animation: rippleEffect 0.6s linear;
+          pointer-events: none;
+        }
+      `}</style>
+      <div className="container mx-auto p-8">
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Status Dashboard</h1>
-          <div className="text-sm text-gray-500">
+        <div className="mb-8 flex items-center justify-between">
+          <h1
+            className="text-2xl font-bold tracking-wide"
+            style={{
+              color: '#00ff80',
+              textShadow: '0 0 10px rgba(0, 255, 128, 0.5)',
+            }}
+          >
+            Status Dashboard
+          </h1>
+          <div
+            className="text-sm text-gray-400"
+            style={{
+              background: 'rgba(30, 30, 30, 0.8)',
+              padding: '4px 12px',
+              borderRadius: '12px',
+              border: '1px solid rgba(0, 255, 128, 0.2)',
+            }}
+          >
             Last Updated: {lastUpdated}
           </div>
         </div>
@@ -355,84 +552,133 @@ export default function StatusDashboard() {
         {/* Service Status (Centered) */}
         <div className="flex justify-center">
           <div
-            className="max-w-[400px] rounded-xl p-4 shadow-lg"
+            className="max-w-[400px] rounded-2xl p-6"
             style={{
-              background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
-              border: '1px solid #333',
-              transition: 'transform 0.2s ease',
+              background: 'rgba(30, 30, 30, 0.9)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(0, 255, 128, 0.3)',
+              boxShadow: '0 0 20px rgba(0, 255, 128, 0.3)',
+              transition: 'all 0.3s ease',
+              animation: 'glowPulse 2s infinite ease-in-out',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-            onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.03)';
+              e.currentTarget.style.boxShadow = '0 0 30px rgba(0, 255, 128, 0.5)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = '0 0 20px rgba(0, 255, 128, 0.3)';
+            }}
           >
-            <div className="mb-3 flex items-center justify-center">
+            <div className="mb-4 flex items-center justify-center">
               <div className="flex items-center">
-                <h2 className="text-center text-lg font-semibold">Status</h2>
+                <h2 className="text-center text-xl font-semibold text-white">Status</h2>
                 <span
-                  className="ml-2 h-4 w-4 rounded-full bg-green-500"
-                  style={{ boxShadow: '0 0 8px rgba(0, 255, 0, 0.5)' }}
+                  className="ml-3 h-5 w-5 rounded-full bg-green-500"
+                  style={{
+                    boxShadow: '0 0 15px rgba(0, 255, 0, 0.7)',
+                    animation: 'glowPulse 1.5s infinite ease-in-out',
+                  }}
                 ></span>
               </div>
             </div>
             <div className="mb-4 flex flex-wrap gap-2 justify-center">
               <span
-                className="rounded px-2 py-1 text-xs font-semibold text-gray-300"
-                style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
+                style={{
+                  background: 'rgba(50, 50, 50, 0.8)',
+                  border: '1px solid rgba(0, 255, 128, 0.2)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                }}
               >
                 {getFormattedDate()}
               </span>
             </div>
-            <p className="mt-3 text-center text-xs text-gray-500">Windows • {lastUpdated}</p>
+            <p className="mt-3 text-center text-xs text-gray-400">
+              Windows • {lastUpdated}
+            </p>
           </div>
         </div>
 
         {/* User Info Card (Under Status Card) */}
         {userData && (
-          <div className="mt-6 flex justify-center">
+          <div className="mt-8 flex justify-center">
             <div
-              className="w-full max-w-[400px] rounded-xl p-5 shadow-lg"
+              className="w-full max-w-[400px] rounded-2xl p-6"
               style={{
-                background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
-                border: '1px solid #333',
-                transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+                background: 'rgba(30, 30, 30, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(0, 255, 128, 0.3)',
+                boxShadow: '0 0 20px rgba(0, 255, 128, 0.3)',
+                transition: 'all 0.3s ease',
+                animation: 'glowPulse 2s infinite ease-in-out',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.3)';
+                e.currentTarget.style.transform = 'scale(1.03)';
+                e.currentTarget.style.boxShadow = '0 0 30px rgba(0, 255, 128, 0.5)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 0 20px rgba(0, 255, 128, 0.3)';
               }}
             >
-              <h2 className="mb-4 text-center text-lg font-semibold text-green-400">User Profile</h2>
+              <h2 className="mb-4 text-center text-xl font-semibold text-green-400">
+                User Profile
+              </h2>
               <div className="mb-4 flex flex-wrap gap-2 justify-center">
                 <span
-                  className="rounded px-2 py-1 text-xs font-semibold text-gray-300"
-                  style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
+                  style={{
+                    background: 'rgba(50, 50, 50, 0.8)',
+                    border: '1px solid rgba(0, 255, 128, 0.2)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
                 >
                   Username: {userData.username}
                 </span>
                 <span
-                  className="rounded px-2 py-1 text-xs font-semibold text-gray-300"
-                  style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
+                  style={{
+                    background: 'rgba(50, 50, 50, 0.8)',
+                    border: '1px solid rgba(0, 255, 128, 0.2)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
                 >
                   Discord: {userData.discordId}
                 </span>
                 <span
-                  className="rounded px-2 py-1 text-xs font-semibold text-gray-300"
-                  style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
+                  style={{
+                    background: 'rgba(50, 50, 50, 0.8)',
+                    border: '1px solid rgba(0, 255, 128, 0.2)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
                 >
                   Key: {userData.key}
                 </span>
                 <span
-                  className="rounded px-2 py-1 text-xs font-semibold text-gray-300"
-                  style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
+                  style={{
+                    background: 'rgba(50, 50, 50, 0.8)',
+                    border: '1px solid rgba(0, 255, 128, 0.2)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
                 >
                   HWID: {userData.hwid || 'Not set'}
                 </span>
                 <span
-                  className="rounded px-2 py-1 text-xs font-semibold text-gray-300"
-                  style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
+                  style={{
+                    background: 'rgba(50, 50, 50, 0.8)',
+                    border: '1px solid rgba(0, 255, 128, 0.2)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
                 >
                   Ends: {new Date(userData.endTime * 1000).toLocaleString('en-US', {
                     month: 'numeric',
@@ -443,13 +689,40 @@ export default function StatusDashboard() {
               </div>
               <div className="flex justify-center">
                 <button
-                  onClick={handleHwidReset}
+                  onClick={(e) => {
+                    handleHwidReset();
+                    const button = e.currentTarget;
+                    const rect = button.getBoundingClientRect();
+                    const ripple = document.createElement('span');
+                    ripple.className = 'ripple';
+                    ripple.style.left = `${e.clientX - rect.left}px`;
+                    ripple.style.top = `${e.clientY - rect.top}px`;
+                    button.appendChild(ripple);
+                    setTimeout(() => ripple.remove(), 600);
+                  }}
                   disabled={!userData.hwid}
-                  className={`p-2 rounded text-white font-semibold transition ${
-                    userData.hwid
-                      ? 'bg-red-600 hover:bg-red-700'
-                      : 'bg-gray-600 cursor-not-allowed'
-                  }`}
+                  className="ripple-button p-3 rounded-lg text-white font-semibold transition-all duration-300"
+                  style={{
+                    background: userData.hwid
+                      ? 'linear-gradient(90deg, #ff3333, #cc0000)'
+                      : 'rgba(50, 50, 50, 0.8)',
+                    boxShadow: userData.hwid
+                      ? '0 0 10px rgba(255, 51, 51, 0.5)'
+                      : 'none',
+                    cursor: userData.hwid ? 'pointer' : 'not-allowed',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (userData.hwid) {
+                      e.currentTarget.style.filter = 'brightness(1.2)';
+                      e.currentTarget.style.transform = 'scale(1.05)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (userData.hwid) {
+                      e.currentTarget.style.filter = 'brightness(1)';
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }
+                  }}
                 >
                   Reset HWID
                 </button>
@@ -459,51 +732,75 @@ export default function StatusDashboard() {
         )}
 
         {/* Scripts Cards */}
-        <div className="mt-6 flex flex-wrap justify-center gap-6">
+        <div className="mt-8 flex flex-wrap justify-center gap-8">
           {scripts.length === 0 ? (
-            <p className="text-gray-500">No scripts available or loading...</p>
+            <p className="text-gray-400 animate-pulse">No scripts available or loading...</p>
           ) : (
             scripts.map((script, index) => (
               <div
                 key={index}
-                className="w-full max-w-[400px] rounded-xl p-5 shadow-lg"
+                className="w-full max-w-[400px] rounded-2xl p-6"
                 style={{
-                  background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
-                  border: '1px solid #333',
-                  transition: 'transform 0.2s ease',
+                  background: 'rgba(30, 30, 30, 0.9)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(0, 255, 128, 0.3)',
+                  boxShadow: '0 0 20px rgba(0, 255, 128, 0.3)',
+                  transition: 'all 0.3s ease',
+                  animation: 'glowPulse 2s infinite ease-in-out',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-                onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.03)';
+                  e.currentTarget.style.boxShadow = '0 0 30px rgba(0, 255, 128, 0.5)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.boxShadow = '0 0 20px rgba(0, 255, 128, 0.3)';
+                }}
               >
-                <div className="mb-3 flex items-center justify-between">
+                <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center">
-                    <h3 className="text-md font-semibold">{script.name}</h3>
+                    <h3 className="text-lg font-semibold text-white">{script.name}</h3>
                     <span
-                      className={`ml-2 h-4 w-4 rounded-full ${
+                      className={`ml-3 h-5 w-5 rounded-full ${
                         script.status === 'success' ? 'bg-green-500' : 'bg-red-500'
                       }`}
-                      style={{ boxShadow: `0 0 8px rgba(${script.status === 'success' ? '0, 255, 0' : '255, 0, 0'}, 0.5)` }}
+                      style={{
+                        boxShadow: `0 0 15px rgba(${
+                          script.status === 'success' ? '0, 255, 0' : '255, 0, 0'
+                        }, 0.7)`,
+                        animation: 'glowPulse 1.5s infinite ease-in-out',
+                      }}
                     ></span>
                   </div>
                 </div>
                 <div className="mb-4 flex flex-wrap gap-2">
                   <span
-                    className="rounded px-2 py-1 text-xs font-semibold text-gray-300"
-                    style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                    className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
+                    style={{
+                      background: 'rgba(50, 50, 50, 0.8)',
+                      border: '1px solid rgba(0, 255, 128, 0.2)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                    }}
                   >
                     {script.language}
                   </span>
                   <span
-                    className="rounded px-2 py-1 text-xs font-semibold text-gray-300"
-                    style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                    className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
+                    style={{
+                      background: 'rgba(50, 50, 50, 0.8)',
+                      border: '1px solid rgba(0, 255, 128, 0.2)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                    }}
                   >
                     {script.version}
                   </span>
                 </div>
-                <p className="mt-3 text-xs text-gray-500">
+                <p className="mt-3 text-xs text-gray-400">
                   Status: {script.status === 'success' ? 'Loaded' : 'Failed to load'}
                 </p>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-gray-400">
                   Last Updated: {script.lastUpdated}
                 </p>
               </div>
@@ -512,22 +809,36 @@ export default function StatusDashboard() {
         </div>
 
         {/* Status Cards (Logs) */}
-        <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-1 lg:grid-cols-1">
+        <div className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-1 lg:grid-cols-1">
           <div
-            className="rounded-xl p-5 shadow-lg"
+            className="rounded-2xl p-6"
             style={{
-              background: 'linear-gradient(145deg, #2a2a2a, #1f1f1f)',
-              border: '1px solid #333',
-              transition: 'transform 0.2s ease',
+              background: 'rgba(30, 30, 30, 0.9)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(0, 255, 128, 0.3)',
+              boxShadow: '0 0 20px rgba(0, 255, 128, 0.3)',
+              transition: 'all 0.3s ease',
+              animation: 'glowPulse 2s infinite ease-in-out',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-            onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.03)';
+              e.currentTarget.style.boxShadow = '0 0 30px rgba(0, 255, 128, 0.5)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = '0 0 20px rgba(0, 255, 128, 0.3)';
+            }}
           >
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center">
                 <span
-                  className="rounded px-2 py-1 text-xs font-semibold text-gray-300"
-                  style={{ background: '#333', border: '1px solid #444', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
+                  style={{
+                    background: 'rgba(50, 50, 50, 0.8)',
+                    border: '1px solid rgba(0, 255, 128, 0.2)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
                 >
                   Service endpoint logs
                 </span>
@@ -538,7 +849,7 @@ export default function StatusDashboard() {
               className="rounded-lg p-4"
               style={{
                 background: '#1e1e1e',
-                border: '1px solid #444',
+                border: '1px solid rgba(0, 255, 128, 0.2)',
                 fontFamily: 'Courier New, Courier, monospace',
                 fontSize: '0.9rem',
                 maxHeight: '200px',
