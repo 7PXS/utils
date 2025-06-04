@@ -68,7 +68,7 @@ export default function UserProfile() {
         fetchUsers();
       }
     } catch (error) {
-      setError(error.message');
+      setError(error.message);
     }
   };
 
