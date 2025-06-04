@@ -13,7 +13,6 @@ async function sendWebhookLog(message) {
     return;
   }
 
-  // Determine log type
   let prefix;
   if (message.includes('error') || message.includes('Invalid') || message.includes('failed')) {
     prefix = '[ERROR]';
@@ -23,11 +22,8 @@ async function sendWebhookLog(message) {
     prefix = '[SUCCESS]';
   }
 
-  // Format message with timestamp
   const timestamp = new Date().toISOString();
   const formattedMessage = `${prefix} ${message}\n-# ${timestamp}`;
-
-  // Truncate to Discord's 2000-character limit
   const truncatedMessage = formattedMessage.length > 2000 ? formattedMessage.substring(0, 1997) + '...' : formattedMessage;
 
   try {
@@ -38,11 +34,14 @@ async function sendWebhookLog(message) {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Webhook request failed: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(`Webhook request failed: ${response.status} ${response.statusText} - ${await response.text()}`);
     }
   } catch (error) {
     console.error(`Failed to send webhook log: ${error.message}`);
+    // Optionally disable webhook if it fails repeatedly
+    if (error.message.includes('401')) {
+      console.warn('Webhook token may be invalid. Consider updating WEBHOOK_URL.');
+    }
   }
 }
 
@@ -84,7 +83,6 @@ export async function middleware(request) {
   console.log(logMessage);
   await sendWebhookLog(logMessage);
 
-  // Warn if environment variables are missing
   if (!BLOB_READ_WRITE_TOKEN || !EDGE_CONFIG_URL || !WEBHOOK_URL) {
     const warningMessage = `[${timestamp}] Environment variables missing, using hardcoded values`;
     console.warn(warningMessage);
@@ -92,7 +90,6 @@ export async function middleware(request) {
   }
 
   try {
-    // /scripts-list
     if (pathname.startsWith('/scripts-list')) {
       const logMessage = `[${timestamp}] Handling /scripts-list`;
       console.log(logMessage);
@@ -121,7 +118,6 @@ export async function middleware(request) {
       }
     }
 
-    // /auth/v1/?key=&hwid=
     if (pathname.startsWith('/auth/v1')) {
       const logMessage = `[${timestamp}] Handling /auth/v1`;
       console.log(logMessage);
@@ -186,7 +182,6 @@ export async function middleware(request) {
       }
     }
 
-    // /dAuth/v1/?ID=
     if (pathname.startsWith('/dAuth/v1')) {
       const logMessage = `[${timestamp}] Handling /dAuth/v1`;
       console.log(logMessage);
@@ -233,7 +228,6 @@ export async function middleware(request) {
       return NextResponse.json({ error: 'No user found with this Discord ID' }, { status: 404 });
     }
 
-    // /files/v1/?file=
     if (pathname.startsWith('/files/v1')) {
       const logMessage = `[${timestamp}] Handling /files/v1`;
       console.log(logMessage);
@@ -293,36 +287,46 @@ export async function middleware(request) {
       return NextResponse.json(scripts[script]);
     }
 
-    // /manage/v1/?ID=&action=&value=
     if (pathname.startsWith('/manage/v1')) {
       const logMessage = `[${timestamp}] Handling /manage/v1`;
       console.log(logMessage);
       await sendWebhookLog(logMessage);
 
-      const discordId = searchParams.get('ID');
-      const action = searchParams.get('action');
-      const value = searchParams.get('value');
-
-      if (!discordId || !action) {
-        const errorMessage = `[${timestamp}] /manage/v1: Missing Discord ID or action`;
+      const authHeader = request.headers.get('authorization');
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        const errorMessage = `[${timestamp}] /manage/v1: Missing or invalid Authorization header`;
         console.error(errorMessage);
         await sendWebhookLog(errorMessage);
-        return NextResponse.json({ error: 'Missing Discord ID or action' }, { status: 400 });
+        return NextResponse.json({ error: 'Missing or invalid Authorization header' }, { status: 401 });
+      }
+      const discordId = authHeader.split(' ')[1];
+      if (discordId !== '1272720391462457400') {
+        const errorMessage = `[${timestamp}] /manage/v1: Unauthorized - Admin access required`;
+        console.error(errorMessage);
+        await sendWebhookLog(errorMessage);
+        return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 403 });
       }
 
-      let userKey = null;
-      let userData = null;
-      const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
-      for (const blob of blobs) {
-        if (blob.pathname.endsWith(`-${discordId}.json`)) {
+      const action = searchParams.get('action');
+      if (!action) {
+        const errorMessage = `[${timestamp}] /manage/v1: Missing action parameter`;
+        console.error(errorMessage);
+        await sendWebhookLog(errorMessage);
+        return NextResponse.json({ error: 'Missing action parameter' }, { status: 400 });
+      }
+
+      if (action === 'list') {
+        const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
+        const users = [];
+
+        for (const blob of blobs) {
           try {
             const response = await fetch(blob.url);
             if (!response.ok) {
               throw new Error(`Failed to fetch blob: ${response.statusText}`);
             }
-            userData = await response.json();
-            userKey = userData.key;
-            break;
+            const userData = await response.json();
+            users.push(userData);
           } catch (error) {
             const errorMessage = `[${timestamp}] Error reading blob ${blob.pathname} in /manage/v1: ${error.message}`;
             console.error(errorMessage);
@@ -330,49 +334,91 @@ export async function middleware(request) {
             continue;
           }
         }
-      }
 
-      if (!userKey || !userData) {
-        const errorMessage = `[${timestamp}] /manage/v1: User not found with Discord ID ${discordId}`;
-        console.error(errorMessage);
-        await sendWebhookLog(errorMessage);
-        return NextResponse.json({ error: 'User not found' }, { status: 404 });
-      }
-
-      if (action === 'setKeyTime' && value) {
-        const durationSeconds = parseTimeToSeconds(value);
-        if (durationSeconds === null) {
-          const errorMessage = `[${timestamp}] /manage/v1: Invalid time format for Discord ID ${discordId}`;
+        const successMessage = `[${timestamp}] /manage/v1: Retrieved ${users.length} users`;
+        console.log(successMessage);
+        await sendWebhookLog(successMessage);
+        return NextResponse.json({ success: true, users });
+      } else if (action === 'update') {
+        const body = await request.json();
+        if (!body.discordId || !body.username || !body.endTime) {
+          const errorMessage = `[${timestamp}] /manage/v1: Missing required fields in request body`;
           console.error(errorMessage);
           await sendWebhookLog(errorMessage);
-          return NextResponse.json({ error: 'Invalid time format' }, { status: 400 });
+          return NextResponse.json({ error: 'Missing required fields (discordId, username, endTime)' }, { status: 400 });
         }
-        userData.endTime = Math.floor(Date.now() / 1000) + durationSeconds;
-      } else if (action === 'resetHwid' && value) {
-        userData.hwid = value;
-      } else if (action === 'setUsername' && value) {
-        userData.username = value;
+
+        const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
+        let userBlob = null;
+        let userData = null;
+
+        for (const blob of blobs) {
+          if (blob.pathname.endsWith(`-${body.discordId}.json`)) {
+            const response = await fetch(blob.url);
+            if (!response.ok) {
+              throw new Error(`Failed to fetch blob: ${response.statusText}`);
+            }
+            userData = await response.json();
+            userBlob = blob;
+            break;
+          }
+        }
+
+        if (!userData) {
+          const errorMessage = `[${timestamp}] /manage/v1: User not found with Discord ID ${body.discordId}`;
+          console.error(errorMessage);
+          await sendWebhookLog(errorMessage);
+          return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        }
+
+        userData.username = body.username;
+        userData.endTime = body.endTime;
+        if (body.hwid !== undefined) userData.hwid = body.hwid;
+
+        await put(`Users/${userData.key}-${body.discordId}.json`, JSON.stringify(userData), {
+          access: 'public',
+          token: BLOB_READ_WRITE_TOKEN,
+          addRandomSuffix: false,
+        });
+
+        const successMessage = `[${timestamp}] /manage/v1: Updated user ${body.discordId}`;
+        console.log(successMessage);
+        await sendWebhookLog(successMessage);
+        return NextResponse.json({ success: true, user: userData });
+      } else if (action === 'delete') {
+        const body = await request.json();
+        if (!body.discordId) {
+          const errorMessage = `[${timestamp}] /manage/v1: Missing discordId in request body`;
+          console.error(errorMessage);
+          await sendWebhookLog(errorMessage);
+          return NextResponse.json({ error: 'Missing discordId' }, { status: 400 });
+        }
+
+        const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
+        const userBlob = blobs.find((blob) => blob.pathname.endsWith(`-${body.discordId}.json`));
+
+        if (!userBlob) {
+          const errorMessage = `[${timestamp}] /manage/v1: User not found with Discord ID ${body.discordId}`;
+          console.error(errorMessage);
+          await sendWebhookLog(errorMessage);
+          return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        }
+
+        // Delete the blob
+        await fetch(userBlob.url, { method: 'DELETE', token: BLOB_READ_WRITE_TOKEN });
+
+        const successMessage = `[${timestamp}] /manage/v1: Deleted user ${body.discordId}`;
+        console.log(successMessage);
+        await sendWebhookLog(successMessage);
+        return NextResponse.json({ success: true });
       } else {
-        const errorMessage = `[${timestamp}] /manage/v1: Invalid action or value for Discord ID ${discordId}`;
+        const errorMessage = `[${timestamp}] /manage/v1: Invalid action ${action}`;
         console.error(errorMessage);
         await sendWebhookLog(errorMessage);
-        return NextResponse.json({ error: 'Invalid action or value' }, { status: 400 });
+        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
       }
-
-      await put(`Users/${userKey}-${discordId}.json`, JSON.stringify(userData), {
-        access: 'public',
-        token: BLOB_READ_WRITE_TOKEN,
-        addRandomSuffix: false,
-      });
-
-      const successMessage = `[${timestamp}] /manage/v1: Updated user for Discord ID ${discordId} with action ${action}`;
-      console.log(successMessage);
-      await sendWebhookLog(successMessage);
-
-      return NextResponse.json({ success: true, ...userData });
     }
 
-    // /register/v1/?ID=&time=&username=
     if (pathname.startsWith('/register/v1')) {
       const logMessage = `[${timestamp}] Handling /register/v1`;
       console.log(logMessage);
@@ -389,7 +435,6 @@ export async function middleware(request) {
         return NextResponse.json({ error: 'Missing Discord ID, time, or username' }, { status: 400 });
       }
 
-      // Validate username
       if (username.length < 3 || username.length > 20 || !/^[a-zA-Z0-9_]+$/.test(username)) {
         const errorMessage = `[${timestamp}] /register/v1: Invalid username format`;
         console.error(errorMessage);
@@ -473,7 +518,6 @@ export async function middleware(request) {
       return NextResponse.json({ success: true, ...user });
     }
 
-    // /login/v1/?ID=&username=
     if (pathname.startsWith('/login/v1')) {
       const logMessage = `[${timestamp}] Handling /login/v1`;
       console.log(logMessage);
@@ -529,7 +573,6 @@ export async function middleware(request) {
       return NextResponse.json({ error: 'No user found with this Discord ID' }, { status: 404 });
     }
 
-    // /users/v1
     if (pathname.startsWith('/users/v1')) {
       const logMessage = `[${timestamp}] Handling /users/v1`;
       console.log(logMessage);
@@ -561,7 +604,6 @@ export async function middleware(request) {
       return NextResponse.json({ success: true, users });
     }
 
-    // /reset-hwid/v1
     if (pathname.startsWith('/reset-hwid/v1')) {
       const logMessage = `[${timestamp}] Handling /reset-hwid/v1`;
       console.log(logMessage);
@@ -578,7 +620,6 @@ export async function middleware(request) {
       }
 
       try {
-        // Find user
         let userBlob = null;
         let userData = null;
         const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
@@ -608,7 +649,6 @@ export async function middleware(request) {
           return NextResponse.json({ error: 'No HWID set' }, { status: 400 });
         }
 
-        // Check reset limit
         const today = new Date().toISOString().split('T')[0];
         const resetKey = `HwidResets/${discordId}/${today}.json`;
         let resetData = { count: 0, resets: [] };
@@ -622,14 +662,13 @@ export async function middleware(request) {
           resetData = await resetResponse.json();
         }
 
-        if (resetData.count >= 2) {
+        if (resetData.count >= 2 && discordId !== '1272720391462457400') {
           const errorMessage = `[${timestamp}] /reset-hwid/v1: HWID reset limit reached for Discord ID ${discordId}`;
           console.error(errorMessage);
           await sendWebhookLog(errorMessage);
           return NextResponse.json({ error: 'HWID reset limit reached (2/day)' }, { status: 429 });
         }
 
-        // Reset HWID
         userData.hwid = '';
         await put(`Users/${userData.key}-${discordId}.json`, JSON.stringify(userData), {
           access: 'public',
@@ -637,7 +676,6 @@ export async function middleware(request) {
           addRandomSuffix: false,
         });
 
-        // Update reset count
         resetData.count += 1;
         resetData.resets.push({ timestamp });
         await put(resetKey, JSON.stringify(resetData), {
