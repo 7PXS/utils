@@ -178,6 +178,7 @@ export async function middleware(request) {
 
       const key = searchParams.get('key');
       const hwid = searchParams.get('hwid');
+      const gameId = searchParams.get('gameId');
 
       if (!key || !hwid) {
         const errorMessage = `[${timestamp}] /auth/v1: Missing key or hwid`;
@@ -226,7 +227,44 @@ export async function middleware(request) {
           return NextResponse.json({ error: 'Key expired' }, { status: 401 });
         }
 
-        return NextResponse.json({ success: true, ...userData });
+        // Validate gameId if provided
+        let gamesData = { ValidGame: false };
+        if (gameId) {
+          try {
+            const scripts = await get('scripts', { edgeConfig: EDGE_CONFIG_URL });
+            const isValidGame = Object.values(scripts).some(
+              (script) => script.GameID === gameId
+            );
+            gamesData.ValidGame = isValidGame;
+            if (isValidGame) {
+              gamesData.Code = `GAME_${gameId}`; // Example code generation
+              const gameLogMessage = `[${timestamp}] /auth/v1: Valid game found for gameId ${gameId}`;
+              console.log(gameLogMessage);
+              await sendWebhookLog(request, gameLogMessage);
+            } else {
+              const gameErrorMessage = `[${timestamp}] /auth/v1: No game found for gameId ${gameId}`;
+              console.error(gameErrorMessage);
+              await sendWebhookLog(request, gameErrorMessage);
+            }
+          } catch (error) {
+            const gameErrorMessage = `[${timestamp}] /auth/v1: Failed to validate gameId ${gameId}: ${error.message}`;
+            console.error(gameErrorMessage);
+            await sendWebhookLog(request, gameErrorMessage);
+          }
+        }
+
+        const responseData = {
+          success: true,
+          key: userData.key,
+          hwid: userData.hwid,
+          discordId: userData.discordId,
+          username: userData.username,
+          createTime: userData.createTime,
+          endTime: userData.endTime,
+          Games: gamesData,
+        };
+
+        return NextResponse.json(responseData);
       } catch (error) {
         const errorMessage = `[${timestamp}] Error in /auth/v1 for key ${key}: ${error.message}`;
         console.error(errorMessage);
