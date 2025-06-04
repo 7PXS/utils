@@ -52,12 +52,12 @@ function Topbar({ username }) {
               </button>
             </Link>
           )}
-          <h1
-            className="text-xl font-bold tracking-wide text-white"
+          <img
+            src="/app/nebulaText.ico"
+            alt="Nebula"
+            className="h-6"
             style={{ textShadow: '0 0 10px rgba(161, 0, 255, 0.5)' }}
-          >
-            <span style={{ color: '#a100ff' }}>7Px</span> Dashboard
-          </h1>
+          />
         </div>
         <Link href="/profile?from=dashboard">
           <div
@@ -416,7 +416,12 @@ export default function StatusDashboard() {
           }}
         >
           <h2 className="mb-8 text-center text-2xl font-bold text-white tracking-wide">
-            <span style={{ color: '#a100ff' }}>7Px</span> Dashboard
+            <img
+              src="/app/nebulaText.ico"
+              alt="Nebula"
+              className="h-8 mx-auto"
+              style={{ textShadow: '0 0 10px rgba(161, 0, 255, 0.5)' }}
+            />
           </h2>
           {error && (
             <p className="mb-6 text-center text-red-400 animate-pulse">{error}</p>
@@ -569,12 +574,12 @@ export default function StatusDashboard() {
             }}
           >
             <div className="container mx-auto px-8 py-4 flex justify-between items-center">
-              <h1
-                className="text-xl font-bold tracking-wide text-white"
+              <img
+                src="/app/nebulaText.ico"
+                alt="Nebula"
+                className="h-6"
                 style={{ textShadow: '0 0 10px rgba(161, 0, 255, 0.5)' }}
-              >
-                <span style={{ color: '#a100ff' }}>7Px</span> Dashboard
-              </h1>
+              />
               <div
                 className="flex items-center space-x-2 p-2 rounded-lg"
                 style={{
@@ -841,7 +846,7 @@ export default function StatusDashboard() {
                   Service endpoint logs
                 </span>
               </div>
-              <span className="font-medium text-gray-400">by 7PX</span>
+              <span className="font-medium text-gray-400">by Nebula</span>
             </div>
             <div
               className="rounded-lg p-4"
