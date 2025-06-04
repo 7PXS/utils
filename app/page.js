@@ -53,7 +53,7 @@ function Topbar({ username }) {
             </Link>
           )}
           <img
-            src="./nebulaText.png"
+            src="/app/nebulaText.ico"
             alt="Nebula"
             className="h-6"
             style={{ textShadow: '0 0 10px rgba(161, 0, 255, 0.5)' }}
@@ -417,7 +417,7 @@ export default function StatusDashboard() {
         >
           <h2 className="mb-8 text-center text-2xl font-bold text-white tracking-wide">
             <img
-              src="./nebulaText.png"
+              src="/app/nebulaText.ico"
               alt="Nebula"
               className="h-8 mx-auto"
               style={{ textShadow: '0 0 10px rgba(161, 0, 255, 0.5)' }}
@@ -575,7 +575,7 @@ export default function StatusDashboard() {
           >
             <div className="container mx-auto px-8 py-4 flex justify-between items-center">
               <img
-                src="./nebulaText.png"
+                src="/app/nebulaText.ico"
                 alt="Nebula"
                 className="h-6"
                 style={{ textShadow: '0 0 10px rgba(161, 0, 255, 0.5)' }}
