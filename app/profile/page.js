@@ -142,7 +142,7 @@ export default function UserProfile() {
         <div className="container mx-auto px-8 py-4 flex justify-between items-center">
           <div className="flex items-center">
             <img
-              src="./nebulaText.ico"
+              src="./nebulaText.png"
               alt="Nebula"
               className="h-6"
               style={{ textShadow: '0 0 10px rgba(161, 0, 255, 0.5)' }}
