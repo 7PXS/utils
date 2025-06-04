@@ -12,19 +12,16 @@ export default function UserProfile() {
   const [error, setError] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Request Sender State
   const [selectedEndpoint, setSelectedEndpoint] = useState('');
   const [requestParams, setRequestParams] = useState({});
   const [requestResponse, setRequestResponse] = useState('');
 
-  // User List State
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [editUserData, setEditUserData] = useState({});
 
-  // Fetch user data from localStorage and API
   const fetchUserData = async () => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
@@ -63,7 +60,6 @@ export default function UserProfile() {
         hour12: 'true',
       }));
 
-      // Fetch users list for admin
       if (user.discordId === '1272720391462457400') {
         fetchUsers();
       }
@@ -72,10 +68,13 @@ export default function UserProfile() {
     }
   };
 
-  // Fetch all users (for admin only)
   const fetchUsers = async () => {
     try {
-      const response = await fetch('/manage/v1?action=list');
+      const response = await fetch('/manage/v1?action=list', {
+        headers: {
+          Authorization: `Bearer ${discordId}`,
+        },
+      });
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -89,7 +88,6 @@ export default function UserProfile() {
     }
   };
 
-  // Handle HWID reset
   const handleResetHwid = async () => {
     if (!discordId) {
       setError('No Discord ID found');
@@ -116,7 +114,6 @@ export default function UserProfile() {
     }
   };
 
-  // Handle request sending
   const handleSendRequest = async () => {
     if (!selectedEndpoint) {
       setRequestResponse('Please select an endpoint');
@@ -148,12 +145,10 @@ export default function UserProfile() {
     }
   };
 
-  // Update request parameters based on input
   const handleParamChange = (key, value) => {
     setRequestParams((prev) => ({ ...prev, [key]: value }));
   };
 
-  // Filter users based on search query
   useEffect(() => {
     const filtered = users.filter(
       (user) =>
@@ -163,18 +158,15 @@ export default function UserProfile() {
     setFilteredUsers(filtered);
   }, [searchQuery, users]);
 
-  // Open user management modal
   const handleEditUser = (user) => {
     setSelectedUser(user);
     setEditUserData({ ...user });
   };
 
-  // Handle user data changes in modal
   const handleEditChange = (key, value) => {
     setEditUserData((prev) => ({ ...prev, [key]: value }));
   };
 
-  // Save edited user data
   const handleSaveUser = async () => {
     try {
       const response = await fetch('/manage/v1?action=update', {
@@ -208,7 +200,6 @@ export default function UserProfile() {
     }
   };
 
-  // Delete user
   const handleDeleteUser = async () => {
     try {
       const response = await fetch('/manage/v1?action=delete', {
@@ -238,7 +229,6 @@ export default function UserProfile() {
     }
   };
 
-  // Reset HWID for selected user
   const handleResetUserHwid = async () => {
     try {
       const response = await fetch('/reset-hwid/v1', {
@@ -263,7 +253,6 @@ export default function UserProfile() {
     fetchUserData();
   }, []);
 
-  // Endpoint options and their parameters
   const endpointOptions = {
     '/register/v1': ['ID', 'time', 'username'],
     '/auth/v1': ['ID', 'key'],
@@ -334,7 +323,6 @@ export default function UserProfile() {
         }
       `}</style>
 
-      {/* Topbar */}
       <nav
         className="fixed top-0 left-0 w-full z-50"
         style={{
@@ -392,7 +380,6 @@ export default function UserProfile() {
       <div className="container mx-auto p-8 pt-24">
         {error && <p className="text-red-400 animate-pulse mb-4">{error}</p>}
 
-        {/* User Profile Card */}
         <div
           className="flex items-center p-4 rounded-lg max-w-md w-full mb-8"
           style={{
@@ -445,10 +432,8 @@ export default function UserProfile() {
           </div>
         </div>
 
-        {/* Admin Features for User ID 1272720391462457400 */}
         {isAdmin && (
           <div className="space-y-8">
-            {/* Request Sender */}
             <div
               className="rounded-2xl p-6"
               style={{
@@ -523,7 +508,6 @@ export default function UserProfile() {
               </div>
             </div>
 
-            {/* User List */}
             <div
               className="rounded-2xl p-6"
               style={{
@@ -577,7 +561,6 @@ export default function UserProfile() {
         )}
       </div>
 
-      {/* User Management Modal */}
       {selectedUser && (
         <div className="modal">
           <div className="modal-content">
