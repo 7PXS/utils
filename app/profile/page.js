@@ -3,6 +3,139 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
+function Topbar({ username, onSignOut }) {
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [signOutModalOpen, setSignOutModalOpen] = useState(false);
+  const [profileName, setProfileName] = useState(username || 'User');
+  const [brandName, setBrandName] = useState('Nebula');
+  const [activeNav, setActiveNav] = useState('Home');
+
+  const setActive = (section) => {
+    setActiveNav(section);
+  };
+
+  const openProfileModal = () => {
+    setProfileModalOpen(true);
+  };
+
+  const openSignOutModal = () => {
+    setSignOutModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setProfileModalOpen(false);
+    setSignOutModalOpen(false);
+  };
+
+  const saveProfile = () => {
+    setProfileName(profileName);
+    setBrandName(brandName);
+    closeModal();
+  };
+
+  const handleSignOut = () => {
+    onSignOut();
+    closeModal();
+  };
+
+  return (
+    <nav className="topbar">
+      <div className="topbar-container">
+        <div className="brand">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="12" fill="#a100ff"/>
+          </svg>
+          <div className="brand-text">
+            <div className="brand-letter">N</div>
+            <div className="brand-name">{brandName}</div>
+          </div>
+        </div>
+        <div className="nav-menu">
+          <div
+            className={`nav-item ${activeNav === 'Home' ? 'active' : ''}`}
+            onClick={() => setActive('Home')}
+          >
+            <svg width="21" height="20" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8.01666 2.3667L3.525 5.8667C2.775 6.45003 2.16666 7.6917 2.16666 8.63337V14.8084C2.16666 16.7417 3.7416 18.325 6.83333 18.325H14.1667C17.2583 18.325 18.8333 16.7417 18.8333 14.8667V8.75003C18.8333 7.7417 18.1583 6.45003 17.3333 5.87503L12.1833 2.2667C11.0167 1.45003 9.14166 1.4917 8.01666 2.3667Z" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M10.5 14.9916V12.4916" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <div className={`nav-text ${activeNav === 'Home' ? 'active' : ''}`}>Home</div>
+          </div>
+          <div
+            className={`nav-item ${activeNav === 'Docs' ? 'active' : ''}`}
+            onClick={() => setActive('Docs')}
+          >
+            <svg width="21" height="20" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M3.1416 6.19995L10.4999 10.4583L17.8083 6.22495" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M10.5 18.0083V10.45" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M8.77491 2.0667L4.32491 4.53336C3.31658 5.0917 2.49158 6.4917 2.49158 7.6417V12.35C2.49158 13.5 3.31658 14.9 4.32491 15.4583L8.77491 17.9334C9.72491 18.4584 11.2832 18.4584 12.2332 17.9334L16.6832 15.4583C17.6916 14.9 18.5166 13.5 18.5166 12.35V7.6417C18.5166 6.4917 17.6916 5.0917 16.6832 4.53336L12.2332 2.05836C11.2749 1.53336 9.72491 1.53336 8.77491 2.0667Z" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <div className={`nav-text ${activeNav === 'Docs' ? 'active' : ''}`}>Docs</div>
+          </div>
+        </div>
+        <div className="right-menu">
+          <div className="icon" onClick={() => document.body.classList.toggle('dark')}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9.99998 15.4166C12.9915 15.4166 15.4166 12.9915 15.4166 9.99998C15.4166 7.00844 12.9915 4.58331 9.99998 4.58331C7.00844 4.58331 4.58331 7.00844 4.58331 9.99998C4.58331 12.9915 7.00844 15.4166 9.99998 15.4166Z" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M15.95 15.95L15.8417 15.8417M15.8417 4.15835L15.95 4.05002L15.8417 4.15835ZM4.05002 15.95L4.15835 15.8417L4.05002 15.95ZM10 1.73335V1.66669V1.73335ZM10 18.3334V18.2667V18.3334ZM1.73335 10H1.66669H1.73335ZM18.3334 10H18.2667H18.3334ZM4.15835 4.15835L4.05002 4.05002L4.15835 4.15835Z" stroke="#CFD1D4" strokeWidth="1.66667" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          <div className="icon" onClick={openSignOutModal}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M7.5 17.5H4.16667C3.24619 17.5 2.5 16.7538 2.5 15.8333V4.16667C2.5 3.24619 3.24619 2.5 4.16667 2.5H7.5" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M13.3333 14.1667L17.5 10L13.3333 5.83334" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M17.5 10H7.5" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          <Link href="/profile?from=dashboard">
+            <div className="icon">
+              <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="20" cy="20" r="20" fill="#a100ff"/>
+                <text x="50%" y="50%" textAnchor="middle" dy=".3em" fill="white" fontSize="20" fontFamily="'Inter', sans-serif">{profileName[0].toUpperCase()}</text>
+              </svg>
+            </div>
+          </Link>
+        </div>
+      </div>
+      {profileModalOpen && (
+        <div className="modal">
+          <div className="modal-content">
+            <span className="close" onClick={closeModal}>×</span>
+            <h2>Profile</h2>
+            <input
+              type="text"
+              value={profileName}
+              onChange={(e) => setProfileName(e.target.value)}
+              placeholder="Your Name"
+              className="modal-input"
+            />
+            <input
+              type="text"
+              value={brandName}
+              onChange={(e) => setBrandName(e.target.value)}
+              placeholder="Your Brand"
+              className="modal-input"
+            />
+            <button onClick={saveProfile} className="modal-button">Save</button>
+            <button onClick={closeModal} className="modal-button">Cancel</button>
+          </div>
+        </div>
+      )}
+      {signOutModalOpen && (
+        <div className="modal">
+          <div className="modal-content">
+            <span className="close" onClick={closeModal}>×</span>
+            <h2>Sign Out</h2>
+            <p>Are you sure you want to sign out?</p>
+            <button onClick={handleSignOut} className="modal-button">Confirm</button>
+            <button onClick={closeModal} className="modal-button">Cancel</button>
+          </div>
+        </div>
+      )}
+    </nav>
+  );
+}
+
 export default function UserProfile() {
   const [username, setUsername] = useState('');
   const [discordId, setDiscordId] = useState('');
@@ -118,6 +251,11 @@ export default function UserProfile() {
     } catch (error) {
       setError('Error resetting HWID: ' + error.message);
     }
+  };
+
+  const handleAddTime = () => {
+    console.log('Add Time to Key clicked - placeholder functionality');
+    alert('This feature is coming soon!');
   };
 
   const handleSendRequest = async () => {
@@ -255,6 +393,11 @@ export default function UserProfile() {
     }
   };
 
+  const handleSignOut = () => {
+    localStorage.removeItem('user');
+    window.location.href = '/';
+  };
+
   useEffect(() => {
     fetchUserData();
   }, []);
@@ -267,284 +410,96 @@ export default function UserProfile() {
   };
 
   return (
-    <div
-      className="min-h-screen text-gray-200 overflow-hidden"
-      style={{
-        background: 'linear-gradient(135deg, #1a1a1a, #2c2c2c)',
-        animation: 'gradientShift 15s ease infinite',
-        backgroundSize: '400% 400%',
-        fontFamily: 'Inter, sans-serif',
-        position: 'relative',
-      }}
-    >
-      <style jsx global>{`
-        @keyframes gradientShift {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-        @keyframes glowPulse {
-          0% { box-shadow: 0 0 5px rgba(161, 0, 255, 0.5); }
-          50% { box-shadow: 0 0 15px rgba(161, 0, 255, 0.8); }
-          100% { box-shadow: 0 0 5px rgba(161, 0, 255, 0.5); }
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .profile-card {
-          animation: fadeIn 0.5s ease-in-out;
-        }
-        .ripple-button {
-          position: relative;
-          overflow: hidden;
-        }
-        .ripple {
-          position: absolute;
-          background: rgba(255, 255, 255, 0.3);
-          border-radius: 50%;
-          transform: scale(0);
-          animation: rippleEffect 0.6s linear;
-          pointer-events: none;
-        }
-        @keyframes rippleEffect {
-          to {
-            transform: scale(4);
-            opacity: 0;
-          }
-        }
-        .modal {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: rgba(0, 0, 0, 0.8);
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          z-index: 1000;
-        }
-        .modal-content {
-          background: rgba(30, 30, 30, 0.95);
-          padding: 20px;
-          border-radius: 12px;
-          border: 1px solid rgba(161, 0, 255, 0.3);
-          box-shadow: 0 0 20px rgba(161, 0, 255, 0.3);
-          max-width: 500px;
-          width: 90%;
-          animation: fadeIn 0.3s ease-in-out;
-        }
-      `}</style>
-
-      <nav
-        className="fixed top-0 left-0 w-full z-50"
-        style={{
-          background: 'rgba(30, 30, 30, 0.95)',
-          backdropFilter: 'blur(10px)',
-          borderBottom: '1px solid rgba(161, 0, 255, 0.3)',
-          boxShadow: '0 4px 10px rgba(0, 0, 0, 0.5)',
-        }}
-      >
-        <div className="container mx-auto px-8 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <img
-              src="/app/nebulaText.ico"
-              alt="Nebula"
-              className="h-6"
-              style={{ textShadow: '0 0 10px rgba(161, 0, 255, 0.5)' }}
-            />
-          </div>
-          <Link href="/">
-            <div
-              className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-all duration-300"
-              style={{
-                background: 'rgba(50, 50, 50, 0.8)',
-                border: '1px solid rgba(161, 0, 255, 0.2)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(70, 70, 70, 0.8)';
-                e.currentTarget.style.boxShadow = '0 0 10px rgba(161, 0, 255, 0.5)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(50, 50, 50, 0.8)';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              <svg
-                className="w-5 h-5 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M5.121 17.804A7 7 0 1112 5a7 7 0 016.879 5.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm-3 7a3 3 0 00-3 3h6a3 3 0 00-3-3z"
-                />
-              </svg>
-              <span className="text-sm text-white">Back to Home</span>
-            </div>
-          </Link>
-        </div>
-      </nav>
-
-      <div className="container mx-auto p-8 pt-24">
+    <div className="landing-page">
+      <Topbar username={username} onSignOut={handleSignOut} />
+      {[...Array(20)].map((_, i) => (
+        <div
+          key={i}
+          className="particle"
+          style={{
+            left: `${Math.random() * 100}vw`,
+            animationDelay: `${Math.random() * 5}s`,
+          }}
+        />
+      ))}
+      <div className="landing-container">
         {error && (
-          <p
-            className="text-red-400 animate-pulse mb-4 text-center"
-            style={{ textShadow: '0 0 5px rgba(255, 0, 0, 0.3)' }}
-          >
-            {error}
-          </p>
+          <p className="login-error">{error}</p>
         )}
-
-        <div className="flex justify-center mb-8">
-          <div
-            className="profile-card p-6 rounded-2xl w-full max-w-lg"
-            style={{
-              background: 'rgba(40, 40, 40, 0.9)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(161, 0, 255, 0.4)',
-              boxShadow: '0 0 25px rgba(161, 0, 255, 0.4)',
-              animation: 'glowPulse 2s infinite ease-in-out',
-            }}
-          >
-            <div className="flex items-center mb-4">
-              <span
-                className="text-5xl font-extrabold mr-4"
-                style={{
-                  color: '#a100ff',
-                  textShadow: '0 0 10px rgba(161, 0, 255, 0.7)',
-                }}
-              >
-                7
-              </span>
-              <h1
-                className="text-2xl font-bold"
-                style={{
-                  color: '#ffffff',
-                  textShadow: '0 0 5px rgba(255, 255, 255, 0.3)',
-                }}
-              >
-                {username || 'Loading...'}
-              </h1>
+        <div className="profile-card">
+          <div className="flex items-center mb-6">
+            <span className="text-5xl font-extrabold mr-4 text-purple-500">U</span>
+            <h1 className="hero-title">{username || 'Loading...'}</h1>
+          </div>
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2 justify-center">
+              <span className="badge">Discord ID: {discordId || 'Loading...'}</span>
             </div>
-            <div className="space-y-2">
-              <div className="mb-4 flex flex-wrap gap-2 justify-center">
-                <span
-                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
-                  style={{
-                    background: 'rgba(50, 50, 50, 0.8)',
-                    border: '1px solid rgba(161, 0, 255, 0.2)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  Discord ID: {discordId || 'Loading...'}
-                </span>
-              </div>
-              <div className="mb-4 flex flex-wrap gap-2 justify-center">
-                <span
-                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
-                  style={{
-                    background: 'rgba(50, 50, 50, 0.8)',
-                    border: '1px solid rgba(161, 0, 255, 0.2)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  Joined: {joinDate || 'Loading...'}
-                </span>
-              </div>
-              <div className="mb-4 flex flex-wrap gap-2 justify-center">
-                <span
-                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
-                  style={{
-                    background: 'rgba(50, 50, 50, 0.8)',
-                    border: '1px solid rgba(161, 0, 255, 0.2)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  Subscription Ends: {endDate || 'Loading...'}
-                </span>
-              </div>
-              <div className="mb-4 flex flex-wrap gap-2 justify-center">
-                <span
-                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
-                  style={{
-                    background: 'rgba(50, 50, 50, 0.8)',
-                    border: '1px solid rgba(161, 0, 255, 0.2)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  HWID: {hwid}
-                </span>
-              </div>
-              <div className="mb-4 flex flex-wrap gap-2 justify-center">
-                <span
-                  className="rounded-xl px-3 py-1 text-xs font-semibold text-gray-200"
-                  style={{
-                    background: 'rgba(50, 50, 50, 0.8)',
-                    border: '1px solid rgba(161, 0, 255, 0.2)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  Key: {key}
-                </span>
-              </div>
-              <div className="flex justify-center">
-                <button
-                  onClick={(e) => {
-                    handleResetHwid();
-                    const button = e.currentTarget;
-                    const rect = button.getBoundingClientRect();
-                    const ripple = document.createElement('span');
-                    ripple.className = 'ripple';
-                    ripple.style.left = `${e.clientX - rect.left}px`;
-                    ripple.style.top = `${e.clientY - rect.top}px`;
-                    button.appendChild(ripple);
-                    setTimeout(() => ripple.remove(), 600);
-                  }}
-                  className="ripple-button mt-4 px-6 py-2 rounded-lg text-white font-semibold transition-all duration-300"
-                  style={{
-                    background: 'linear-gradient(90deg, #a100ff, #7b00cc)',
-                    boxShadow: '0 0 15px rgba(161, 0, 255, 0.6)',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.filter = 'brightness(1.2)';
-                    e.currentTarget.style.transform = 'scale(1.05)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.filter = 'brightness(1)';
-                    e.currentTarget.style.transform = 'scale(1)';
-                  }}
-                >
-                  Reset HWID {isAdmin && '(Unlimited)'}
-                </button>
-              </div>
+            <div className="flex flex-wrap gap-2 justify-center">
+              <span className="badge">Joined: {joinDate || 'Loading...'}</span>
             </div>
+            <div className="flex flex-wrap gap-2 justify-center">
+              <span className="badge">Subscription Ends: {endDate || 'Loading...'}</span>
+            </div>
+            <div className="flex flex-wrap gap-2 justify-center">
+              <span className="badge">HWID: {hwid}</span>
+            </div>
+            <div className="flex flex-wrap gap-2 justify-center">
+              <span className="badge">Key: {key}</span>
+            </div>
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={(e) => {
+                  handleResetHwid();
+                  const button = e.currentTarget;
+                  const rect = button.getBoundingClientRect();
+                  const ripple = document.createElement('span');
+                  ripple.className = 'ripple';
+                  ripple.style.left = `${e.clientX - rect.left}px`;
+                  ripple.style.top = `${e.clientY - rect.top}px`;
+                  button.appendChild(ripple);
+                  setTimeout(() => ripple.remove(), 600);
+                }}
+                className="ripple-button login-button"
+              >
+                Reset HWID {isAdmin && '(Unlimited)'}
+              </button>
+              <button
+                onClick={(e) => {
+                  handleAddTime();
+                  const button = e.currentTarget;
+                  const rect = button.getBoundingClientRect();
+                  const ripple = document.createElement('span');
+                  ripple.className = 'ripple';
+                  ripple.style.left = `${e.clientX - rect.left}px`;
+                  ripple.style.top = `${e.clientY - rect.top}px`;
+                  button.appendChild(ripple);
+                  setTimeout(() => ripple.remove(), 600);
+                }}
+                className="ripple-button login-button"
+              >
+                Add Time to Key
+              </button>
+            </div>
+          </div>
+          <div className="feature-card mt-8">
+            <h2 className="feature-card-title">Helpful Information</h2>
+            <p className="feature-card-description">
+              Manage your Nebula subscription effectively:
+            </p>
+            <ul className="list-disc list-inside text-gray-200 text-sm space-y-2">
+              <li>Check your subscription end date to ensure uninterrupted access.</li>
+              <li>Use the "Reset HWID" button if you need to change your hardware ID.</li>
+              <li>Contact support via Discord for assistance with your key.</li>
+              <li>Visit our docs for detailed guides on using Nebula.</li>
+            </ul>
           </div>
         </div>
 
         {isAdmin && (
           <div className="space-y-8">
-            <div
-              className="rounded-2xl p-6"
-              style={{
-                background: 'rgba(30, 30, 30, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(161, 0, 255, 0.3)',
-                boxShadow: '0 0 20px rgba(161, 0, 255, 0.3)',
-                animation: 'glowPulse 2s infinite ease-in-out',
-              }}
-            >
-              <h2 className="text-xl font-semibold text-purple-400 mb-4">Request Sender</h2>
+            <div className="feature-card">
+              <h2 className="feature-card-title">Request Sender</h2>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">Select Endpoint</label>
@@ -555,7 +510,7 @@ export default function UserProfile() {
                       setRequestParams({});
                       setRequestResponse('');
                     }}
-                    className="w-full p-2 rounded-lg bg-gray-800 text-white border border-gray-600 focus:border-purple-500 focus:outline-none"
+                    className="modal-input w-full"
                   >
                     <option value="">-- Select an Endpoint --</option>
                     {Object.keys(endpointOptions).map((endpoint) => (
@@ -565,7 +520,6 @@ export default function UserProfile() {
                     ))}
                   </select>
                 </div>
-
                 {selectedEndpoint && (
                   <div className="space-y-2">
                     {endpointOptions[selectedEndpoint].map((param) => (
@@ -575,31 +529,19 @@ export default function UserProfile() {
                           type="text"
                           value={requestParams[param] || ''}
                           onChange={(e) => handleParamChange(param, e.target.value)}
-                          className="w-full p-2 rounded-lg bg-gray-800 text-white border border-gray-600 focus:border-purple-500 focus:outline-none"
+                          className="modal-input w-full"
                           placeholder={`Enter ${param}`}
                         />
                       </div>
                     ))}
                     <button
                       onClick={handleSendRequest}
-                      className="ripple-button p-2 rounded-lg text-white font-semibold transition-all duration-300"
-                      style={{
-                        background: 'linear-gradient(90deg, #a100ff, #7b00cc)',
-                        boxShadow: '0 0 10px rgba(161, 0, 255, 0.5)',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.filter = 'brightness(1.2)';
-                        e.currentTarget.style.transform = 'scale(1.05)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.filter = 'brightness(1)';
-                        e.currentTarget.style.transform = 'scale(1)';
-                      }}
+                      className="ripple-button login-button"
                     >
                       Send Request
                     </button>
                     {requestResponse && (
-                      <pre className="mt-4 p-4 rounded-lg bg-gray-900 text-gray-200 text-sm overflow-auto max-h-48">
+                      <pre className="mt-4 p-4 rounded-md bg-gray-800 text-gray-200 text-sm overflow-auto max-h-48">
                         {requestResponse}
                       </pre>
                     )}
@@ -607,28 +549,18 @@ export default function UserProfile() {
                 )}
               </div>
             </div>
-
-            <div
-              className="rounded-2xl p-6"
-              style={{
-                background: 'rgba(30, 30, 30, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(161, 0, 255, 0.3)',
-                boxShadow: '0 0 20px rgba(161, 0, 255, 0.3)',
-                animation: 'glowPulse 2s infinite ease-in-out',
-              }}
-            >
-              <h2 className="text-xl font-semibold text-purple-400 mb-4">Manage Users</h2>
+            <div className="feature-card">
+              <h2 className="feature-card-title">Manage Users</h2>
               <div className="mb-4">
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search by username or Discord ID..."
-                  className="w-full p-2 rounded-lg bg-gray-800 text-white border border-gray-600 focus:border-purple-500 focus:outline-none"
+                  className="modal-input"
                 />
               </div>
-              <div className="space-y-2 max-h-96 overflow-y-auto">
+              <div className="space-y-2 max-h-96">
                 {filteredUsers.length === 0 ? (
                   <p className="text-gray-400">No users found.</p>
                 ) : (
@@ -636,22 +568,10 @@ export default function UserProfile() {
                     <div
                       key={user.discordId}
                       onClick={() => handleEditUser(user)}
-                      className="p-4 rounded-lg cursor-pointer transition-all duration-300"
-                      style={{
-                        background: 'rgba(50, 50, 50, 0.8)',
-                        border: '1px solid rgba(161, 0, 255, 0.2)',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(70, 70, 70, 0.8)';
-                        e.currentTarget.style.boxShadow = '0 0 10px rgba(161, 0, 255, 0.5)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(50, 50, 50, 0.8)';
-                        e.currentTarget.style.boxShadow = 'none';
-                      }}
+                      className="docs-card cursor-pointer"
                     >
-                      <h3 className="text-lg text-white">{user.username}</h3>
-                      <p className="text-sm text-gray-300">Discord ID: {user.discordId}</p>
+                      <h3 className="docs-card-title">{user.username}</h3>
+                      <p className="docs-card-description">Discord ID: {user.discordId}</p>
                     </div>
                   ))
                 )}
@@ -660,13 +580,10 @@ export default function UserProfile() {
           </div>
         )}
       </div>
-
       {selectedUser && (
         <div className="modal">
           <div className="modal-content">
-            <h2 className="text-xl font-semibold text-purple-400 mb-4">
-              Manage User: {selectedUser.username}
-            </h2>
+            <h2 className="modal-title">Manage User: {selectedUser.username}</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm text-gray-400">Username</label>
@@ -674,7 +591,7 @@ export default function UserProfile() {
                   type="text"
                   value={editUserData.username || ''}
                   onChange={(e) => handleEditChange('username', e.target.value)}
-                  className="w-full p-2 rounded-lg bg-gray-800 text-white border border-gray-600 focus:border-purple-500 focus:outline-none"
+                  className="modal-input"
                 />
               </div>
               <div>
@@ -683,7 +600,7 @@ export default function UserProfile() {
                   type="text"
                   value={editUserData.discordId || ''}
                   disabled
-                  className="w-full p-2 rounded-lg bg-gray-800 text-white border border-gray-600 opacity-50"
+                  className="modal-input"
                 />
               </div>
               <div>
@@ -692,7 +609,7 @@ export default function UserProfile() {
                   type="text"
                   value={editUserData.hwid || ''}
                   onChange={(e) => handleEditChange('hwid', e.target.value)}
-                  className="w-full p-2 rounded-lg bg-gray-800 text-white border border-gray-600 focus:border-purple-500 focus:outline-none"
+                  className="modal-input"
                 />
               </div>
               <div>
@@ -707,82 +624,20 @@ export default function UserProfile() {
                   onChange={(e) =>
                     handleEditChange('endTime', Math.floor(new Date(e.target.value).getTime() / 1000))
                   }
-                  className="w-full p-2 rounded-lg bg-gray-800 text-white border border-gray-600 focus:border-purple-500 focus:outline-none"
+                  className="modal-input"
                 />
               </div>
               <div className="flex gap-2">
-                <button
-                  onClick={handleSaveUser}
-                  className="ripple-button flex-1 p-2 rounded-lg text-white font-semibold transition-all duration-300"
-                  style={{
-                    background: 'linear-gradient(90deg, #a100ff, #7b00cc)',
-                    boxShadow: '0 0 10px rgba(161, 0, 255, 0.5)',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.filter = 'brightness(1.2)';
-                    e.currentTarget.style.transform = 'scale(1.05)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.filter = 'brightness(1)';
-                    e.currentTarget.style.transform = 'scale(1)';
-                  }}
-                >
-                  Save Changes
-                </button>
-                <button
-                  onClick={handleResetUserHwid}
-                  className="ripple-button flex-1 p-2 rounded-lg text-white font-semibold transition-all duration-300"
-                  style={{
-                    background: 'linear-gradient(90deg, #a100ff, #7b00cc)',
-                    boxShadow: '0 0 10px rgba(161, 0, 255, 0.5)',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.filter = 'brightness(1.2)';
-                    e.currentTarget.style.transform = 'scale(1.05)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.filter = 'brightness(1)';
-                    e.currentTarget.style.transform = 'scale(1)';
-                  }}
-                >
-                  Reset HWID
-                </button>
+                <button onClick={handleSaveUser} className="modal-button">Save Changes</button>
+                <button onClick={handleResetUserHwid} className="modal-button">Reset HWID</button>
                 <button
                   onClick={handleDeleteUser}
-                  className="ripple-button flex-1 p-2 rounded-lg text-white font-semibold transition-all duration-300"
-                  style={{
-                    background: 'linear-gradient(90deg, #ff0000, #cc0000)',
-                    boxShadow: '0 0 10px rgba(255, 0, 0, 0.5)',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.filter = 'brightness(1.2)';
-                    e.currentTarget.style.transform = 'scale(1.05)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.filter = 'brightness(1)';
-                    e.currentTarget.style.transform = 'scale(1)';
-                  }}
+                  className="modal-button"
+                  style={{ background: 'linear-gradient(90deg, #ff0000, #cc0000)' }}
                 >
                   Delete User
                 </button>
-                <button
-                  onClick={() => setSelectedUser(null)}
-                  className="ripple-button flex-1 p-2 rounded-lg text-white font-semibold transition-all duration-300"
-                  style={{
-                    background: 'rgba(50, 50, 50, 0.8)',
-                    border: '1px solid rgba(161, 0, 255, 0.2)',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(70, 70, 70, 0.8)';
-                    e.currentTarget.style.boxShadow = '0 0 10px rgba(161, 0, 255, 0.5)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(50, 50, 50, 0.8)';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  Close
-                </button>
+                <button onClick={() => setSelectedUser(null)} className="modal-button">Close</button>
               </div>
             </div>
           </div>
