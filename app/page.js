@@ -315,31 +315,41 @@ export default function StatusDashboard() {
 
   if (!isAuthenticated) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center text-gray-200 overflow-hidden"
-        style={{
-          background: 'linear-gradient(135deg, #1a1a1a, #2c2c2c)',
-          animation: 'gradientShift 15s ease infinite',
-          backgroundSize: '400% 400%',
-          fontFamily: 'Inter, sans-serif',
-          position: 'relative',
-        }}
-      >
+      <div className="min-h-screen flex items-center justify-center text-gray-200 overflow-hidden"
+           style={{ background: 'linear-gradient(135deg, #1a1a1a, #2c2c2c)',
+                    animation: 'gradientShift 15s ease infinite',
+                    backgroundSize: '400% 400%',
+                    fontFamily: 'Inter, sans-serif',
+                    position: 'relative' }}>
         <style jsx global>{`
+          :root {
+            --primary: #a100ff;
+            --primary-dark: #7b00cc;
+            --secondary: #1e1e1e;
+            --secondary-dark: #2c2c2c;
+            --text-light: #e0e0e0;
+            --text-dark: #888;
+            --shadow: 0 0 20px rgba(161, 0, 255, 0.3);
+            --glow: 0 0 10px rgba(161, 0, 255, 0.5);
+            --transition: all 0.3s ease;
+          }
           @keyframes gradientShift {
             0% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
+          }
+          @keyframes glowPulse {
+            0% { box-shadow: 0 0 5px rgba(161, 0, 255, 0.5); }
+            50% { box-shadow: 0 0 15px rgba(161, 0, 255, 0.8); }
+            100% { box-shadow: 0 0 5px rgba(161, 0, 255, 0.5); }
           }
           @keyframes particleFloat {
             0% { transform: translateY(0) translateX(0); opacity: 0.3; }
             50% { opacity: 0.6; }
             100% { transform: translateY(-100vh) translateX(10px); opacity: 0; }
           }
-          @keyframes glowPulse {
-            0% { box-shadow: 0 0 5px rgba(161, 0, 255, 0.5); }
-            50% { box-shadow: 0 0 15px rgba(161, 0, 255, 0.8); }
-            100% { box-shadow: 0 0 5px rgba(161, 0, 255, 0.5); }
+          @keyframes rippleEffect {
+            to { transform: scale(4); opacity: 0; }
           }
           .particle {
             position: absolute;
@@ -350,30 +360,43 @@ export default function StatusDashboard() {
             animation: particleFloat 10s infinite ease-in-out;
             pointer-events: none;
           }
+          .input-field {
+            width: 100%;
+            padding: 18px 26px 18px 50px;
+            border-radius: 12px;
+            border: 1px solid rgba(161, 0, 255, 0.3);
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            color: var(--text-light);
+            background: rgba(50, 50, 50, 0.8);
+            transition: var(--transition);
+          }
+          .input-field:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 10px rgba(161, 0, 255, 0.5);
+          }
+          .input-field::placeholder {
+            color: var(--text-dark);
+            opacity: 0.7;
+          }
           .input-label {
             position: absolute;
             top: 50%;
-            left: 12px;
+            left: 50px;
             transform: translateY(-50%);
-            color: #888;
-            transition: all 0.3s ease;
+            color: var(--text-dark);
+            transition: var(--transition);
             pointer-events: none;
+            font-size: 14px;
           }
           .input-field:focus + .input-label,
           .input-field:not(:placeholder-shown) + .input-label {
             top: -8px;
             font-size: 12px;
-            color: #a100ff;
-          }
-          .input-field {
-            background: none;
-            border: none;
-            border-bottom: 2px solid #444;
-            transition: border-color 0.3s ease;
-          }
-          .input-field:focus {
-            border-color: #a100ff;
-            outline: none;
+            color: var(--primary);
+            background: rgba(30, 30, 30, 0.9);
+            padding: 0 5px;
           }
           .ripple-button {
             position: relative;
@@ -387,14 +410,7 @@ export default function StatusDashboard() {
             animation: rippleEffect 0.6s linear;
             pointer-events: none;
           }
-          @keyframes rippleEffect {
-            to {
-              transform: scale(4);
-              opacity: 0;
-            }
-          }
         `}</style>
-        {/* Particles Background */}
         {[...Array(20)].map((_, i) => (
           <div
             key={i}
@@ -405,114 +421,163 @@ export default function StatusDashboard() {
             }}
           />
         ))}
-        <div
-          className="p-10 rounded-2xl max-w-md w-full relative z-10"
-          style={{
-            background: 'rgba(30, 30, 30, 0.9)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(161, 0, 255, 0.3)',
-            boxShadow: '0 0 20px rgba(161, 0, 255, 0.3)',
-            animation: 'glowPulse 2s infinite ease-in-out',
-          }}
-        >
-          <h2 className="mb-8 text-center text-2xl font-bold text-white tracking-wide">
-            <img
-              src="/app/nebulaText.ico"
-              alt="Nebula"
-              className="h-8 mx-auto"
-              style={{ textShadow: '0 0 10px rgba(161, 0, 255, 0.5)' }}
-            />
-          </h2>
-          {error && (
-            <p className="mb-6 text-center text-red-400 animate-pulse">{error}</p>
-          )}
-          <div className="space-y-6">
-            <div className="relative">
-              <input
-                type="text"
-                id="discordId"
-                placeholder=" "
-                value={discordId}
-                onChange={(e) => setDiscordId(e.target.value)}
-                className="input-field w-full p-3 text-gray-200 rounded-t"
-                style={{ borderBottom: '2px solid #444' }}
-              />
-              <label htmlFor="discordId" className="input-label">
-                Discord ID
-              </label>
+        <div className="container mx-auto max-w-5xl flex overflow-hidden" 
+             style={{ background: 'rgba(30, 30, 30, 0.9)', backdropFilter: 'blur(10px)', 
+                      border: '1px solid rgba(161, 0, 255, 0.3)', boxShadow: 'var(--shadow)', 
+                      borderRadius: '16px', minHeight: '600px' }}>
+          <div style={{ width: '60%', height: '100%', 
+                        background: 'linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 85%, #5a0099 100%)', 
+                        position: 'relative', padding: '60px', display: 'flex', flexDirection: 'column', 
+                        justifyContent: 'center', alignItems: 'flex-start' }}>
+            <div style={{ position: 'absolute', borderRadius: '9999px', border: '1px solid var(--primary)', 
+                          opacity: '0.6', animation: 'glowPulse 2s infinite ease-in-out', 
+                          width: '557px', height: '557px', left: '-126px', top: '646px' }}></div>
+            <div style={{ position: 'absolute', borderRadius: '9999px', border: '1px solid var(--primary)', 
+                          opacity: '0.6', animation: 'glowPulse 2s infinite ease-in-out', 
+                          width: '557px', height: '557px', left: '-207px', top: '620px' }}></div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '23px', zIndex: 1 }}>
+              <div style={{ color: 'var(--text-light)', fontSize: '48px', fontWeight: 700, 
+                            letterSpacing: '1px', textShadow: 'var(--glow)' }}>GoFinance</div>
+              <div style={{ color: 'var(--text-light)', fontSize: '20px', fontWeight: 500, 
+                            maxWidth: '400px', opacity: 0.9 }}>The most popular peer to peer lending at SEA</div>
+              <a href="#" className="ripple-button" 
+                 style={{ padding: '12px 40px', background: 'linear-gradient(90deg, var(--primary), var(--primary-dark))', 
+                          borderRadius: '30px', color: 'var(--text-light)', fontSize: '16px', fontWeight: 500, 
+                          textDecoration: 'none', transition: 'var(--transition)', cursor: 'pointer', 
+                          boxShadow: 'var(--glow)' }}
+                 onMouseEnter={(e) => {
+                   e.currentTarget.style.filter = 'brightness(1.2)';
+                   e.currentTarget.style.transform = 'scale(1.05)';
+                   e.currentTarget.style.boxShadow = '0 0 15px rgba(161, 0, 255, 0.8)';
+                 }}
+                 onMouseLeave={(e) => {
+                   e.currentTarget.style.filter = 'brightness(1)';
+                   e.currentTarget.style.transform = 'scale(1)';
+                   e.currentTarget.style.boxShadow = 'var(--glow)';
+                 }}
+                 onClick={(e) => {
+                   const button = e.currentTarget;
+                   const rect = button.getBoundingClientRect();
+                   const ripple = document.createElement('span');
+                   ripple.className = 'ripple';
+                   ripple.style.left = `${e.clientX - rect.left}px`;
+                   ripple.style.top = `${e.clientY - rect.top}px`;
+                   button.appendChild(ripple);
+                   setTimeout(() => ripple.remove(), 600);
+                 }}>
+                Read More
+              </a>
             </div>
-            <div className="relative">
-              <input
-                type="text"
-                id="username"
-                placeholder=" "
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="input-field w-full p-3 text-gray-200 rounded-t"
-                style={{ borderBottom: '2px solid #444' }}
-              />
-              <label htmlFor="username" className="input-label">
-                Username
-              </label>
+          </div>
+          <div style={{ width: '40%', height: '100%', padding: '60px', display: 'flex', 
+                        flexDirection: 'column', justifyContent: 'center', alignItems: 'center', 
+                        position: 'relative' }}>
+            <div style={{ color: 'var(--text-light)', fontSize: '28px', fontWeight: 700, 
+                          marginBottom: '10px', textShadow: 'var(--glow)' }}>Hello Again!</div>
+            <div style={{ color: 'var(--text-dark)', fontSize: '18px', fontWeight: 400, 
+                          marginBottom: '30px', opacity: 0.9 }}>Welcome Back</div>
+            {error && (
+              <p style={{ marginBottom: '20px', textAlign: 'center', color: '#f87171', animation: 'pulse 2s infinite' }}>
+                {error}
+              </p>
+            )}
+            <div style={{ width: '100%', maxWidth: '340px', position: 'relative', marginBottom: '25px' }}>
+              <input type="text" id="username" className="input-field" placeholder=" " 
+                     value={username} onChange={(e) => setUsername(e.target.value)} />
+              <div style={{ position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)', opacity: 0.7 }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <g opacity="0.7">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M5.121 17.804A7 7 0 1112 5a7 7 0 016.879 5.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm-3 7a3 3 0 00-3 3h6a3 3 0 00-3-3z" 
+                          stroke="#e0e0e0"/>
+                  </g>
+                </svg>
+              </div>
+              <label htmlFor="username" className="input-label">Username</label>
             </div>
-            <div className="flex gap-4">
-              <button
-                onClick={(e) => {
-                  handleLogin(e);
-                  const button = e.currentTarget;
-                  const rect = button.getBoundingClientRect();
-                  const ripple = document.createElement('span');
-                  ripple.className = 'ripple';
-                  ripple.style.left = `${e.clientX - rect.left}px`;
-                  ripple.style.top = `${e.clientY - rect.top}px`;
-                  button.appendChild(ripple);
-                  setTimeout(() => ripple.remove(), 600);
-                }}
-                className="ripple-button flex-1 p-3 rounded-lg text-white font-semibold transition-all duration-300"
-                style={{
-                  background: 'linear-gradient(90deg, #a100ff, #7b00cc)',
-                  boxShadow: '0 0 10px rgba(161, 0, 255, 0.5)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.filter = 'brightness(1.2)';
-                  e.currentTarget.style.transform = 'scale(1.05)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.filter = 'brightness(1)';
-                  e.currentTarget.style.transform = 'scale(1)';
-                }}
-              >
+            <div style={{ width: '100%', maxWidth: '340px', position: 'relative', marginBottom: '25px' }}>
+              <input type="text" id="discordId" className="input-field" placeholder=" " 
+                     value={discordId} onChange={(e) => setDiscordId(e.target.value)} />
+              <div style={{ position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)', opacity: 0.7 }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <g opacity="0.7">
+                    <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.045-.319 13.579.193 18.07a.082.082 0 00.031.056 19.874 19.874 0 005.992 3.03.077.077 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.009-.128 10.51 10.51 0 00.372-.292.074.074 0 01.077-.01c3.927 1.793 8.18 1.793 12.061 0a.074.074 0 01.078.01c.12.098.246.198.372.292a.077.077 0 01-.01.129 13.114 13.114 0 01-1.873.892.076.076 0 00-.04.106c.36.698.771 1.362 1.225 1.993a.076.076 0 00.084.028 19.846 19.846 0 006.003-3.03.077.077 0 00.032-.054c.5-4.499-.838-9.14-3.118-13.701a.07.07 0 00-.032-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" 
+                          fill="#e0e0e0"/>
+                  </g>
+                </svg>
+              </div>
+              <label htmlFor="discordId" className="input-label">Discord ID</label>
+            </div>
+            <div style={{ width: '100%', maxWidth: '340px', display: 'flex', gap: '15px', marginTop: '10px' }}>
+              <button className="ripple-button" 
+                      style={{ flex: 1, padding: '18px', background: 'linear-gradient(90deg, var(--primary), var(--primary-dark))', 
+                               borderRadius: '12px', color: 'var(--text-light)', fontSize: '16px', fontWeight: 500, 
+                               border: 'none', cursor: 'pointer', transition: 'var(--transition)', boxShadow: 'var(--glow)', 
+                               position: 'relative', overflow: 'hidden' }}
+                      onClick={(e) => {
+                        handleLogin(e);
+                        const button = e.currentTarget;
+                        const rect = button.getBoundingClientRect();
+                        const ripple = document.createElement('span');
+                        ripple.className = 'ripple';
+                        ripple.style.left = `${e.clientX - rect.left}px`;
+                        ripple.style.top = `${e.clientY - rect.top}px`;
+                        button.appendChild(ripple);
+                        setTimeout(() => ripple.remove(), 600);
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.filter = 'brightness(1.2)';
+                        e.currentTarget.style.transform = 'scale(1.05)';
+                        e.currentTarget.style.boxShadow = '0 0 15px rgba(161, 0, 255, 0.8)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.filter = 'brightness(1)';
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.boxShadow = 'var(--glow)';
+                      }}>
                 Login
               </button>
-              <button
-                onClick={(e) => {
-                  handleRegister(e);
-                  const button = e.currentTarget;
-                  const rect = button.getBoundingClientRect();
-                  const ripple = document.createElement('span');
-                  ripple.className = 'ripple';
-                  ripple.style.left = `${e.clientX - rect.left}px`;
-                  ripple.style.top = `${e.clientY - rect.top}px`;
-                  button.appendChild(ripple);
-                  setTimeout(() => ripple.remove(), 600);
-                }}
-                className="ripple-button flex-1 p-3 rounded-lg text-white font-semibold transition-all duration-300"
-                style={{
-                  background: 'linear-gradient(90deg, #a100ff, #7b00cc)',
-                  boxShadow: '0 0 10px rgba(161, 0, 255, 0.5)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.filter = 'brightness(1.2)';
-                  e.currentTarget.style.transform = 'scale(1.05)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.filter = 'brightness(1)';
-                  e.currentTarget.style.transform = 'scale(1)';
-                }}
-              >
+              <button className="ripple-button" 
+                      style={{ flex: 1, padding: '18px', background: 'linear-gradient(90deg, var(--primary), var(--primary-dark))', 
+                               borderRadius: '12px', color: 'var(--text-light)', fontSize: '16px', fontWeight: 500, 
+                               border: 'none', cursor: 'pointer', transition: 'var(--transition)', boxShadow: 'var(--glow)', 
+                               position: 'relative', overflow: 'hidden' }}
+                      onClick={(e) => {
+                        handleRegister(e);
+                        const button = e.currentTarget;
+                        const rect = button.getBoundingClientRect();
+                        const ripple = document.createElement('span');
+                        ripple.className = 'ripple';
+                        ripple.style.left = `${e.clientX - rect.left}px`;
+                        ripple.style.top = `${e.clientY - rect.top}px`;
+                        button.appendChild(ripple);
+                        setTimeout(() => ripple.remove(), 600);
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.filter = 'brightness(1.2)';
+                        e.currentTarget.style.transform = 'scale(1.05)';
+                        e.currentTarget.style.boxShadow = '0 0 15px rgba(161, 0, 255, 0.8)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.filter = 'brightness(1)';
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.boxShadow = 'var(--glow)';
+                      }}>
                 Register
               </button>
             </div>
+            <a href="#" style={{ color: 'var(--text-dark)', fontSize: '14px', fontWeight: 400, 
+                                 opacity: 0.7, textDecoration: 'none', marginTop: '20px', transition: 'var(--transition)' }}
+               onMouseEnter={(e) => {
+                 e.currentTarget.style.color = 'var(--primary)';
+                 e.currentTarget.style.opacity = 1;
+               }}
+               onMouseLeave={(e) => {
+                 e.currentTarget.style.color = 'var(--text-dark)';
+                 e.currentTarget.style.opacity = 0.7;
+               }}>
+              Forgot Password
+            </a>
           </div>
         </div>
       </div>
@@ -561,7 +626,6 @@ export default function StatusDashboard() {
         }
       `}</style>
 
-      {/* Topbar with Suspense */}
       <Suspense
         fallback={
           <nav
@@ -597,7 +661,6 @@ export default function StatusDashboard() {
       </Suspense>
 
       <div className="container mx-auto p-8 pt-24">
-        {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <h1
             className="text-2xl font-bold tracking-wide"
@@ -618,7 +681,6 @@ export default function StatusDashboard() {
           </div>
         </div>
 
-        {/* Roblox Version Card (Centered) */}
         <div className="flex justify-center">
           <div
             className="max-w-[400px] rounded-2xl p-6"
@@ -670,7 +732,6 @@ export default function StatusDashboard() {
           </div>
         </div>
 
-        {/* Executors Cards */}
         <div className="mt-8 flex flex-wrap justify-center gap-8">
           {executors.length === 0 ? (
             <p className="text-gray-400 animate-pulse">
@@ -702,13 +763,9 @@ export default function StatusDashboard() {
                   <div className="flex items-center">
                     <h3 className="text-lg font-semibold text-white">{executor.title}</h3>
                     <span
-                      className={`ml-3 h-5 w-5 rounded-full ${
-                        executor.detected ? 'bg-red-500' : 'bg-purple-500'
-                      }`}
+                      className={`ml-3 h-5 w-5 rounded-full ${executor.detected ? 'bg-red-500' : 'bg-purple-500'}`}
                       style={{
-                        boxShadow: `0 0 15px rgba(${
-                          executor.detected ? '255, 0, 0' : '161, 0, 255'
-                        }, 0.7)`,
+                        boxShadow: `0 0 15px rgba(${executor.detected ? '255, 0, 0' : '161, 0, 255'}, 0.7)`,
                         animation: 'glowPulse 1.5s infinite ease-in-out',
                       }}
                     ></span>
@@ -811,7 +868,6 @@ export default function StatusDashboard() {
           )}
         </div>
 
-        {/* Status Cards (Logs) */}
         <div className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-1 lg:grid-cols-1">
           <div
             className="rounded-2xl p-6"
