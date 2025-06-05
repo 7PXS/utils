@@ -8,6 +8,14 @@ function Topbar({ username, onSignOut }) {
   const [signOutModalOpen, setSignOutModalOpen] = useState(false);
   const [profileName, setProfileName] = useState(username || 'User');
   const [brandName, setBrandName] = useState('Nebula');
+  const [profilePicture, setProfilePicture] = useState(null);
+
+  useEffect(() => {
+    const savedProfilePicture = localStorage.getItem('profilePicture');
+    if (savedProfilePicture) {
+      setProfilePicture(savedProfilePicture);
+    }
+  }, []);
 
   const openProfileModal = () => setProfileModalOpen(true);
   const openSignOutModal = () => setSignOutModalOpen(true);
@@ -25,6 +33,19 @@ function Topbar({ username, onSignOut }) {
   const handleSignOut = () => {
     onSignOut();
     closeModal();
+  };
+
+  const handleProfilePictureChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result;
+        setProfilePicture(base64String);
+        localStorage.setItem('profilePicture', base64String);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   return (
@@ -72,19 +93,37 @@ function Topbar({ username, onSignOut }) {
               <path d="M17.5 10H7.5" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <Link href="/profile?from=dashboard">
-            <div className="icon">
-              <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="20" cy="20" r="20" fill="#a100ff"/>
-                <text x="50%" y="50%" textAnchor="middle" dy=".3em" fill="white" fontSize="20" fontFamily="'Inter', sans-serif">{profileName[0].toUpperCase()}</text>
-              </svg>
-            </div>
-          </Link>
+          <div className="relative">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleProfilePictureChange}
+              className="absolute opacity-0 w-full h-full cursor-pointer"
+            />
+            <Link href="/profile?from=dashboard">
+              <div className="icon">
+                {profilePicture ? (
+                  <img
+                    src={profilePicture}
+                    alt="Profile"
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="20" cy="20" r="20" fill="#a100ff"/>
+                    <text x="50%" y="50%" textAnchor="middle" dy=".3em" fill="white" fontSize="20" fontFamily="'Inter', sans-serif">
+                      {profileName[0].toUpperCase()}
+                    </text>
+                  </svg>
+                )}
+              </div>
+            </Link>
+          </div>
         </div>
       </div>
       {profileModalOpen && (
         <div className="modal">
-          <div className="modal-content">
+          <div className="modal-content p-6">
             <span className="close" onClick={closeModal}>×</span>
             <h2>Profile</h2>
             <input
@@ -92,28 +131,28 @@ function Topbar({ username, onSignOut }) {
               value={profileName}
               onChange={(e) => setProfileName(e.target.value)}
               placeholder="Your Name"
-              className="modal-input"
+              className="modal-input w-full p-3 text-lg"
             />
             <input
               type="text"
               value={brandName}
               onChange={(e) => setBrandName(e.target.value)}
               placeholder="Your Brand"
-              className="modal-input"
+              className="modal-input w-full p-3 text-lg"
             />
-            <button onClick={saveProfile} className="modal-button">Save</button>
-            <button onClick={closeModal} className="modal-button">Cancel</button>
+            <button onClick={saveProfile} className="modal-button text-lg py-3 px-6 w-full mt-4">Save</button>
+            <button onClick={closeModal} className="modal-button text-lg py-3 px-6 w-full mt-2">Cancel</button>
           </div>
         </div>
       )}
       {signOutModalOpen && (
         <div className="modal">
-          <div className="modal-content">
+          <div className="modal-content p-6">
             <span className="close" onClick={closeModal}>×</span>
             <h2>Sign Out</h2>
             <p>Are you sure you want to sign out?</p>
-            <button onClick={handleSignOut} className="modal-button">Confirm</button>
-            <button onClick={closeModal} className="modal-button">Cancel</button>
+            <button onClick={handleSignOut} className="modal-button text-lg py-3 px-6 w-full mt-4">Confirm</button>
+            <button onClick={closeModal} className="modal-button text-lg py-3 px-6 w-full mt-2">Cancel</button>
           </div>
         </div>
       )}
@@ -380,6 +419,7 @@ export default function UserProfile() {
 
   const handleSignOut = () => {
     localStorage.removeItem('user');
+    localStorage.removeItem('profilePicture');
     window.location.href = '/';
   };
 
@@ -410,19 +450,17 @@ export default function UserProfile() {
       ))}
       <div className="landing-container">
         {error && <p className="login-error">{error}</p>}
-        <div className="profile-card">
-          <div className="flex items-center justify-center mb-8">
-            <span className="text-6xl font-extrabold mr-6 text-purple-500 glow-text">U</span>
-            <h1 className="hero-title text-4xl">{username || 'Loading...'}</h1>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
+        <h1 className="hero-title text-4xl text-center mb-8">{username || 'Loading...'}</h1>
+        <div className="feature-card p-6">
+          <h2 className="feature-card-title text-2xl mb-4">User Information</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="badge">Discord ID: {discordId || 'Loading...'}</div>
             <div className="badge">Joined: {joinDate || 'Loading...'}</div>
             <div className="badge">Subscription Ends: {endDate || 'Loading...'}</div>
             <div className="badge">HWID: {hwid}</div>
             <div className="badge">Key: {key}</div>
           </div>
-          <div className="flex justify-center gap-6 mt-8 p-4">
+          <div className="flex justify-center gap-6 mt-8">
             <button
               onClick={(e) => {
                 handleResetHwid();
