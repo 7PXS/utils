@@ -8,20 +8,9 @@ function Topbar({ username, onSignOut }) {
   const [signOutModalOpen, setSignOutModalOpen] = useState(false);
   const [profileName, setProfileName] = useState(username || 'User');
   const [brandName, setBrandName] = useState('Nebula');
-  const [activeNav, setActiveNav] = useState('Home');
 
-  const setActive = (section) => {
-    setActiveNav(section);
-  };
-
-  const openProfileModal = () => {
-    setProfileModalOpen(true);
-  };
-
-  const openSignOutModal = () => {
-    setSignOutModalOpen(true);
-  };
-
+  const openProfileModal = () => setProfileModalOpen(true);
+  const openSignOutModal = () => setSignOutModalOpen(true);
   const closeModal = () => {
     setProfileModalOpen(false);
     setSignOutModalOpen(false);
@@ -51,27 +40,23 @@ function Topbar({ username, onSignOut }) {
           </div>
         </div>
         <div className="nav-menu">
-          <div
-            className={`nav-item ${activeNav === 'Home' ? 'active' : ''}`}
-            onClick={() => setActive('Home')}
-          >
-            <svg width="21" height="20" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M8.01666 2.3667L3.525 5.8667C2.775 6.45003 2.16666 7.6917 2.16666 8.63337V14.8084C2.16666 16.7417 3.7416 18.325 6.83333 18.325H14.1667C17.2583 18.325 18.8333 16.7417 18.8333 14.8667V8.75003C18.8333 7.7417 18.1583 6.45003 17.3333 5.87503L12.1833 2.2667C11.0167 1.45003 9.14166 1.4917 8.01666 2.3667Z" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M10.5 14.9916V12.4916" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <div className={`nav-text ${activeNav === 'Home' ? 'active' : ''}`}>Home</div>
-          </div>
-          <div
-            className={`nav-item ${activeNav === 'Docs' ? 'active' : ''}`}
-            onClick={() => setActive('Docs')}
-          >
+          <Link href="/" legacyBehavior>
+            <a className="nav-item" onClick={() => {}}>
+              <svg width="21" height="20" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8.01666 2.3667L3.525 5.8667C2.775 6.45003 2.16666 7.6917 2.16666 8.63337V14.8084C2.16666 16.7417 3.7416 18.325 6.83333 18.325H14.1667C17.2583 18.325 18.8333 16.7417 18.8333 14.8667V8.75003C18.8333 7.7417 18.1583 6.45003 17.3333 5.87503L12.1833 2.2667C11.0167 1.45003 9.14166 1.4917 8.01666 2.3667Z" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M10.5 14.9916V12.4916" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <div className="nav-text">Home</div>
+            </a>
+          </Link>
+          <a className="nav-item" onClick={() => {}}>
             <svg width="21" height="20" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M3.1416 6.19995L10.4999 10.4583L17.8083 6.22495" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M10.5 18.0083V10.45" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M8.77491 2.0667L4.32491 4.53336C3.31658 5.0917 2.49158 6.4917 2.49158 7.6417V12.35C2.49158 13.5 3.31658 14.9 4.32491 15.4583L8.77491 17.9334C9.72491 18.4584 11.2832 18.4584 12.2332 17.9334L16.6832 15.4583C17.6916 14.9 18.5166 13.5 18.5166 12.35V7.6417C18.5166 6.4917 17.6916 5.0917 16.6832 4.53336L12.2332 2.05836C11.2749 1.53336 9.72491 1.53336 8.77491 2.0667Z" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            <div className={`nav-text ${activeNav === 'Docs' ? 'active' : ''}`}>Docs</div>
-          </div>
+            <div className="nav-text">Docs</div>
+          </a>
         </div>
         <div className="right-menu">
           <div className="icon" onClick={() => document.body.classList.toggle('dark')}>
@@ -423,64 +408,52 @@ export default function UserProfile() {
         />
       ))}
       <div className="landing-container">
-        {error && (
-          <p className="login-error">{error}</p>
-        )}
+        {error && <p className="login-error">{error}</p>}
         <div className="profile-card">
           <div className="flex items-center mb-6">
             <span className="text-5xl font-extrabold mr-4 text-purple-500">U</span>
             <h1 className="hero-title">{username || 'Loading...'}</h1>
           </div>
-          <div className="space-y-4">
-            <div className="flex flex-wrap gap-2 justify-center">
-              <span className="badge">Discord ID: {discordId || 'Loading...'}</span>
-            </div>
-            <div className="flex flex-wrap gap-2 justify-center">
-              <span className="badge">Joined: {joinDate || 'Loading...'}</span>
-            </div>
-            <div className="flex flex-wrap gap-2 justify-center">
-              <span className="badge">Subscription Ends: {endDate || 'Loading...'}</span>
-            </div>
-            <div className="flex flex-wrap gap-2 justify-center">
-              <span className="badge">HWID: {hwid}</span>
-            </div>
-            <div className="flex flex-wrap gap-2 justify-center">
-              <span className="badge">Key: {key}</span>
-            </div>
-            <div className="flex justify-center gap-4">
-              <button
-                onClick={(e) => {
-                  handleResetHwid();
-                  const button = e.currentTarget;
-                  const rect = button.getBoundingClientRect();
-                  const ripple = document.createElement('span');
-                  ripple.className = 'ripple';
-                  ripple.style.left = `${e.clientX - rect.left}px`;
-                  ripple.style.top = `${e.clientY - rect.top}px`;
-                  button.appendChild(ripple);
-                  setTimeout(() => ripple.remove(), 600);
-                }}
-                className="ripple-button login-button"
-              >
-                Reset HWID {isAdmin && '(Unlimited)'}
-              </button>
-              <button
-                onClick={(e) => {
-                  handleAddTime();
-                  const button = e.currentTarget;
-                  const rect = button.getBoundingClientRect();
-                  const ripple = document.createElement('span');
-                  ripple.className = 'ripple';
-                  ripple.style.left = `${e.clientX - rect.left}px`;
-                  ripple.style.top = `${e.clientY - rect.top}px`;
-                  button.appendChild(ripple);
-                  setTimeout(() => ripple.remove(), 600);
-                }}
-                className="ripple-button login-button"
-              >
-                Add Time to Key
-              </button>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="badge">Discord ID: {discordId || 'Loading...'}</div>
+            <div className="badge">Joined: {joinDate || 'Loading...'}</div>
+            <div className="badge">Subscription Ends: {endDate || 'Loading...'}</div>
+            <div className="badge">HWID: {hwid}</div>
+            <div className="badge">Key: {key}</div>
+          </div>
+          <div className="flex justify-center gap-4 mt-6">
+            <button
+              onClick={(e) => {
+                handleResetHwid();
+                const button = e.currentTarget;
+                const rect = button.getBoundingClientRect();
+                const ripple = document.createElement('span');
+                ripple.className = 'ripple';
+                ripple.style.left = `${e.clientX - rect.left}px`;
+                ripple.style.top = `${e.clientY - rect.top}px`;
+                button.appendChild(ripple);
+                setTimeout(() => ripple.remove(), 600);
+              }}
+              className="ripple-button login-button"
+            >
+              Reset HWID {isAdmin && '(Unlimited)'}
+            </button>
+            <button
+              onClick={(e) => {
+                handleAddTime();
+                const button = e.currentTarget;
+                const rect = button.getBoundingClientRect();
+                const ripple = document.createElement('span');
+                ripple.className = 'ripple';
+                ripple.style.left = `${e.clientX - rect.left}px`;
+                ripple.style.top = `${e.clientY - rect.top}px`;
+                button.appendChild(ripple);
+                setTimeout(() => ripple.remove(), 600);
+              }}
+              className="ripple-button login-button"
+            >
+              Add Time to Key
+            </button>
           </div>
           <div className="feature-card mt-8">
             <h2 className="feature-card-title">Helpful Information</h2>
@@ -560,7 +533,7 @@ export default function UserProfile() {
                   className="modal-input"
                 />
               </div>
-              <div className="space-y-2 max-h-96">
+              <div className="space-y-2 max-h-96 overflow-y-auto">
                 {filteredUsers.length === 0 ? (
                   <p className="text-gray-400">No users found.</p>
                 ) : (
