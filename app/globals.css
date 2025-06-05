@@ -194,6 +194,9 @@ body {
 }
 
 .modal {
+  display: flex;
+  justify-content: center;
+  align-items: center;
   position: fixed;
   top: 0;
   left: 0;
@@ -201,9 +204,6 @@ body {
   height: 100%;
   background: rgba(0, 0, 0, 0.7);
   z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .modal-content {
@@ -215,6 +215,7 @@ body {
   text-align: center;
   border: 1px solid rgba(161, 0, 255, 0.3);
   box-shadow: var(--shadow);
+  margin: auto; /* Ensures centering if flexbox fails */
 }
 
 .modal-input {
