@@ -397,31 +397,32 @@ export default function UserProfile() {
   return (
     <div className="landing-page">
       <Topbar username={username} onSignOut={handleSignOut} />
-      {[...Array(20)].map((_, i) => (
+      {[...Array(30)].map((_, i) => (
         <div
           key={i}
           className="particle"
           style={{
             left: `${Math.random() * 100}vw`,
-            animationDelay: `${Math.random() * 5}s`,
+            animationDelay: `${Math.random() * 10}s`,
+            animationDuration: `${Math.random() * 20 + 10}s`,
           }}
         />
       ))}
       <div className="landing-container">
         {error && <p className="login-error">{error}</p>}
         <div className="profile-card">
-          <div className="flex items-center mb-6">
-            <span className="text-5xl font-extrabold mr-4 text-purple-500">U</span>
-            <h1 className="hero-title">{username || 'Loading...'}</h1>
+          <div className="flex items-center justify-center mb-8">
+            <span className="text-6xl font-extrabold mr-6 text-purple-500 glow-text">U</span>
+            <h1 className="hero-title text-4xl">{username || 'Loading...'}</h1>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
             <div className="badge">Discord ID: {discordId || 'Loading...'}</div>
             <div className="badge">Joined: {joinDate || 'Loading...'}</div>
             <div className="badge">Subscription Ends: {endDate || 'Loading...'}</div>
             <div className="badge">HWID: {hwid}</div>
             <div className="badge">Key: {key}</div>
           </div>
-          <div className="flex justify-center gap-4 mt-6">
+          <div className="flex justify-center gap-6 mt-8 p-4">
             <button
               onClick={(e) => {
                 handleResetHwid();
@@ -434,7 +435,7 @@ export default function UserProfile() {
                 button.appendChild(ripple);
                 setTimeout(() => ripple.remove(), 600);
               }}
-              className="ripple-button login-button"
+              className="ripple-button login-button text-lg py-3 px-6"
             >
               Reset HWID {isAdmin && '(Unlimited)'}
             </button>
@@ -450,32 +451,33 @@ export default function UserProfile() {
                 button.appendChild(ripple);
                 setTimeout(() => ripple.remove(), 600);
               }}
-              className="ripple-button login-button"
+              className="ripple-button login-button text-lg py-3 px-6"
             >
               Add Time to Key
             </button>
           </div>
-          <div className="feature-card mt-8">
-            <h2 className="feature-card-title">Helpful Information</h2>
-            <p className="feature-card-description">
-              Manage your Nebula subscription effectively:
-            </p>
-            <ul className="list-disc list-inside text-gray-200 text-sm space-y-2">
-              <li>Check your subscription end date to ensure uninterrupted access.</li>
-              <li>Use the "Reset HWID" button if you need to change your hardware ID.</li>
-              <li>Contact support via Discord for assistance with your key.</li>
-              <li>Visit our docs for detailed guides on using Nebula.</li>
-            </ul>
-          </div>
+        </div>
+
+        <div className="feature-card mt-12 p-6">
+          <h2 className="feature-card-title text-2xl mb-4">Helpful Information</h2>
+          <p className="feature-card-description text-lg">
+            Manage your Nebula subscription effectively:
+          </p>
+          <ul className="list-disc list-inside text-gray-200 text-base space-y-3 mt-4">
+            <li>Check your subscription end date to ensure uninterrupted access.</li>
+            <li>Use the "Reset HWID" button if you need to change your hardware ID.</li>
+            <li>Contact support via Discord for assistance with your key.</li>
+            <li>Visit our docs for detailed guides on using Nebula.</li>
+          </ul>
         </div>
 
         {isAdmin && (
-          <div className="space-y-8">
-            <div className="feature-card">
-              <h2 className="feature-card-title">Request Sender</h2>
-              <div className="space-y-4">
+          <div className="space-y-12 mt-12">
+            <div className="feature-card p-6">
+              <h2 className="feature-card-title text-2xl mb-4">Request Sender</h2>
+              <div className="space-y-6">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Select Endpoint</label>
+                  <label className="block text-sm text-gray-400 mb-2">Select Endpoint</label>
                   <select
                     value={selectedEndpoint}
                     onChange={(e) => {
@@ -483,7 +485,7 @@ export default function UserProfile() {
                       setRequestParams({});
                       setRequestResponse('');
                     }}
-                    className="modal-input w-full"
+                    className="modal-input w-full p-3 text-lg"
                   >
                     <option value="">-- Select an Endpoint --</option>
                     {Object.keys(endpointOptions).map((endpoint) => (
@@ -494,27 +496,27 @@ export default function UserProfile() {
                   </select>
                 </div>
                 {selectedEndpoint && (
-                  <div className="space-y-2">
+                  <div className="space-y-4">
                     {endpointOptions[selectedEndpoint].map((param) => (
                       <div key={param}>
-                        <label className="block text-sm text-gray-400">{param}</label>
+                        <label className="block text-sm text-gray-400 mb-2">{param}</label>
                         <input
                           type="text"
                           value={requestParams[param] || ''}
                           onChange={(e) => handleParamChange(param, e.target.value)}
-                          className="modal-input w-full"
+                          className="modal-input w-full p-3 text-lg"
                           placeholder={`Enter ${param}`}
                         />
                       </div>
                     ))}
                     <button
                       onClick={handleSendRequest}
-                      className="ripple-button login-button"
+                      className="ripple-button login-button text-lg py-3 px-6 w-full"
                     >
                       Send Request
                     </button>
                     {requestResponse && (
-                      <pre className="mt-4 p-4 rounded-md bg-gray-800 text-gray-200 text-sm overflow-auto max-h-48">
+                      <pre className="mt-4 p-4 rounded-md bg-gray-800 text-gray-200 text-base overflow-auto max-h-60">
                         {requestResponse}
                       </pre>
                     )}
@@ -522,29 +524,29 @@ export default function UserProfile() {
                 )}
               </div>
             </div>
-            <div className="feature-card">
-              <h2 className="feature-card-title">Manage Users</h2>
-              <div className="mb-4">
+            <div className="feature-card p-6">
+              <h2 className="feature-card-title text-2xl mb-4">Manage Users</h2>
+              <div className="mb-6">
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search by username or Discord ID..."
-                  className="modal-input"
+                  className="modal-input w-full p-3 text-lg"
                 />
               </div>
-              <div className="space-y-2 max-h-96 overflow-y-auto">
+              <div className="space-y-4 max-h-96 overflow-y-auto">
                 {filteredUsers.length === 0 ? (
-                  <p className="text-gray-400">No users found.</p>
+                  <p className="text-gray-400 text-center py-4">No users found.</p>
                 ) : (
                   filteredUsers.map((user) => (
                     <div
                       key={user.discordId}
                       onClick={() => handleEditUser(user)}
-                      className="docs-card cursor-pointer"
+                      className="docs-card cursor-pointer p-4"
                     >
-                      <h3 className="docs-card-title">{user.username}</h3>
-                      <p className="docs-card-description">Discord ID: {user.discordId}</p>
+                      <h3 className="docs-card-title text-xl">{user.username}</h3>
+                      <p className="docs-card-description text-base">Discord ID: {user.discordId}</p>
                     </div>
                   ))
                 )}
@@ -555,38 +557,38 @@ export default function UserProfile() {
       </div>
       {selectedUser && (
         <div className="modal">
-          <div className="modal-content">
-            <h2 className="modal-title">Manage User: {selectedUser.username}</h2>
-            <div className="space-y-4">
+          <div className="modal-content p-6">
+            <h2 className="modal-title text-2xl mb-4">Manage User: {selectedUser.username}</h2>
+            <div className="space-y-6">
               <div>
-                <label className="block text-sm text-gray-400">Username</label>
+                <label className="block text-sm text-gray-400 mb-2">Username</label>
                 <input
                   type="text"
                   value={editUserData.username || ''}
                   onChange={(e) => handleEditChange('username', e.target.value)}
-                  className="modal-input"
+                  className="modal-input w-full p-3 text-lg"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400">Discord ID</label>
+                <label className="block text-sm text-gray-400 mb-2">Discord ID</label>
                 <input
                   type="text"
                   value={editUserData.discordId || ''}
                   disabled
-                  className="modal-input"
+                  className="modal-input w-full p-3 text-lg"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400">HWID</label>
+                <label className="block text-sm text-gray-400 mb-2">HWID</label>
                 <input
                   type="text"
                   value={editUserData.hwid || ''}
                   onChange={(e) => handleEditChange('hwid', e.target.value)}
-                  className="modal-input"
+                  className="modal-input w-full p-3 text-lg"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400">Subscription End Date</label>
+                <label className="block text-sm text-gray-400 mb-2">Subscription End Date</label>
                 <input
                   type="datetime-local"
                   value={
@@ -597,20 +599,26 @@ export default function UserProfile() {
                   onChange={(e) =>
                     handleEditChange('endTime', Math.floor(new Date(e.target.value).getTime() / 1000))
                   }
-                  className="modal-input"
+                  className="modal-input w-full p-3 text-lg"
                 />
               </div>
-              <div className="flex gap-2">
-                <button onClick={handleSaveUser} className="modal-button">Save Changes</button>
-                <button onClick={handleResetUserHwid} className="modal-button">Reset HWID</button>
+              <div className="flex gap-4">
+                <button onClick={handleSaveUser} className="modal-button text-lg py-3 px-6 flex-1">
+                  Save Changes
+                </button>
+                <button onClick={handleResetUserHwid} className="modal-button text-lg py-3 px-6 flex-1">
+                  Reset HWID
+                </button>
                 <button
                   onClick={handleDeleteUser}
-                  className="modal-button"
+                  className="modal-button text-lg py-3 px-6 flex-1"
                   style={{ background: 'linear-gradient(90deg, #ff0000, #cc0000)' }}
                 >
                   Delete User
                 </button>
-                <button onClick={() => setSelectedUser(null)} className="modal-button">Close</button>
+                <button onClick={() => setSelectedUser(null)} className="modal-button text-lg py-3 px-6 flex-1">
+                  Close
+                </button>
               </div>
             </div>
           </div>
