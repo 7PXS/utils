@@ -137,9 +137,13 @@ function Topbar({ username, onSignOut }) {
 }
 
 export default function LandingPage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [discordId, setDiscordId] = useState('');
   const [username, setUsername] = useState('');
+  const [joinDate, setJoinDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [hwid, setHwid] = useState('');
+  const [key, setKey] = useState('');
   const [error, setError] = useState('');
 
   const checkAuth = async () => {
@@ -162,6 +166,32 @@ export default function LandingPage() {
       }
 
       setUsername(user.username);
+      setDiscordId(user.discordId);
+
+      // Fetch additional user data
+      const userDataResponse = await fetch(`/dAuth/v1?ID=${encodeURIComponent(user.discordId)}`);
+      const userData = await userDataResponse.json();
+      if (userDataResponse.ok && userData.success) {
+        setJoinDate(new Date(userData.createTime * 1000).toLocaleString('en-US', {
+          year: 'numeric',
+          month: 'numeric',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: 'numeric',
+          hour12: true,
+        }));
+        setEndDate(new Date(userData.endTime * 1000).toLocaleString('en-US', {
+          year: 'numeric',
+          month: 'numeric',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: 'numeric',
+          hour12: true,
+        }));
+        setHwid(userData.hwid || 'Not set');
+        setKey(userData.key || 'Not set');
+      }
+
       setIsAuthenticated(true);
       return true;
     } catch (error) {
@@ -216,6 +246,10 @@ export default function LandingPage() {
     setIsAuthenticated(false);
     setUsername('');
     setDiscordId('');
+    setJoinDate('');
+    setEndDate('');
+    setHwid('');
+    setKey('');
   };
 
   useEffect(() => {
@@ -386,6 +420,19 @@ export default function LandingPage() {
           >
             Get Started
           </button>
+        </section>
+        <section className="profile-section">
+          <div className="feature-card p-6">
+            <h2 className="feature-card-title text-2xl mb-4">User Profile</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="badge">Username: {username || 'Loading...'}</div>
+              <div className="badge">Discord ID: {discordId || 'Loading...'}</div>
+              <div className="badge">Joined: {joinDate || 'Loading...'}</div>
+              <div className="badge">Subscription Ends: {endDate || 'Loading...'}</div>
+              <div className="badge">HWID: {hwid || 'Loading...'}</div>
+              <div className="badge">Key: {key || 'Loading...'}</div>
+            </div>
+          </div>
         </section>
         <section className="features-section">
           <h2 className="features-title">Why Choose Nebula?</h2>
