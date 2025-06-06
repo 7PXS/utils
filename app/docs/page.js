@@ -201,8 +201,17 @@ export default function DocsPage() {
       if (!['/login/v1', '/dAuth/v1', '/reset-hwid/v1'].includes(selectedEndpoint)) {
         headers['User-Agent'] = 'Roblox/WinInet';
       }
-      if (selectedEndpoint.includes('/manage/v1') || selectedEndpoint.includes('/scripts-list')) {
-        headers['Authorization'] = selectedEndpoint.includes('/scripts-list') ? 'UserMode-2d93n2002n8' : `Bearer ${discordId}`;
+      if (selectedEndpoint.includes('/manage/v1')) {
+        headers['Authorization'] = `Bearer ${discordId}`;
+      } else if (selectedEndpoint.includes('/scripts-list')) {
+        headers['Authorization'] = 'UserMode-2d93n2002n8';
+      } else if (selectedEndpoint.includes('/files/v1')) {
+        const key = requestParams.key;
+        if (!key) {
+          setRequestResponse('Error: Key is required for /files/v1 endpoint');
+          return;
+        }
+        headers['Authorization'] = `Bearer ${key}`;
       }
 
       const response = await fetch(url, { headers });
@@ -242,7 +251,7 @@ export default function DocsPage() {
     '/register/v1': ['ID', 'time', 'username'],
     '/auth/v1': ['hwid', 'key', 'gameId'],
     '/dAuth/v1': ['ID', 'gameId'],
-    '/files/v1': ['file'],
+    '/files/v1': ['file', 'key'],
     '/manage/v1?action=list': [],
     '/manage/v1?action=update': ['discordId', 'username', 'endTime', 'hwid'],
     '/manage/v1?action=delete': ['discordId'],
@@ -319,10 +328,10 @@ export default function DocsPage() {
                 <strong>/files/v1</strong> - Fetch a script by filename
                 <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
                   <li>Method: GET</li>
-                  <li>Parameters: <code>file</code> (script filename, case-insensitive)</li>
+                  <li>Parameters: <code>file</code> (script filename, case-insensitive), <code>key</code> (user key for authentication)</li>
                   <li>Headers: <code>User-Agent: Roblox/WinInet</code>, <code>Authorization: Bearer {key}</code></li>
                   <li>Returns: Script data if key is valid and not expired</li>
-                  <li>Example: <code>GET https://utils32.vercel.app/files/v1?file=script1.lua</code></li>
+                  <li>Example: <code>GET https://utils32.vercel.app/files/v1?file=script1.lua&key=XYZ789</code></li>
                 </ul>
               </li>
               <li>
