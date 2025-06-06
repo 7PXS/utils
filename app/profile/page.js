@@ -70,14 +70,16 @@ function Topbar({ username, onSignOut }) {
               <div className="nav-text">Home</div>
             </a>
           </Link>
-          <a className="nav-item" onClick={() => {}}>
-            <svg width="21" height="20" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M3.1416 6.19995L10.4999 10.4583L17.8083 6.22495" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M10.5 18.0083V10.45" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M8.77491 2.0667L4.32491 4.53336C3.31658 5.0917 2.49158 6.4917 2.49158 7.6417V12.35C2.49158 13.5 3.31658 14.9 4.32491 15.4583L8.77491 17.9334C9.72491 18.4584 11.2832 18.4584 12.2332 17.9334L16.6832 15.4583C17.6916 14.9 18.5166 13.5 18.5166 12.35V7.6417C18.5166 6.4917 17.6916 5.0917 16.6832 4.53336L12.2332 2.05836C11.2749 1.53336 9.72491 1.53336 8.77491 2.0667Z" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <div className="nav-text">Docs</div>
-          </a>
+          <Link href="/docs" legacyBehavior>
+            <a className="nav-item" onClick={() => {}}>
+              <svg width="21" height="20" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3.1416 6.19995L10.4999 10.4583L17.8083 6.22495" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M10.5 18.0083V10.45" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M8.77491 2.0667L4.32491 4.53336C3.31658 5.0917 2.49158 6.4917 2.49158 7.6417V12.35C2.49158 13.5 3.31658 14.9 4.32491 15.4583L8.77491 17.9334C9.72491 18.4584 11.2832 18.4584 12.2332 17.9334L16.6832 15.4583C17.6916 14.9 18.5166 13.5 18.5166 12.35V7.6417C18.5166 6.4917 17.6916 5.0917 16.6832 4.53336L12.2332 2.05836C11.2749 1.53336 9.72491 1.53336 8.77491 2.0667Z" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <div className="nav-text">Docs</div>
+            </a>
+          </Link>
         </div>
         <div className="right-menu">
           <div className="icon" onClick={() => document.body.classList.toggle('dark')}>
@@ -170,16 +172,6 @@ export default function UserProfile() {
   const [error, setError] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
 
-  const [selectedEndpoint, setSelectedEndpoint] = useState('');
-  const [requestParams, setRequestParams] = useState({});
-  const [requestResponse, setRequestResponse] = useState('');
-
-  const [users, setUsers] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [editUserData, setEditUserData] = useState({});
-
   const fetchUserData = async () => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
@@ -218,36 +210,8 @@ export default function UserProfile() {
         minute: 'numeric',
         hour12: true,
       }));
-
-      if (user.discordId === '1272720391462457400') {
-        fetchUsers();
-      }
     } catch (error) {
       setError(error.message);
-    }
-  };
-
-  const fetchUsers = async () => {
-    if (!discordId) {
-      setError('Discord ID not set. Please refresh the page.');
-      return;
-    }
-    try {
-      const response = await fetch('/manage/v1?action=list', {
-        headers: {
-          Authorization: `Bearer ${discordId}`,
-        },
-      });
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to fetch users');
-      }
-
-      setUsers(data.users);
-      setFilteredUsers(data.users);
-    } catch (error) {
-      setError('Error fetching users: ' + error.message);
     }
   };
 
@@ -282,141 +246,6 @@ export default function UserProfile() {
     alert('This feature is coming soon!');
   };
 
-  const handleSendRequest = async () => {
-    if (!selectedEndpoint) {
-      setRequestResponse('Please select an endpoint');
-      return;
-    }
-
-    try {
-      let url = selectedEndpoint;
-      const queryParams = new URLSearchParams();
-
-      for (const [key, value] of Object.entries(requestParams)) {
-        if (value) queryParams.set(key, value);
-      }
-
-      if (queryParams.toString()) {
-        url += `?${queryParams.toString()}`;
-      }
-
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${discordId}`,
-        },
-      });
-      const data = await response.json();
-
-      setRequestResponse(JSON.stringify(data, null, 2));
-    } catch (error) {
-      setRequestResponse('Error: ' + error.message);
-    }
-  };
-
-  const handleParamChange = (key, value) => {
-    setRequestParams((prev) => ({ ...prev, [key]: value }));
-  };
-
-  useEffect(() => {
-    const filtered = users.filter(
-      (user) =>
-        user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.discordId.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    setFilteredUsers(filtered);
-  }, [searchQuery, users]);
-
-  const handleEditUser = (user) => {
-    setSelectedUser(user);
-    setEditUserData({ ...user });
-  };
-
-  const handleEditChange = (key, value) => {
-    setEditUserData((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleSaveUser = async () => {
-    try {
-      const response = await fetch('/manage/v1?action=update', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${discordId}`,
-        },
-        body: JSON.stringify(editUserData),
-      });
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to update user');
-      }
-
-      setUsers((prev) =>
-        prev.map((user) =>
-          user.discordId === editUserData.discordId ? editUserData : user
-        )
-      );
-      setFilteredUsers((prev) =>
-        prev.map((user) =>
-          user.discordId === editUserData.discordId ? editUserData : user
-        )
-      );
-      setSelectedUser(null);
-      alert('User updated successfully');
-    } catch (error) {
-      setError('Error updating user: ' + error.message);
-    }
-  };
-
-  const handleDeleteUser = async () => {
-    try {
-      const response = await fetch('/manage/v1?action=delete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${discordId}`,
-        },
-        body: JSON.stringify({ discordId: selectedUser.discordId }),
-      });
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to delete user');
-      }
-
-      setUsers((prev) =>
-        prev.filter((user) => user.discordId !== selectedUser.discordId)
-      );
-      setFilteredUsers((prev) =>
-        prev.filter((user) => user.discordId !== selectedUser.discordId)
-      );
-      setSelectedUser(null);
-      alert('User deleted successfully');
-    } catch (error) {
-      setError('Error deleting user: ' + error.message);
-    }
-  };
-
-  const handleResetUserHwid = async () => {
-    try {
-      const response = await fetch('/reset-hwid/v1', {
-        headers: {
-          Authorization: `Bearer ${selectedUser.discordId}`,
-        },
-      });
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to reset HWID');
-      }
-
-      setEditUserData((prev) => ({ ...prev, hwid: '' }));
-      alert('HWID reset successfully for user');
-    } catch (error) {
-      setError('Error resetting HWID for user: ' + error.message);
-    }
-  };
-
   const handleSignOut = () => {
     localStorage.removeItem('user');
     localStorage.removeItem('profilePicture');
@@ -426,13 +255,6 @@ export default function UserProfile() {
   useEffect(() => {
     fetchUserData();
   }, []);
-
-  const endpointOptions = {
-    '/register/v1': ['ID', 'time', 'username'],
-    '/auth/v1': ['hwid', 'key'],
-    '/dAuth/v1': ['ID'],
-    '/reset-hwid/v1': [],
-  };
 
   return (
     <div className="landing-page">
@@ -508,160 +330,7 @@ export default function UserProfile() {
             <li>Visit our docs for detailed guides on using Nebula.</li>
           </ul>
         </div>
-
-        {isAdmin && (
-          <div className="space-y-12 mt-12">
-            <div className="feature-card p-6">
-              <h2 className="feature-card-title text-2xl mb-4">Request Sender</h2>
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm text-gray-400 mb-2">Select Endpoint</label>
-                  <select
-                    value={selectedEndpoint}
-                    onChange={(e) => {
-                      setSelectedEndpoint(e.target.value);
-                      setRequestParams({});
-                      setRequestResponse('');
-                    }}
-                    className="modal-input w-full p-3 text-lg"
-                  >
-                    <option value="">-- Select an Endpoint --</option>
-                    {Object.keys(endpointOptions).map((endpoint) => (
-                      <option key={endpoint} value={endpoint}>
-                        {endpoint}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {selectedEndpoint && (
-                  <div className="space-y-4">
-                    {endpointOptions[selectedEndpoint].map((param) => (
-                      <div key={param}>
-                        <label className="block text-sm text-gray-400 mb-2">{param}</label>
-                        <input
-                          type="text"
-                          value={requestParams[param] || ''}
-                          onChange={(e) => handleParamChange(param, e.target.value)}
-                          className="modal-input w-full p-3 text-lg"
-                          placeholder={`Enter ${param}`}
-                        />
-                      </div>
-                    ))}
-                    <button
-                      onClick={handleSendRequest}
-                      className="ripple-button login-button text-lg py-3 px-6 w-full"
-                    >
-                      Send Request
-                    </button>
-                    {requestResponse && (
-                      <pre className="mt-4 p-4 rounded-md bg-gray-800 text-gray-200 text-base overflow-auto max-h-60">
-                        {requestResponse}
-                      </pre>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="feature-card p-6">
-              <h2 className="feature-card-title text-2xl mb-4">Manage Users</h2>
-              <div className="mb-6">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by username or Discord ID..."
-                  className="modal-input w-full p-3 text-lg"
-                />
-              </div>
-              <div className="space-y-4 max-h-96 overflow-y-auto">
-                {filteredUsers.length === 0 ? (
-                  <p className="text-gray-400 text-center py-4">No users found.</p>
-                ) : (
-                  filteredUsers.map((user) => (
-                    <div
-                      key={user.discordId}
-                      onClick={() => handleEditUser(user)}
-                      className="docs-card cursor-pointer p-4"
-                    >
-                      <h3 className="docs-card-title text-xl">{user.username}</h3>
-                      <p className="docs-card-description text-base">Discord ID: {user.discordId}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
-      {selectedUser && (
-        <div className="modal">
-          <div className="modal-content p-6">
-            <h2 className="modal-title text-2xl mb-4">Manage User: {selectedUser.username}</h2>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Username</label>
-                <input
-                  type="text"
-                  value={editUserData.username || ''}
-                  onChange={(e) => handleEditChange('username', e.target.value)}
-                  className="modal-input w-full p-3 text-lg"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Discord ID</label>
-                <input
-                  type="text"
-                  value={editUserData.discordId || ''}
-                  disabled
-                  className="modal-input w-full p-3 text-lg"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">HWID</label>
-                <input
-                  type="text"
-                  value={editUserData.hwid || ''}
-                  onChange={(e) => handleEditChange('hwid', e.target.value)}
-                  className="modal-input w-full p-3 text-lg"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Subscription End Date</label>
-                <input
-                  type="datetime-local"
-                  value={
-                    editUserData.endTime
-                      ? new Date(editUserData.endTime * 1000).toISOString().slice(0, 16)
-                      : ''
-                  }
-                  onChange={(e) =>
-                    handleEditChange('endTime', Math.floor(new Date(e.target.value).getTime() / 1000))
-                  }
-                  className="modal-input w-full p-3 text-lg"
-                />
-              </div>
-              <div className="flex gap-4">
-                <button onClick={handleSaveUser} className="modal-button text-lg py-3 px-6 flex-1">
-                  Save Changes
-                </button>
-                <button onClick={handleResetUserHwid} className="modal-button text-lg py-3 px-6 flex-1">
-                  Reset HWID
-                </button>
-                <button
-                  onClick={handleDeleteUser}
-                  className="modal-button text-lg py-3 px-6 flex-1"
-                  style={{ background: 'linear-gradient(90deg, #ff0000, #cc0000)' }}
-                >
-                  Delete User
-                </button>
-                <button onClick={() => setSelectedUser(null)} className="modal-button text-lg py-3 px-6 flex-1">
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
