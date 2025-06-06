@@ -176,7 +176,7 @@ function Sidebar() {
   );
 }
 
-function ResponseCard({ endpoint, method, responses }) {
+function ResponseCard({ endpoint, method, params, responses }) {
   const [activeTab, setActiveTab] = useState(Object.keys(responses)[0]);
 
   return (
@@ -185,6 +185,22 @@ function ResponseCard({ endpoint, method, responses }) {
         <span className="method">{method}</span>
         <span className="endpoint">{endpoint}</span>
       </div>
+      {params && (
+        <div className="params-table">
+          <div className="params-header">
+            <span>Name</span>
+            <span>Type</span>
+            <span>Description</span>
+          </div>
+          {params.map((param, index) => (
+            <div key={index} className="params-row">
+              <span>{param.name}{param.required ? '*' : ''}</span>
+              <span>{param.type}</span>
+              <span>{param.description}</span>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="tab-buttons">
         {Object.keys(responses).map((status) => (
           <button
@@ -322,144 +338,29 @@ export default function DocsPage() {
           </section>
 
           <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="status">
-            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>API Endpoints</h2>
-            <p>Below are the available endpoints, their parameters, and requirements:</p>
-            <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '10px' }}>
-              <li>
-                <strong>/status</strong> - Check API status
-                <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
-                  <li>Method: GET</li>
-                  <li>Parameters: None</li>
-                  <li>Headers: <code>User-Agent: Roblox/WinInet</code></li>
-                  <li>Returns: API version, status, and message</li>
-                  <li>Example: <code>GET https://utils32.vercel.app/status</code></li>
-                </ul>
-              </li>
-              <li>
-                <strong>/register/v1</strong> - Register a new user
-                <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
-                  <li>Method: GET</li>
-                  <li>Parameters: <code>ID</code> (Discord ID), <code>time</code> (duration, e.g., "100s", "100m", "100h", "100d", "100mo", "100yr"), <code>username</code> (3-20 chars, alphanumeric or underscore)</li>
-                  <li>Headers: <code>User-Agent: Roblox/WinInet</code></li>
-                  <li>Returns: User data with generated key, creation, and expiration time</li>
-                  <li>Notes: Checks for duplicate Discord ID or username; generates 14-char key</li>
-                  <li>Example: <code>GET https://utils32.vercel.app/register/v1?ID=123&time=100d&username=john_doe</code></li>
-                </ul>
-              </li>
-              <li>
-                <strong>/auth/v1</strong> - Authenticate with key and HWID
-                <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
-                  <li>Method: GET</li>
-                  <li>Parameters: <code>hwid</code> (hardware ID), <code>key</code> (user key), <code>gameId</code> (optional, for script validation)</li>
-                  <li>Headers: <code>User-Agent: Roblox/WinInet</code></li>
-                  <li>Returns: User data, game validation, and script code if gameId provided</li>
-                  <li>Notes: Binds HWID if unset; checks key expiration</li>
-                  <li>Example: <code>GET https://utils32.vercel.app/auth/v1?hwid=abc123&key=XYZ789&gameId=456</code></li>
-                </ul>
-              </li>
-              <li>
-                <strong>/dAuth/v1</strong> - Authenticate with Discord ID
-                <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
-                  <li>Method: GET</li>
-                  <li>Parameters: <code>ID</code> (Discord ID), <code>gameId</code> (optional, for script validation)</li>
-                  <li>Headers: None</li>
-                  <li>Returns: User data, game validation, and script code if gameId provided</li>
-                  <li>Notes: Checks key expiration; no User-Agent required</li>
-                  <li>Example: <code>GET https://utils32.vercel.app/dAuth/v1?ID=123&gameId=456</code></li>
-                </ul>
-              </li>
-              <li>
-                <strong>/files/v1</strong> - Fetch a script by filename
-                <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
-                  <li>Method: GET</li>
-                  <li>Parameters: <code>file</code> (script filename, case-insensitive), <code>key</code> (user key for authentication)</li>
-                  <li>Headers: <code>User-Agent: Roblox/WinInet</code>, <code>Authorization: Bearer XYZ789</code></li>
-                  <li>Returns: Script data if key is valid and not expired</li>
-                  <li>Example: <code>GET https://utils32.vercel.app/files/v1?file=script1.lua&key=XYZ789</code></li>
-                </ul>
-              </li>
-              <li>
-                <strong>/scripts-list</strong> - List all script names (admin only)
-                <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
-                  <li>Method: GET</li>
-                  <li>Parameters: None</li>
-                  <li>Headers: <code>User-Agent: Roblox/WinInet</code>, <code>Authorization: UserMode-2d93n2002n8</code></li>
-                  <li>Returns: Array of script names</li>
-                  <li>Example: <code>GET https://utils32.vercel.app/scripts-list</code></li>
-                </ul>
-              </li>
-              <li>
-                <strong>/manage/v1</strong> - Manage users (admin only)
-                <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
-                  <li>Method: GET (list), POST (update, delete)</li>
-                  <li>Parameters: <code>action</code> (list, update, delete)</li>
-                  <li>Headers: <code>User-Agent: Roblox/WinInet</code>, <code>Authorization: Bearer {discordId}</code></li>
-                  <li>Actions:
-                    <ul style={{ listStyleType: 'square', paddingLeft: '20px' }}>
-                      <li><strong>list</strong>: No additional params; returns all users</li>
-                      <li><strong>update</strong>: Body requires <code>discordId</code>, <code>username</code>, <code>endTime</code>, optional <code>hwid</code></li>
-                      <li><strong>delete</strong>: Body requires <code>discordId</code></li>
-                    </ul>
-                  </li>
-                  <li>Notes: Admin Discord ID: 1272720391462457400</li>
-                  <li>Example: <code>GET https://utils32.vercel.app/manage/v1?action=list</code></li>
-                </ul>
-              </li>
-              <li>
-                <strong>/login/v1</strong> - Login with Discord ID and username
-                <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
-                  <li>Method: GET</li>
-                  <li>Parameters: <code>ID</code> (Discord ID), <code>username</code></li>
-                  <li>Headers: None</li>
-                  <li>Returns: User data if valid and not expired</li>
-                  <li>Example: <code>GET https://utils32.vercel.app/login/v1?ID=123&username=john_doe</code></li>
-                </ul>
-              </li>
-              <li>
-                <strong>/users/v1</strong> - List all users
-                <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
-                  <li>Method: GET</li>
-                  <li>Parameters: None</li>
-                  <li>Headers: <code>User-Agent: Roblox/WinInet</code></li>
-                  <li>Returns: Array of all user data</li>
-                  <li>Example: <code>GET https://utils32.vercel.app/users/v1</code></li>
-                </ul>
-              </li>
-              <li>
-                <strong>/reset-hwid/v1</strong> - Reset HWID
-                <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
-                  <li>Method: GET</li>
-                  <li>Parameters: None</li>
-                  <li>Headers: <code>Authorization: Bearer {discordId}</code></li>
-                  <li>Returns: Success message if reset is allowed</li>
-                  <li>Notes: 2 resets/day limit, unlimited for admin (Discord ID: 1272720391462457400)</li>
-                  <li>Example: <code>GET https://utils32.vercel.app/reset-hwid/v1</code></li>
-                </ul>
-              </li>
-            </ul>
-          </div>
-
-          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="keys-details">
-            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Detailed API Responses</h2>
             <ResponseCard
-              endpoint="https://api.luarmor.net/v3/keys/:api_key/details"
+              endpoint="https://utils32.vercel.app/status"
               method="GET"
+              params={[
+                { name: '', type: '', description: 'Check API status' }
+              ]}
               responses={{
-                '200': { success: true, message: 'API key details retrieved' },
-                '403': { success: false, message: 'Wrong API key' },
-                '400': { success: false, message: 'Invalid API key' }
+                '200': { success: true, message: 'API is running' }
               }}
             />
           </div>
 
-          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="scripts-list">
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="register-v1">
             <ResponseCard
-              endpoint="https://utils32.vercel.app/scripts-list"
+              endpoint="https://utils32.vercel.app/register/v1"
               method="GET"
+              params={[
+                { name: 'ID*', type: 'String', description: 'Discord ID' },
+                { name: 'time*', type: 'String', description: 'Duration (e.g., "100s", "100m", "100h", "100d", "100mo", "100yr")' },
+                { name: 'username*', type: 'String', description: '3-20 chars, alphanumeric or underscore' }
+              ]}
               responses={{
-                '200': { success: true, scripts: ['script1', 'script2', 'script3'] },
-                '401': { success: false, error: 'Unauthorized' },
-                '500': { success: false, error: 'Failed to fetch scripts' }
+                '200': { success: true, key: 'AbCdEfGhIjKlMn', createTime: 1625097600, endTime: 1656633600 }
               }}
             />
           </div>
@@ -468,6 +369,11 @@ export default function DocsPage() {
             <ResponseCard
               endpoint="https://utils32.vercel.app/auth/v1"
               method="GET"
+              params={[
+                { name: 'hwid*', type: 'String', description: 'Hardware ID' },
+                { name: 'key*', type: 'String', description: 'User key' },
+                { name: 'gameId', type: 'String', description: 'Optional game ID for script validation' }
+              ]}
               responses={{
                 '200': {
                   success: true,
@@ -489,6 +395,10 @@ export default function DocsPage() {
             <ResponseCard
               endpoint="https://utils32.vercel.app/dAuth/v1"
               method="GET"
+              params={[
+                { name: 'ID*', type: 'String', description: 'Discord ID' },
+                { name: 'gameId', type: 'String', description: 'Optional game ID for script validation' }
+              ]}
               responses={{
                 '200': {
                   success: true,
@@ -510,10 +420,91 @@ export default function DocsPage() {
             <ResponseCard
               endpoint="https://utils32.vercel.app/files/v1"
               method="GET"
+              params=[
+                { name: 'file*', type: 'String', description: 'Script filename, case-insensitive' },
+                { name: 'key*', type: 'String', description: 'User key for authentication' }
+              ]
               responses={{
                 '200': { GameID: '12345', Code: 'https://example.com/script.js' },
                 '400': { success: false, error: 'Missing file name or key' },
                 '401': { success: false, error: 'Invalid key' }
+              }}
+            />
+          </div>
+
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="scripts-list">
+            <ResponseCard
+              endpoint="https://utils32.vercel.app/scripts-list"
+              method="GET"
+              params={[]}
+              responses={{
+                '200': { success: true, scripts: ['script1', 'script2', 'script3'] },
+                '401': { success: false, error: 'Unauthorized' },
+                '500': { success: false, error: 'Failed to fetch scripts' }
+              }}
+            />
+          </div>
+
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="manage-v1">
+            <ResponseCard
+              endpoint="https://utils32.vercel.app/manage/v1"
+              method="GET/POST"
+              params={[
+                { name: 'action*', type: 'String', description: 'list, update, or delete' }
+              ]}
+              responses={{
+                '200': { success: true, message: 'Operation successful' }
+              }}
+            />
+          </div>
+
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="login-v1">
+            <ResponseCard
+              endpoint="https://utils32.vercel.app/login/v1"
+              method="GET"
+              params={[
+                { name: 'ID*', type: 'String', description: 'Discord ID' },
+                { name: 'username*', type: 'String', description: 'Username' }
+              ]}
+              responses={{
+                '200': { success: true, message: 'Login successful' }
+              }}
+            />
+          </div>
+
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="users-v1">
+            <ResponseCard
+              endpoint="https://utils32.vercel.app/users/v1"
+              method="GET"
+              params={[]}
+              responses={{
+                '200': { success: true, users: ['user1', 'user2'] }
+              }}
+            />
+          </div>
+
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="reset-hwid-v1">
+            <ResponseCard
+              endpoint="https://utils32.vercel.app/reset-hwid/v1"
+              method="GET"
+              params={[]}
+              responses={{
+                '200': { success: true, message: 'HWID reset successful' }
+              }}
+            />
+          </div>
+
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="keys-details">
+            <ResponseCard
+              endpoint="https://api.luarmor.net/v3/keys/:api_key/details"
+              method="GET"
+              params={[
+                { name: 'api_key*', type: 'String', description: 'API key to get details of' }
+              ]}
+              responses={{
+                '200': { success: true, message: 'API key details retrieved' },
+                '403': { success: false, message: 'Wrong API key' },
+                '400': { success: false, message: 'Invalid API key' }
               }}
             />
           </div>
