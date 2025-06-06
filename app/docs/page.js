@@ -92,7 +92,7 @@ function Topbar({ username, onSignOut }) {
             </div>
           </Link>
         </div>
-      </ inventive>
+      </div>
       {profileModalOpen && (
         <div className="modal">
           <div className="modal-content">
