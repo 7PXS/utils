@@ -64,7 +64,7 @@ function Topbar({ username, onSignOut }) {
             <svg width="21" height="20" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M3.1416 6.19995L10.4999 10.4583L17.8083 6.22495" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M10.5 18.0083V10.45" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M8.77491 2.0667L4.32491 4.53336C3.31658 5.0917 2.49158 6.4917 2.49158 7.6417V12.35C2.49158 13.5 3.31658 14.9 4.32491 15.4583L8.77491 17.9334C9.72491 18.4584 11.2832 18.4584 12.2332 17.9334L16.6832 15.4583C17.6916 14.9 18.5166 13.5 18.5166 12.35V7.6417C18.5166 6.4917 17.6916 5.0917 16.6832 4.53336L12.2332 2.05836C11.2749 1.53336 9.72491 1.53336 8.77491 2.0667Z" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M8.77491 2.0667L4.32491 4.53336C3.31658 5.0917 2.49158 6.4917 2.49158 7.6417V12.35C2.49158 13.5 3.31658 14.9 4.32491 15.3C3.31658 14.9 2.49158 13.5 2.49158 12.35V7.6417C2.49158 6.4917 3.31658 5.0917 4.32491 4.53336L8.77491 2.05836C9.72491 1.53336 11.2749 1.53336 12.2332 2.05836L16.6832 4.53336C17.6916 5.0917 18.5166 6.4917 18.5166 7.6417V12.35C18.5166 13.5 17.6916 14.9 16.6832 15.4583L12.2332 17.9334C11.2749 18.4584 9.72491 18.4584 8.77491 17.9334Z" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             <div className={`nav-text ${activeNav === 'Docs' ? 'active' : ''}`}>Docs</div>
           </div>
@@ -92,7 +92,7 @@ function Topbar({ username, onSignOut }) {
             </div>
           </Link>
         </div>
-      </div>
+      </ inventive>
       {profileModalOpen && (
         <div className="modal">
           <div className="modal-content">
@@ -198,7 +198,6 @@ export default function DocsPage() {
       }
 
       const headers = {};
-      // Only add User-Agent for endpoints that require it
       if (!['/login/v1', '/dAuth/v1', '/reset-hwid/v1'].includes(selectedEndpoint)) {
         headers['User-Agent'] = 'Roblox/WinInet';
       }
@@ -241,12 +240,15 @@ export default function DocsPage() {
 
   const endpointOptions = {
     '/register/v1': ['ID', 'time', 'username'],
-    '/auth/v1': ['hwid', 'key'],
+    '/auth/v1': ['hwid', 'key', 'gameId'],
     '/dAuth/v1': ['ID', 'gameId'],
     '/files/v1': ['file'],
     '/manage/v1?action=list': [],
+    '/manage/v1?action=update': ['discordId', 'username', 'endTime', 'hwid'],
+    '/manage/v1?action=delete': ['discordId'],
     '/scripts-list': [],
     '/login/v1': ['ID', 'username'],
+    '/users/v1': [],
     '/reset-hwid/v1': [],
     '/status': []
   };
@@ -256,39 +258,131 @@ export default function DocsPage() {
       <Topbar username={username} onSignOut={handleSignOut} />
       <div className="landing-container" style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
         <section className="docs-section">
-          <h1 style={{ fontSize: '2em', fontWeight: 'bold', marginBottom: '20px' }}>API/Key Management</h1>
+          <h1 style={{ fontSize: '2em', fontWeight: 'bold', marginBottom: '20px' }}>Nebula Middleware Documentation</h1>
 
           <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}>
-            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Getting API Status</h2>
-            <div style={{ color: '#3498db' }}>GET https://api.luarmor.net/status</div>
-            <p style={{ margin: '10px 0' }}>This will return you the version information about the API.</p>
-            <div style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px', overflowX: 'auto' }}>
-              <pre style={{ margin: 0, color: '#e0e0e0' }}>
-                {`200: OK
-{
-  "version": "v3",
-  "active": true,
-  "message": "API is up and working!",
-  "warning": false,
-  "warning_message": "No warning"
-}`}
-              </pre>
-            </div>
+            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Overview</h2>
+            <p style={{ margin: '10px 0' }}>
+              The Nebula Middleware handles API requests for user management, authentication, and script access, integrated with Vercel Blob for storage and Discord webhooks for logging. Most endpoints require a <code>User-Agent: Roblox/WinInet</code> header for security. Logs are sent to Discord with INFO, SUCCESS, WARN, and ERROR statuses.
+            </p>
           </div>
 
           <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}>
             <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>API Endpoints</h2>
-            <p>Most requests to the API (except for /login/v1, /dAuth/v1, and /reset-hwid/v1) must include the <code>User-Agent: Roblox/WinInet</code> header for security validation. Below are the available endpoints:</p>
+            <p>Below are the available endpoints, their parameters, and requirements:</p>
             <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '10px' }}>
-              <li><strong>/register/v1</strong> - Register a new user. Requires: <code>ID</code>, <code>time</code>, <code>username</code>. Needs User-Agent header.</li>
-              <li><strong>/auth/v1</strong> - Authenticate with key and HWID. Requires: <code>hwid</code>, <code>key</code>. Needs User-Agent header.</li>
-              <li><strong>/dAuth/v1</strong> - Authenticate with Discord ID. Requires: <code>ID</code>, <code>gameId</code>. No User-Agent header required.</li>
-              <li><strong>/files/v1</strong> - Fetch a script by filename. Requires: <code>file</code>. Needs User-Agent header.</li>
-              <li><strong>/manage/v1?action=list</strong> - List all users (admin only). Requires: <code>Authorization: Bearer {discordId}</code>. Needs User-Agent header.</li>
-              <li><strong>/scripts-list</strong> - List all script names (admin only). Requires: <code>Authorization: UserMode-2d93n2002n8</code>. Needs User-Agent header.</li>
-              <li><strong>/login/v1</strong> - Login with Discord ID and username. Requires: <code>ID</code>, <code>username</code>. No User-Agent header required.</li>
-              <li><strong>/reset-hwid/v1</strong> - Reset HWID (2/day limit, unlimited for admin). Requires: <code>Authorization: Bearer {discordId}</code>. No User-Agent header required.</li>
-              <li><strong>/status</strong> - Check API status. No parameters required. Needs User-Agent header.</li>
+              <li>
+                <strong>/status</strong> - Check API status
+                <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
+                  <li>Method: GET</li>
+                  <li>Parameters: None</li>
+                  <li>Headers: <code>User-Agent: Roblox/WinInet</code></li>
+                  <li>Returns: API version, status, and message</li>
+                  <li>Example: <code>GET https://utils32.vercel.app/status</code></li>
+                  <li>Response: <pre style={{ margin: '5px 0', color: '#e0e0e0' }}>{`{"version": "v3", "active": true, "message": "API is up and working!", "warning": false, "warning_message": "No warning"}`}</pre></li>
+                </ul>
+              </li>
+              <li>
+                <strong>/register/v1</strong> - Register a new user
+                <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
+                  <li>Method: GET</li>
+                  <li>Parameters: <code>ID</code> (Discord ID), <code>time</code> (duration, e.g., "100s", "100m", "100h", "100d", "100mo", "100yr"), <code>username</code> (3-20 chars, alphanumeric or underscore)</li>
+                  <li>Headers: <code>User-Agent: Roblox/WinInet</code></li>
+                  <li>Returns: User data with generated key, creation, and expiration time</li>
+                  <li>Notes: Checks for duplicate Discord ID or username; generates 14-char key</li>
+                  <li>Example: <code>GET https://utils32.vercel.app/register/v1?ID=123&time=100d&username=john_doe</code></li>
+                </ul>
+              </li>
+              <li>
+                <strong>/auth/v1</strong> - Authenticate with key and HWID
+                <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
+                  <li>Method: GET</li>
+                  <li>Parameters: <code>hwid</code> (hardware ID), <code>key</code> (user key), <code>gameId</code> (optional, for script validation)</li>
+                  <li>Headers: <code>User-Agent: Roblox/WinInet</code></li>
+                  <li>Returns: User data, game validation, and script code if gameId provided</li>
+                  <li>Notes: Binds HWID if unset; checks key expiration</li>
+                  <li>Example: <code>GET https://utils32.vercel.app/auth/v1?hwid=abc123&key=XYZ789&gameId=456</code></li>
+                </ul>
+              </li>
+              <li>
+                <strong>/dAuth/v1</strong> - Authenticate with Discord ID
+                <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
+                  <li>Method: GET</li>
+                  <li>Parameters: <code>ID</code> (Discord ID), <code>gameId</code> (optional, for script validation)</li>
+                  <li>Headers: None</li>
+                  <li>Returns: User data, game validation, and script code if gameId provided</li>
+                  <li>Notes: Checks key expiration; no User-Agent required</li>
+                  <li>Example: <code>GET https://utils32.vercel.app/dAuth/v1?ID=123&gameId=456</code></li>
+                </ul>
+              </li>
+              <li>
+                <strong>/files/v1</strong> - Fetch a script by filename
+                <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
+                  <li>Method: GET</li>
+                  <li>Parameters: <code>file</code> (script filename, case-insensitive)</li>
+                  <li>Headers: <code>User-Agent: Roblox/WinInet</code>, <code>Authorization: Bearer {key}</code></li>
+                  <li>Returns: Script data if key is valid and not expired</li>
+                  <li>Example: <code>GET https://utils32.vercel.app/files/v1?file=script1.lua</code></li>
+                </ul>
+              </li>
+              <li>
+                <strong>/scripts-list</strong> - List all script names (admin only)
+                <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
+                  <li>Method: GET</li>
+                  <li>Parameters: None</li>
+                  <li>Headers: <code>User-Agent: Roblox/WinInet</code>, <code>Authorization: UserMode-2d93n2002n8</code></li>
+                  <li>Returns: Array of script names</li>
+                  <li>Example: <code>GET https://utils32.vercel.app/scripts-list</code></li>
+                </ul>
+              </li>
+              <li>
+                <strong>/manage/v1</strong> - Manage users (admin only)
+                <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
+                  <li>Method: GET (list), POST (update, delete)</li>
+                  <li>Parameters: <code>action</code> (list, update, delete)</li>
+                  <li>Headers: <code>User-Agent: Roblox/WinInet</code>, <code>Authorization: Bearer {discordId}</code></li>
+                  <li>Actions:
+                    <ul style={{ listStyleType: 'square', paddingLeft: '20px' }}>
+                      <li><strong>list</strong>: No additional params; returns all users</li>
+                      <li><strong>update</strong>: Body requires <code>discordId</code>, <code>username</code>, <code>endTime</code>, optional <code>hwid</code></li>
+                      <li><strong>delete</strong>: Body requires <code>discordId</code></li>
+                    </ul>
+                  </li>
+                  <li>Notes: Admin Discord ID: 1272720391462457400</li>
+                  <li>Example: <code>GET https://utils32.vercel.app/manage/v1?action=list</code></li>
+                </ul>
+              </li>
+              <li>
+                <strong>/login/v1</strong> - Login with Discord ID and username
+                <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
+                  <li>Method: GET</li>
+                  <li>Parameters: <code>ID</code> (Discord ID), <code>username</code></li>
+                  <li>Headers: None</li>
+                  <li>Returns: User data if valid and not expired</li>
+                  <li>Example: <code>GET https://utils32.vercel.app/login/v1?ID=123&username=john_doe</code></li>
+                </ul>
+              </li>
+              <li>
+                <strong>/users/v1</strong> - List all users
+                <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
+                  <li>Method: GET</li>
+                  <li>Parameters: None</li>
+                  <li>Headers: <code>User-Agent: Roblox/WinInet</code></li>
+                  <li>Returns: Array of all user data</li>
+                  <li>Example: <code>GET https://utils32.vercel.app/users/v1</code></li>
+                </ul>
+              </li>
+              <li>
+                <strong>/reset-hwid/v1</strong> - Reset HWID
+                <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
+                  <li>Method: GET</li>
+                  <li>Parameters: None</li>
+                  <li>Headers: <code>Authorization: Bearer {discordId}</code></li>
+                  <li>Returns: Success message if reset is allowed</li>
+                  <li>Notes: 2 resets/day limit, unlimited for admin (Discord ID: 1272720391462457400)</li>
+                  <li>Example: <code>GET https://utils32.vercel.app/reset-hwid/v1</code></li>
+                </ul>
+              </li>
             </ul>
           </div>
 
