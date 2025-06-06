@@ -299,9 +299,7 @@ export default function DocsPage() {
             <ResponseCard
               endpoint="https://utils32.vercel.app/status"
               method="GET"
-              params={[
-                { name: '', type: '', description: 'Check API status' }
-              ]}
+              params={{}}
               responses={{
                 '200': { success: true, message: 'API is running' }
               }}
@@ -312,11 +310,11 @@ export default function DocsPage() {
             <ResponseCard
               endpoint="https://utils32.vercel.app/register/v1"
               method="GET"
-              params={[
-                { name: 'ID*', type: 'String', description: 'Discord ID' },
-                { name: 'time*', type: 'String', description: 'Duration (e.g., "100s", "100m", "100h", "100d", "100mo", "100yr")' },
-                { name: 'username*', type: 'String', description: '3-20 chars, alphanumeric or underscore' }
-              ]}
+              params={{
+                'ID*': { type: 'String', description: 'Discord ID' },
+                'time*': { type: 'String', description: 'Duration (e.g., "100s", "100m", "100h", "100d", "100mo", "100yr")' },
+                'username*': { type: 'String', description: '3-20 chars, alphanumeric or underscore' }
+              }}
               responses={{
                 '200': { success: true, key: 'AbCdEfGhIjKlMn', createTime: 1625097600, endTime: 1656633600 }
               }}
@@ -327,11 +325,11 @@ export default function DocsPage() {
             <ResponseCard
               endpoint="https://utils32.vercel.app/auth/v1"
               method="GET"
-              params={[
-                { name: 'hwid*', type: 'String', description: 'Hardware ID' },
-                { name: 'key*', type: 'String', description: 'User key' },
-                { name: 'gameId', type: 'String', description: 'Optional game ID for script validation' }
-              ]}
+              params={{
+                'hwid*': { type: 'String', description: 'Hardware ID' },
+                'key*': { type: 'String', description: 'User key' },
+                'gameId': { type: 'String', description: 'Optional game ID for script validation' }
+              }}
               responses={{
                 '200': {
                   success: true,
@@ -353,10 +351,10 @@ export default function DocsPage() {
             <ResponseCard
               endpoint="https://utils32.vercel.app/dAuth/v1"
               method="GET"
-              params={[
-                { name: 'ID*', type: 'String', description: 'Discord ID' },
-                { name: 'gameId', type: 'String', description: 'Optional game ID for script validation' }
-              ]}
+              params={{
+                'ID*': { type: 'String', description: 'Discord ID' },
+                'gameId': { type: 'String', description: 'Optional game ID for script validation' }
+              }}
               responses={{
                 '200': {
                   success: true,
@@ -378,10 +376,10 @@ export default function DocsPage() {
             <ResponseCard
               endpoint="https://utils32.vercel.app/files/v1"
               method="GET"
-              params=[
-                { name: 'file*', type: 'String', description: 'Script filename, case-insensitive' },
-                { name: 'key*', type: 'String', description: 'User key for authentication' }
-              ]
+              params={{
+                'file*': { type: 'String', description: 'Script filename, case-insensitive' },
+                'key*': { type: 'String', description: 'User key for authentication' }
+              }}
               responses={{
                 '200': { GameID: '12345', Code: 'https://example.com/script.js' },
                 '400': { success: false, error: 'Missing file name or key' },
@@ -394,7 +392,7 @@ export default function DocsPage() {
             <ResponseCard
               endpoint="https://utils32.vercel.app/scripts-list"
               method="GET"
-              params={[]}
+              params={{}}
               responses={{
                 '200': { success: true, scripts: ['script1', 'script2', 'script3'] },
                 '401': { success: false, error: 'Unauthorized' },
@@ -407,9 +405,9 @@ export default function DocsPage() {
             <ResponseCard
               endpoint="https://utils32.vercel.app/manage/v1"
               method="GET/POST"
-              params={[
-                { name: 'action*', type: 'String', description: 'list, update, or delete' }
-              ]}
+              params={{
+                'action*': { type: 'String', description: 'list, update, or delete' }
+              }}
               responses={{
                 '200': { success: true, message: 'Operation successful' }
               }}
@@ -420,10 +418,10 @@ export default function DocsPage() {
             <ResponseCard
               endpoint="https://utils32.vercel.app/login/v1"
               method="GET"
-              params={[
-                { name: 'ID*', type: 'String', description: 'Discord ID' },
-                { name: 'username*', type: 'String', description: 'Username' }
-              ]}
+              params={{
+                'ID*': { type: 'String', description: 'Discord ID' },
+                'username*': { type: 'String', description: 'Username' }
+              }}
               responses={{
                 '200': { success: true, message: 'Login successful' }
               }}
@@ -434,7 +432,7 @@ export default function DocsPage() {
             <ResponseCard
               endpoint="https://utils32.vercel.app/users/v1"
               method="GET"
-              params={[]}
+              params={{}}
               responses={{
                 '200': { success: true, users: ['user1', 'user2'] }
               }}
@@ -445,7 +443,7 @@ export default function DocsPage() {
             <ResponseCard
               endpoint="https://utils32.vercel.app/reset-hwid/v1"
               method="GET"
-              params={[]}
+              params={{}}
               responses={{
                 '200': { success: true, message: 'HWID reset successful' }
               }}
@@ -456,9 +454,9 @@ export default function DocsPage() {
             <ResponseCard
               endpoint="https://api.luarmor.net/v3/keys/:api_key/details"
               method="GET"
-              params={[
-                { name: 'api_key*', type: 'String', description: 'API key to get details of' }
-              ]}
+              params={{
+                'api_key*': { type: 'String', description: 'API key to get details of' }
+              }}
               responses={{
                 '200': { success: true, message: 'API key details retrieved' },
                 '403': { success: false, message: 'Wrong API key' },
