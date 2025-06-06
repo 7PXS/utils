@@ -4,7 +4,7 @@ import { put, list } from '@vercel/blob';
 const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_utjs6NoOOU3BdeXE_0pNKDMi9ecw5Gh6ls3KB2OSOb2bKxs';
 const WEBHOOK_URL = 'https://discord.com/api/webhooks/1378937855199674508/nHwMtepJ3hKpzKDZErNkMdgIZPWhix80nkqSyMgYlbMMuOrLhHcF0HYsmLcq6CZeJrco';
 const SITE_URL = 'https://utils32.vercel.app';
-const Testing = false; // Set to true for testing mode, false for production
+const production = false; // Set to true for testing mode, false for production
 
 // Send log to Discord webhook as an embed
 async function sendWebhookLog(request, message, prefix) {
@@ -101,10 +101,11 @@ export async function middleware(request) {
   }
 
   try {
-    // Check User-Agent and Testing variable
+    // Check User-Agent only for non-exempt paths
     const userAgent = request.headers.get('user-agent') || '';
-    if (userAgent !== 'Roblox/WinInet' && Testing === false) {
-      const errorMessage = `[${timestamp}] Unauthorized: User-Agent is not Roblox/WinInet and Testing is false`;
+    const exemptPaths = ['/login/v1', '/dAuth/v1', '/reset-hwid/v1'];
+    if (!exemptPaths.includes(pathname) && userAgent !== 'Roblox/WinInet' && production === false) {
+      const errorMessage = `[${timestamp}] Unauthorized: User-Agent is not Roblox/WinInet and production is false`;
       console.error(errorMessage);
       await sendWebhookLog(request, errorMessage, '[ERROR]');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 404 });
