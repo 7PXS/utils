@@ -150,11 +150,7 @@ export default function DocsPage() {
 
     try {
       const user = JSON.parse(storedUser);
-      const response = await fetch(`/login/v1?ID=${encodeURIComponent(user.discordId)}&username=${encodeURIComponent(user.username)}`, {
-        headers: {
-          'User-Agent': 'Roblox/WinInet'
-        }
-      });
+      const response = await fetch(`/login/v1?ID=${encodeURIComponent(user.discordId)}&username=${encodeURIComponent(user.username)}`);
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -201,9 +197,11 @@ export default function DocsPage() {
         url += `?${queryParams.toString()}`;
       }
 
-      const headers = {
-        'User-Agent': 'Roblox/WinInet',
-      };
+      const headers = {};
+      // Only add User-Agent for endpoints that require it
+      if (!['/login/v1', '/dAuth/v1', '/reset-hwid/v1'].includes(selectedEndpoint)) {
+        headers['User-Agent'] = 'Roblox/WinInet';
+      }
       if (selectedEndpoint.includes('/manage/v1') || selectedEndpoint.includes('/scripts-list')) {
         headers['Authorization'] = selectedEndpoint.includes('/scripts-list') ? 'UserMode-2d93n2002n8' : `Bearer ${discordId}`;
       }
@@ -280,17 +278,17 @@ export default function DocsPage() {
 
           <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}>
             <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>API Endpoints</h2>
-            <p>All requests to the API must include the <code>User-Agent: Roblox/WinInet</code> header for security validation. Below are the available endpoints:</p>
+            <p>Most requests to the API (except for /login/v1, /dAuth/v1, and /reset-hwid/v1) must include the <code>User-Agent: Roblox/WinInet</code> header for security validation. Below are the available endpoints:</p>
             <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '10px' }}>
-              <li><strong>/register/v1</strong> - Register a new user. Requires: <code>ID</code>, <code>time</code>, <code>username</code>.</li>
-              <li><strong>/auth/v1</strong> - Authenticate with key and HWID. Requires: <code>hwid</code>, <code>key</code>.</li>
-              <li><strong>/dAuth/v1</strong> - Authenticate with Discord ID. Requires: <code>ID</code>, <code>gameId</code>.</li>
-              <li><strong>/files/v1</strong> - Fetch a script by filename. Requires: <code>file</code>.</li>
-              <li><strong>/manage/v1?action=list</strong> - List all users (admin only). Requires: <code>Authorization: Bearer {discordId}</code>.</li>
-              <li><strong>/scripts-list</strong> - List all script names (admin only). Requires: <code>Authorization: UserMode-2d93n2002n8</code>.</li>
-              <li><strong>/login/v1</strong> - Login with Discord ID and username. Requires: <code>ID</code>, <code>username</code>.</li>
-              <li><strong>/reset-hwid/v1</strong> - Reset HWID (2/day limit, unlimited for admin). Requires: <code>Authorization: Bearer {discordId}</code>.</li>
-              <li><strong>/status</strong> - Check API status. No parameters required.</li>
+              <li><strong>/register/v1</strong> - Register a new user. Requires: <code>ID</code>, <code>time</code>, <code>username</code>. Needs User-Agent header.</li>
+              <li><strong>/auth/v1</strong> - Authenticate with key and HWID. Requires: <code>hwid</code>, <code>key</code>. Needs User-Agent header.</li>
+              <li><strong>/dAuth/v1</strong> - Authenticate with Discord ID. Requires: <code>ID</code>, <code>gameId</code>. No User-Agent header required.</li>
+              <li><strong>/files/v1</strong> - Fetch a script by filename. Requires: <code>file</code>. Needs User-Agent header.</li>
+              <li><strong>/manage/v1?action=list</strong> - List all users (admin only). Requires: <code>Authorization: Bearer {discordId}</code>. Needs User-Agent header.</li>
+              <li><strong>/scripts-list</strong> - List all script names (admin only). Requires: <code>Authorization: UserMode-2d93n2002n8</code>. Needs User-Agent header.</li>
+              <li><strong>/login/v1</strong> - Login with Discord ID and username. Requires: <code>ID</code>, <code>username</code>. No User-Agent header required.</li>
+              <li><strong>/reset-hwid/v1</strong> - Reset HWID (2/day limit, unlimited for admin). Requires: <code>Authorization: Bearer {discordId}</code>. No User-Agent header required.</li>
+              <li><strong>/status</strong> - Check API status. No parameters required. Needs User-Agent header.</li>
             </ul>
           </div>
 
