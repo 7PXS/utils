@@ -606,6 +606,7 @@ body {
   border-radius: 16px;
   border: 1px solid rgba(161, 0, 255, 0.3);
   box-shadow: var(--shadow);
+  margin-bottom: 20px;
 }
 
 .docs-title {
@@ -805,7 +806,6 @@ body {
 
 .params-header {
   display: flex;
-  justify-content: space-between;
   padding: 8px 12px;
   background: #3a3a3a;
   color: #888;
@@ -813,13 +813,30 @@ body {
   font-size: 14px;
 }
 
+.params-header span {
+  flex: 1;
+  text-align: left;
+}
+
+.params-header span:nth-child(2) {
+  text-align: center; /* Center the "Type" header */
+}
+
 .params-row {
   display: flex;
-  justify-content: space-between;
   padding: 8px 12px;
   border-top: 1px solid rgba(161, 0, 255, 0.1);
   color: #e0e0e0;
   font-size: 14px;
+}
+
+.params-row span {
+  flex: 1;
+  text-align: left;
+}
+
+.params-row span:nth-child(2) {
+  text-align: center; /* Center the "Type" column content (e.g., "String") */
 }
 
 .params-row span:first-child {
