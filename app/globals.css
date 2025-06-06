@@ -796,3 +796,40 @@ body {
   margin-bottom: 20px;
 }
 
+.params-table {
+  background: #2c2c2c;
+  border-radius: 5px;
+  margin-bottom: 10px;
+  overflow-x: auto;
+}
+
+.params-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #3a3a3a;
+  color: #888;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.params-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-top: 1px solid rgba(161, 0, 255, 0.1);
+  color: #e0e0e0;
+  font-size: 14px;
+}
+
+.params-row span:first-child {
+  color: var(--primary);
+}
+
+.params-row span:nth-child(2) {
+  color: #d4aaff;
+}
+
+.params-row span:nth-child(3) {
+  color: #a1e8af;
+}
