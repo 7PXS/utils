@@ -206,9 +206,9 @@ function ResponseCard({ endpoint, method, params, responses }) {
         ))}
       </div>
       <div className="response-content">
-        <pre className="language-json">
+        <code className="language-json">
           {JSON.stringify(responses[activeTab], null, 2)}
-        </pre>
+        </code>
       </div>
     </div>
   );
@@ -287,15 +287,15 @@ export default function DocsPage() {
           <section className="docs-section" id="overview">
             <h1 style={{ fontSize: '2em', fontWeight: 'bold', marginBottom: '20px' }}>Nebula API Documentation</h1>
 
-            <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Overview</h2>
+            <div style={{ backgroundColor: '#2d2d2d', padding: '15px', border-radius: '5px', margin-bottom: '20px' }}>
+              <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', margin-bottom: '10px' }}>Overview</h2>
               <p style={{ margin: '10px 0' }}>
                 The Nebula Middleware handles API requests for user management, authentication, and script access, integrated with Vercel Blob for storage and Discord webhooks for logging. Most endpoints require a <code>User-Agent: Roblox/WinInet</code> header for security. Logs are sent to Discord with INFO, SUCCESS, WARN, and ERROR statuses.
               </p>
             </div>
           </section>
 
-          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="status">
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', border-radius: '5px', margin-bottom: '20px' }} id="status">
             <ResponseCard
               endpoint="https://utils32.vercel.app/status"
               method="GET"
@@ -306,7 +306,7 @@ export default function DocsPage() {
             />
           </div>
 
-          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="register-v1">
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', border-radius: '5px', margin-bottom: '20px' }} id="register-v1">
             <ResponseCard
               endpoint="https://utils32.vercel.app/register/v1"
               method="GET"
@@ -321,7 +321,7 @@ export default function DocsPage() {
             />
           </div>
 
-          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="auth-v1">
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', border-radius: '5px', margin-bottom: '20px' }} id="auth-v1">
             <ResponseCard
               endpoint="https://utils32.vercel.app/auth/v1"
               method="GET"
@@ -347,7 +347,7 @@ export default function DocsPage() {
             />
           </div>
 
-          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="dAuth-v1">
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', border-radius: '5px', margin-bottom: '20px' }} id="dAuth-v1">
             <ResponseCard
               endpoint="https://utils32.vercel.app/dAuth/v1"
               method="GET"
@@ -372,7 +372,7 @@ export default function DocsPage() {
             />
           </div>
 
-          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="files-v1">
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', border-radius: '5px', margin-bottom: '20px' }} id="files-v1">
             <ResponseCard
               endpoint="https://utils32.vercel.app/files/v1"
               method="GET"
@@ -388,7 +388,7 @@ export default function DocsPage() {
             />
           </div>
 
-          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="scripts-list">
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', border-radius: '5px', margin-bottom: '20px' }} id="scripts-list">
             <ResponseCard
               endpoint="https://utils32.vercel.app/scripts-list"
               method="GET"
@@ -401,7 +401,7 @@ export default function DocsPage() {
             />
           </div>
 
-          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="manage-v1">
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', border-radius: '5px', margin-bottom: '20px' }} id="manage-v1">
             <ResponseCard
               endpoint="https://utils32.vercel.app/manage/v1"
               method="GET/POST"
@@ -414,7 +414,7 @@ export default function DocsPage() {
             />
           </div>
 
-          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="login-v1">
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', border-radius: '5px', margin-bottom: '20px' }} id="login-v1">
             <ResponseCard
               endpoint="https://utils32.vercel.app/login/v1"
               method="GET"
@@ -428,7 +428,7 @@ export default function DocsPage() {
             />
           </div>
 
-          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="users-v1">
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', border-radius: '5px', margin-bottom: '20px' }} id="users-v1">
             <ResponseCard
               endpoint="https://utils32.vercel.app/users/v1"
               method="GET"
@@ -439,7 +439,7 @@ export default function DocsPage() {
             />
           </div>
 
-          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="reset-hwid-v1">
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', border-radius: '5px', margin-bottom: '20px' }} id="reset-hwid-v1">
             <ResponseCard
               endpoint="https://utils32.vercel.app/reset-hwid/v1"
               method="GET"
@@ -450,7 +450,7 @@ export default function DocsPage() {
             />
           </div>
 
-          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="keys-details">
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', border-radius: '5px', margin-bottom: '20px' }} id="keys-details">
             <ResponseCard
               endpoint="https://api.luarmor.net/v3/keys/:api_key/details"
               method="GET"
