@@ -312,8 +312,8 @@ export default function DocsPage() {
               method="GET"
               params={{
                 'ID*': { type: 'String', description: 'Discord ID' },
-                'time*': { type: 'String', description: 'Duration (e.g., "100s", "100m", "100h", "100d", "100mo", "100yr")' },
-                'username*': { type: 'String', description: '3-20 chars, alphanumeric or underscore' }
+                'time*': { type: 'String', description: 'Duration (e.g., "100s")' },
+                'username*': { type: 'String', description: '3-20 chars, alphanumeric' }
               }}
               responses={{
                 '200': { success: true, key: 'AbCdEfGhIjKlMn', createTime: 1625097600, endTime: 1656633600 }
@@ -328,7 +328,7 @@ export default function DocsPage() {
               params={{
                 'hwid*': { type: 'String', description: 'Hardware ID' },
                 'key*': { type: 'String', description: 'User key' },
-                'gameId': { type: 'String', description: 'Optional game ID for script validation' }
+                'gameId': { type: 'String', description: 'Optional game ID' }
               }}
               responses={{
                 '200': {
@@ -353,7 +353,7 @@ export default function DocsPage() {
               method="GET"
               params={{
                 'ID*': { type: 'String', description: 'Discord ID' },
-                'gameId': { type: 'String', description: 'Optional game ID for script validation' }
+                'gameId': { type: 'String', description: 'Optional game ID' }
               }}
               responses={{
                 '200': {
@@ -377,8 +377,8 @@ export default function DocsPage() {
               endpoint="https://utils32.vercel.app/files/v1"
               method="GET"
               params={{
-                'file*': { type: 'String', description: 'Script filename, case-insensitive' },
-                'key*': { type: 'String', description: 'User key for authentication' }
+                'file*': { type: 'String', description: 'Script filename' },
+                'key*': { type: 'String', description: 'User key' }
               }}
               responses={{
                 '200': { GameID: '12345', Code: 'https://example.com/script.js' },
@@ -406,7 +406,7 @@ export default function DocsPage() {
               endpoint="https://utils32.vercel.app/manage/v1"
               method="GET/POST"
               params={{
-                'action*': { type: 'String', description: 'list, update, or delete' }
+                'action*': { type: 'String', description: 'list, update, delete' }
               }}
               responses={{
                 '200': { success: true, message: 'Operation successful' }
@@ -455,7 +455,7 @@ export default function DocsPage() {
               endpoint="https://api.luarmor.net/v3/keys/:api_key/details"
               method="GET"
               params={{
-                'api_key*': { type: 'String', description: 'API key to get details of' }
+                'api_key*': { type: 'String', description: 'API key details' }
               }}
               responses={{
                 '200': { success: true, message: 'API key details retrieved' },
