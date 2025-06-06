@@ -132,11 +132,55 @@ function Topbar({ username, onSignOut }) {
   );
 }
 
+function Sidebar() {
+  const [activeSection, setActiveSection] = useState('overview');
+
+  const sections = [
+    { id: 'overview', title: 'Luarmor API Documentation', icon: '👑' },
+    { id: 'user-manual', title: 'Luarmor User Manual & F.A.Q', icon: '📖' },
+    { id: 'ad-system', title: 'Ad System (Rewards)', icon: '🎁' },
+    { id: 'insane-optimization', title: 'Insane Optimization Tricks & LPH Macro Usage', icon: '⚡' },
+    { id: 'verified-scripts', title: 'Verified / Safe Scripts', icon: '✅' },
+    { id: 'identifying-scams', title: 'Identifying Common Scams', icon: '❌' },
+    { id: 'source-locker', title: 'Source Locker', icon: '🔒' },
+    { id: 'webhook-protection', title: 'Webhook Protection', icon: '🌐' },
+    { id: 'status', title: '/status', icon: '' },
+    { id: 'register-v1', title: '/register/v1', icon: '' },
+    { id: 'auth-v1', title: '/auth/v1', icon: '' },
+    { id: 'dAuth-v1', title: '/dAuth/v1', icon: '' },
+    { id: 'files-v1', title: '/files/v1', icon: '' },
+    { id: 'scripts-list', title: '/scripts-list', icon: '' },
+    { id: 'manage-v1', title: '/manage/v1', icon: '' },
+    { id: 'login-v1', title: '/login/v1', icon: '' },
+    { id: 'users-v1', title: '/users/v1', icon: '' },
+    { id: 'reset-hwid-v1', title: '/reset-hwid/v1', icon: '' },
+    { id: 'keys-details', title: '/keys/:api_key/details', icon: '' },
+  ];
+
+  return (
+    <aside className="sidebar">
+      <nav className="sidebar-nav">
+        {sections.map((section) => (
+          <a
+            key={section.id}
+            href={`#${section.id}`}
+            className={`sidebar-item ${activeSection === section.id ? 'active' : ''}`}
+            onClick={() => setActiveSection(section.id)}
+          >
+            {section.icon && <span className="sidebar-icon">{section.icon}</span>}
+            <span className="sidebar-text">{section.title}</span>
+          </a>
+        ))}
+      </nav>
+    </aside>
+  );
+}
+
 function ResponseCard({ endpoint, method, responses }) {
   const [activeTab, setActiveTab] = useState(Object.keys(responses)[0]);
 
   return (
-    <div className="response-card">
+    <div className="response-card" id={endpoint.replace(/\//g, '-').replace(/:/g, '')}>
       <div className="request-header">
         <span className="method">{method}</span>
         <span className="endpoint">{endpoint}</span>
@@ -228,18 +272,56 @@ export default function DocsPage() {
   return (
     <div className="landing-page" style={{ backgroundColor: '#1a1a1a', color: '#e0e0e0' }}>
       <Topbar username={username} onSignOut={handleSignOut} />
-      <div className="landing-container" style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
-        <section className="docs-section">
-          <h1 style={{ fontSize: '2em', fontWeight: 'bold', marginBottom: '20px' }}>Nebula Middleware Documentation</h1>
+      <div className="content-wrapper">
+        <Sidebar />
+        <div className="main-content" style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
+          <section className="docs-section" id="overview">
+            <h1 style={{ fontSize: '2em', fontWeight: 'bold', marginBottom: '20px' }}>Nebula Middleware Documentation</h1>
 
-          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}>
-            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Overview</h2>
-            <p style={{ margin: '10px 0' }}>
-              The Nebula Middleware handles API requests for user management, authentication, and script access, integrated with Vercel Blob for storage and Discord webhooks for logging. Most endpoints require a <code>User-Agent: Roblox/WinInet</code> header for security. Logs are sent to Discord with INFO, SUCCESS, WARN, and ERROR statuses.
-            </p>
-          </div>
+            <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Overview</h2>
+              <p style={{ margin: '10px 0' }}>
+                The Nebula Middleware handles API requests for user management, authentication, and script access, integrated with Vercel Blob for storage and Discord webhooks for logging. Most endpoints require a <code>User-Agent: Roblox/WinInet</code> header for security. Logs are sent to Discord with INFO, SUCCESS, WARN, and ERROR statuses.
+              </p>
+            </div>
+          </section>
 
-          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}>
+          <section className="docs-section" id="user-manual">
+            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>User Manual & F.A.Q</h2>
+            <p style={{ margin: '10px 0' }}>Detailed user guide and frequently asked questions.</p>
+          </section>
+
+          <section className="docs-section" id="ad-system">
+            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Ad System (Rewards)</h2>
+            <p style={{ margin: '10px 0' }}>Information about the ad system and rewards.</p>
+          </section>
+
+          <section className="docs-section" id="insane-optimization">
+            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Insane Optimization Tricks & LPH Macro Usage</h2>
+            <p style={{ margin: '10px 0' }}>Tips for optimization and macro usage.</p>
+          </section>
+
+          <section className="docs-section" id="verified-scripts">
+            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Verified / Safe Scripts</h2>
+            <p style={{ margin: '10px 0' }}>List of verified and safe scripts.</p>
+          </section>
+
+          <section className="docs-section" id="identifying-scams">
+            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Identifying Common Scams</h2>
+            <p style={{ margin: '10px 0' }}>Guide to identifying common scams.</p>
+          </section>
+
+          <section className="docs-section" id="source-locker">
+            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Source Locker</h2>
+            <p style={{ margin: '10px 0' }}>Details about source locker functionality.</p>
+          </section>
+
+          <section className="docs-section" id="webhook-protection">
+            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Webhook Protection</h2>
+            <p style={{ margin: '10px 0' }}>Information on webhook protection features.</p>
+          </section>
+
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="status">
             <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>API Endpoints</h2>
             <p>Below are the available endpoints, their parameters, and requirements:</p>
             <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '10px' }}>
@@ -357,10 +439,8 @@ export default function DocsPage() {
             </ul>
           </div>
 
-          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}>
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="keys-details">
             <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Detailed API Responses</h2>
-
-            <h3 style={{ fontSize: '1.25em', marginTop: '15px' }}>GET /keys/:api_key/details</h3>
             <ResponseCard
               endpoint="https://api.luarmor.net/v3/keys/:api_key/details"
               method="GET"
@@ -370,8 +450,9 @@ export default function DocsPage() {
                 '400': { success: false, message: 'Invalid API key' }
               }}
             />
+          </div>
 
-            <h3 style={{ fontSize: '1.25em', marginTop: '15px' }}>GET /scripts-list</h3>
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="scripts-list">
             <ResponseCard
               endpoint="https://utils32.vercel.app/scripts-list"
               method="GET"
@@ -381,8 +462,9 @@ export default function DocsPage() {
                 '500': { success: false, error: 'Failed to fetch scripts' }
               }}
             />
+          </div>
 
-            <h3 style={{ fontSize: '1.25em', marginTop: '15px' }}>GET /auth/v1</h3>
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="auth-v1">
             <ResponseCard
               endpoint="https://utils32.vercel.app/auth/v1"
               method="GET"
@@ -401,8 +483,9 @@ export default function DocsPage() {
                 '401': { success: false, error: 'Invalid key' }
               }}
             />
+          </div>
 
-            <h3 style={{ fontSize: '1.25em', marginTop: '15px' }}>GET /dAuth/v1</h3>
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="dAuth-v1">
             <ResponseCard
               endpoint="https://utils32.vercel.app/dAuth/v1"
               method="GET"
@@ -421,8 +504,9 @@ export default function DocsPage() {
                 '401': { success: false, error: 'Key expired' }
               }}
             />
+          </div>
 
-            <h3 style={{ fontSize: '1.25em', marginTop: '15px' }}>GET /files/v1</h3>
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="files-v1">
             <ResponseCard
               endpoint="https://utils32.vercel.app/files/v1"
               method="GET"
@@ -433,7 +517,7 @@ export default function DocsPage() {
               }}
             />
           </div>
-        </section>
+        </div>
       </div>
     </div>
   );
