@@ -263,7 +263,7 @@ export default function DocsPage() {
                 <ul style={{ listStyleType: 'circle', paddingLeft: '20px' }}>
                   <li>Method: GET</li>
                   <li>Parameters: <code>file</code> (script filename, case-insensitive), <code>key</code> (user key for authentication)</li>
-                  <li>Headers: <code>User-Agent: Roblox/WinInet</code>, <code>Authorization: Bearer {key}</code></li>
+                  <li>Headers: <code>User-Agent: Roblox/WinInet</code>, <code>Authorization: Bearer XYZ789</code></li>
                   <li>Returns: Script data if key is valid and not expired</li>
                   <li>Example: <code>GET https://utils32.vercel.app/files/v1?file=script1.lua&key=XYZ789</code></li>
                 </ul>
