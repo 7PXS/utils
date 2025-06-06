@@ -150,7 +150,11 @@ export default function DocsPage() {
 
     try {
       const user = JSON.parse(storedUser);
-      const response = await fetch(`/login/v1?ID=${encodeURIComponent(user.discordId)}&username=${encodeURIComponent(user.username)}`);
+      const response = await fetch(`/login/v1?ID=${encodeURIComponent(user.discordId)}&username=${encodeURIComponent(user.username)}`, {
+        headers: {
+          'User-Agent': 'Roblox/WinInet'
+        }
+      });
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -197,7 +201,9 @@ export default function DocsPage() {
         url += `?${queryParams.toString()}`;
       }
 
-      const headers = {};
+      const headers = {
+        'User-Agent': 'Roblox/WinInet',
+      };
       if (selectedEndpoint.includes('/manage/v1') || selectedEndpoint.includes('/scripts-list')) {
         headers['Authorization'] = selectedEndpoint.includes('/scripts-list') ? 'UserMode-2d93n2002n8' : `Bearer ${discordId}`;
       }
@@ -244,135 +250,98 @@ export default function DocsPage() {
     '/scripts-list': [],
     '/login/v1': ['ID', 'username'],
     '/reset-hwid/v1': [],
+    '/status': []
   };
 
   return (
-    <div className="landing-page">
+    <div className="landing-page" style={{ backgroundColor: '#1a1a1a', color: '#e0e0e0' }}>
       <Topbar username={username} onSignOut={handleSignOut} />
-      {[...Array(20)].map((_, i) => (
-        <div
-          key={i}
-          className="particle"
-          style={{
-            left: `${Math.random() * 100}vw`,
-            animationDelay: `${Math.random() * 5}s`,
-          }}
-        />
-      ))}
-      <div className="landing-container">
-        <section className="hero-section">
-          <h1 className="hero-title">Nebula Documentation</h1>
-          <p className="hero-description">Comprehensive guides and API references for using Nebula's whitelisting service.</p>
-        </section>
-
+      <div className="landing-container" style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
         <section className="docs-section">
-          <h2 className="docs-title">Getting Started</h2>
-          <div className="docs-card">
-            <h3 className="docs-card-title">Introduction</h3>
-            <p className="docs-card-description">
-              Nebula is a secure whitelisting service designed for Discord-based user management. It supports user registration, authentication, script access, and admin controls using Vercel Blob Storage and Edge Config.
-            </p>
-          </div>
-          <div className="docs-card">
-            <h3 className="docs-card-title">Quick Start</h3>
-            <p className="docs-card-description">
-              1. Register a user via <code>/register/v1</code> with a Discord ID, username, and optional duration.<br/>
-              2. Authenticate using <code>/auth/v1</code> or <code>/dAuth/v1</code> with your key or Discord ID.<br/>
-              3. Access scripts via <code>/files/v1</code> with a valid key.<br/>
-              4. Admins can manage users via <code>/manage/v1</code> (requires Discord ID: 1272720391462457400).
-            </p>
-          </div>
-        </section>
+          <h1 style={{ fontSize: '2em', fontWeight: 'bold', marginBottom: '20px' }}>API/Key Management</h1>
 
-        <section className="docs-section">
-          <h2 className="docs-title">API Reference</h2>
-          <div className="docs-card">
-            <h3 className="docs-card-title">Endpoints</h3>
-            <p className="docs-card-description">
-              Below is a list of available API endpoints. Use the interactive tool to test them.
-            </p>
-            <ul className="list-disc list-inside text-gray-200 text-base space-y-3 mt-4">
-              <li><strong>/register/v1</strong>: Register a new user (ID, time, username).</li>
-              <li><strong>/auth/v1</strong>: Authenticate with key and HWID (hwid, key).</li>
-              <li><strong>/dAuth/v1</strong>: Authenticate with Discord ID (ID, gameId).</li>
-              <li><strong>/files/v1</strong>: Fetch a script by filename (file).</li>
-              <li><strong>/manage/v1</strong>: Admin user management (action=list|update|delete).</li>
-              <li><strong>/scripts-list</strong>: List all script names (admin only).</li>
-              <li><strong>/login/v1</strong>: Login with Discord ID and username (ID, username).</li>
-              <li><strong>/reset-hwid/v1</strong>: Reset HWID (2/day limit, unlimited for admin).</li>
-            </ul>
-          </div>
-          <div className="docs-card">
-            <h3 className="docs-card-title">Interactive API Tester</h3>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Select Endpoint</label>
-                <select
-                  value={selectedEndpoint}
-                  onChange={(e) => {
-                    setSelectedEndpoint(e.target.value);
-                    setRequestParams({});
-                    setRequestResponse('');
-                  }}
-                  className="modal-input w-full p-3 text-lg"
-                >
-                  <option value="">-- Select an Endpoint --</option>
-                  {Object.keys(endpointOptions).map((endpoint) => (
-                    <option key={endpoint} value={endpoint}>
-                      {endpoint}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {selectedEndpoint && (
-                <div className="space-y-4">
-                  {endpointOptions[selectedEndpoint].map((param) => (
-                    <div key={param}>
-                      <label className="block text-sm text-gray-400 mb-2">{param}</label>
-                      <input
-                        type="text"
-                        value={requestParams[param] || ''}
-                        onChange={(e) => handleParamChange(param, e.target.value)}
-                        className="modal-input w-full p-3 text-lg"
-                        placeholder={`Enter ${param}`}
-                      />
-                    </div>
-                  ))}
-                  <button
-                    onClick={handleSendRequest}
-                    className="ripple-button login-button text-lg py-3 px-6 w-full"
-                  >
-                    Send Request
-                  </button>
-                  {requestResponse && (
-                    <pre className="mt-4 p-4 rounded-md bg-gray-800 text-gray-200 text-base overflow-auto max-h-60">
-                      {requestResponse}
-                    </pre>
-                  )}
-                </div>
-              )}
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}>
+            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Getting API Status</h2>
+            <div style={{ color: '#3498db' }}>GET https://api.luarmor.net/status</div>
+            <p style={{ margin: '10px 0' }}>This will return you the version information about the API.</p>
+            <div style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px', overflowX: 'auto' }}>
+              <pre style={{ margin: 0, color: '#e0e0e0' }}>
+                {`200: OK
+{
+  "version": "v3",
+  "active": true,
+  "message": "API is up and working!",
+  "warning": false,
+  "warning_message": "No warning"
+}`}
+              </pre>
             </div>
           </div>
-        </section>
 
-        <section className="docs-section">
-          <h2 className="docs-title">Admin Guide</h2>
-          <div className="docs-card">
-            <h3 className="docs-card-title">Managing Users</h3>
-            <p className="docs-card-description">
-              Admins (Discord ID: 1272720391462457400) can use <code>/manage/v1</code> to list, update, or delete users. Example actions:
-              <ul className="list-disc list-inside text-gray-200 text-base space-y-3 mt-4">
-                <li><strong>List Users</strong>: <code>/manage/v1?action=list</code></li>
-                <li><strong>Update User</strong>: POST to <code>/manage/v1?action=update</code> with JSON body (username, endTime, hwid).</li>
-                <li><strong>Delete User</strong>: POST to <code>/manage/v1?action=delete</code> with JSON body (discordId).</li>
-              </ul>
-            </p>
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}>
+            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>API Endpoints</h2>
+            <p>All requests to the API must include the <code>User-Agent: Roblox/WinInet</code> header for security validation. Below are the available endpoints:</p>
+            <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '10px' }}>
+              <li><strong>/register/v1</strong> - Register a new user. Requires: <code>ID</code>, <code>time</code>, <code>username</code>.</li>
+              <li><strong>/auth/v1</strong> - Authenticate with key and HWID. Requires: <code>hwid</code>, <code>key</code>.</li>
+              <li><strong>/dAuth/v1</strong> - Authenticate with Discord ID. Requires: <code>ID</code>, <code>gameId</code>.</li>
+              <li><strong>/files/v1</strong> - Fetch a script by filename. Requires: <code>file</code>.</li>
+              <li><strong>/manage/v1?action=list</strong> - List all users (admin only). Requires: <code>Authorization: Bearer {discordId}</code>.</li>
+              <li><strong>/scripts-list</strong> - List all script names (admin only). Requires: <code>Authorization: UserMode-2d93n2002n8</code>.</li>
+              <li><strong>/login/v1</strong> - Login with Discord ID and username. Requires: <code>ID</code>, <code>username</code>.</li>
+              <li><strong>/reset-hwid/v1</strong> - Reset HWID (2/day limit, unlimited for admin). Requires: <code>Authorization: Bearer {discordId}</code>.</li>
+              <li><strong>/status</strong> - Check API status. No parameters required.</li>
+            </ul>
           </div>
-          <div className="docs-card">
-            <h3 className="docs-card-title">Script Management</h3>
-            <p className="docs-card-description">
-              Use <code>/scripts-list</code> to view available scripts and <code>/files/v1</code> to fetch specific scripts. Requires admin authorization header: <code>UserMode-2d93n2002n8</code>.
-            </p>
+
+          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px' }}>
+            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Interactive API Tester</h2>
+            <div style={{ marginTop: '10px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', color: '#3498db' }}>Select Endpoint</label>
+              <select
+                value={selectedEndpoint}
+                onChange={(e) => {
+                  setSelectedEndpoint(e.target.value);
+                  setRequestParams({});
+                  setRequestResponse('');
+                }}
+                style={{ width: '100%', padding: '8px', backgroundColor: '#333', color: '#e0e0e0', border: 'none', borderRadius: '3px' }}
+              >
+                <option value="">-- Select an Endpoint --</option>
+                {Object.keys(endpointOptions).map((endpoint) => (
+                  <option key={endpoint} value={endpoint}>
+                    {endpoint}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {selectedEndpoint && (
+              <div style={{ marginTop: '15px' }}>
+                {endpointOptions[selectedEndpoint].map((param) => (
+                  <div key={param} style={{ marginBottom: '10px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', color: '#3498db' }}>{param}</label>
+                    <input
+                      type="text"
+                      value={requestParams[param] || ''}
+                      onChange={(e) => handleParamChange(param, e.target.value)}
+                      style={{ width: '100%', padding: '8px', backgroundColor: '#333', color: '#e0e0e0', border: 'none', borderRadius: '3px' }}
+                      placeholder={`Enter ${param}`}
+                    />
+                  </div>
+                ))}
+                <button
+                  onClick={handleSendRequest}
+                  style={{ width: '100%', padding: '10px', backgroundColor: '#3498db', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+                >
+                  Send Request
+                </button>
+                {requestResponse && (
+                  <pre style={{ marginTop: '15px', padding: '10px', backgroundColor: '#333', borderRadius: '3px', overflowX: 'auto' }}>
+                    {requestResponse}
+                  </pre>
+                )}
+              </div>
+            )}
           </div>
         </section>
       </div>
