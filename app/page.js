@@ -153,11 +153,7 @@ export default function LandingPage() {
 
     try {
       const user = JSON.parse(storedUser);
-      const response = await fetch(`/login/v1?ID=${encodeURIComponent(user.discordId)}&username=${encodeURIComponent(user.username)}`, {
-        headers: {
-          'User-Agent': 'Roblox/WinInet'
-        }
-      });
+      const response = await fetch(`/login/v1?ID=${encodeURIComponent(user.discordId)}&username=${encodeURIComponent(user.username)}`);
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -182,11 +178,7 @@ export default function LandingPage() {
     setError('');
 
     try {
-      const response = await fetch(`/login/v1?ID=${encodeURIComponent(discordId)}&username=${encodeURIComponent(username)}`, {
-        headers: {
-          'User-Agent': 'Roblox/WinInet'
-        }
-      });
+      const response = await fetch(`/login/v1?ID=${encodeURIComponent(discordId)}&username=${encodeURIComponent(username)}`);
       const data = await response.json();
 
       if (!response.ok || !data.success) {
