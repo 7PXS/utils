@@ -136,14 +136,7 @@ function Sidebar() {
   const [activeSection, setActiveSection] = useState('overview');
 
   const sections = [
-    { id: 'overview', title: 'Luarmor API Documentation', icon: '👑' },
-    { id: 'user-manual', title: 'Luarmor User Manual & F.A.Q', icon: '📖' },
-    { id: 'ad-system', title: 'Ad System (Rewards)', icon: '🎁' },
-    { id: 'insane-optimization', title: 'Insane Optimization Tricks & LPH Macro Usage', icon: '⚡' },
-    { id: 'verified-scripts', title: 'Verified / Safe Scripts', icon: '✅' },
-    { id: 'identifying-scams', title: 'Identifying Common Scams', icon: '❌' },
-    { id: 'source-locker', title: 'Source Locker', icon: '🔒' },
-    { id: 'webhook-protection', title: 'Webhook Protection', icon: '🌐' },
+    { id: 'overview', title: 'Nebula API Documentation', icon: '👑' },
     { id: 'status', title: '/status', icon: '' },
     { id: 'register-v1', title: '/register/v1', icon: '' },
     { id: 'auth-v1', title: '/auth/v1', icon: '' },
@@ -292,7 +285,7 @@ export default function DocsPage() {
         <Sidebar />
         <div className="main-content" style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
           <section className="docs-section" id="overview">
-            <h1 style={{ fontSize: '2em', fontWeight: 'bold', marginBottom: '20px' }}>Nebula Middleware Documentation</h1>
+            <h1 style={{ fontSize: '2em', fontWeight: 'bold', marginBottom: '20px' }}>Nebula API Documentation</h1>
 
             <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Overview</h2>
@@ -300,41 +293,6 @@ export default function DocsPage() {
                 The Nebula Middleware handles API requests for user management, authentication, and script access, integrated with Vercel Blob for storage and Discord webhooks for logging. Most endpoints require a <code>User-Agent: Roblox/WinInet</code> header for security. Logs are sent to Discord with INFO, SUCCESS, WARN, and ERROR statuses.
               </p>
             </div>
-          </section>
-
-          <section className="docs-section" id="user-manual">
-            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>User Manual & F.A.Q</h2>
-            <p style={{ margin: '10px 0' }}>Detailed user guide and frequently asked questions.</p>
-          </section>
-
-          <section className="docs-section" id="ad-system">
-            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Ad System (Rewards)</h2>
-            <p style={{ margin: '10px 0' }}>Information about the ad system and rewards.</p>
-          </section>
-
-          <section className="docs-section" id="insane-optimization">
-            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Insane Optimization Tricks & LPH Macro Usage</h2>
-            <p style={{ margin: '10px 0' }}>Tips for optimization and macro usage.</p>
-          </section>
-
-          <section className="docs-section" id="verified-scripts">
-            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Verified / Safe Scripts</h2>
-            <p style={{ margin: '10px 0' }}>List of verified and safe scripts.</p>
-          </section>
-
-          <section className="docs-section" id="identifying-scams">
-            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Identifying Common Scams</h2>
-            <p style={{ margin: '10px 0' }}>Guide to identifying common scams.</p>
-          </section>
-
-          <section className="docs-section" id="source-locker">
-            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Source Locker</h2>
-            <p style={{ margin: '10px 0' }}>Details about source locker functionality.</p>
-          </section>
-
-          <section className="docs-section" id="webhook-protection">
-            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Webhook Protection</h2>
-            <p style={{ margin: '10px 0' }}>Information on webhook protection features.</p>
           </section>
 
           <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }} id="status">
