@@ -61,17 +61,19 @@ function Topbar({ username, onSignOut }) {
             </svg>
             <div className={`nav-text ${activeNav === 'Home' ? 'active' : ''}`}>Home</div>
           </div>
-          <div
-            className={`nav-item ${activeNav === 'Docs' ? 'active' : ''}`}
-            onClick={() => setActive('Docs')}
-          >
-            <svg width="21" height="20" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M3.1416 6.19995L10.4999 10.4583L17.8083 6.22495" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M10.5 18.0083V10.45" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M8.77491 2.0667L4.32491 4.53336C3.31658 5.0917 2.49158 6.4917 2.49158 7.6417V12.35C2.49158 13.5 3.31658 14.9 4.32491 15.4583L8.77491 17.9334C9.72491 18.4584 11.2832 18.4584 12.2332 17.9334L16.6832 15.4583C17.6916 14.9 18.5166 13.5 18.5166 12.35V7.6417C18.5166 6.4917 17.6916 5.0917 16.6832 4.53336L12.2332 2.05836C11.2749 1.53336 9.72491 1.53336 8.77491 2.0667Z" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <div className={`nav-text ${activeNav === 'Docs' ? 'active' : ''}`}>Docs</div>
-          </div>
+          <Link href="/docs" legacyBehavior>
+            <a
+              className={`nav-item ${activeNav === 'Docs' ? 'active' : ''}`}
+              onClick={() => setActive('Docs')}
+            >
+              <svg width="21" height="20" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3.1416 6.19995L10.4999 10.4583L17.8083 6.22495" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M10.5 18.0083V10.45" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M8.77491 2.0667L4.32491 4.53336C3.31658 5.0917 2.49158 6.4917 2.49158 7.6417V12.35C2.49158 13.5 3.31658 14.9 4.32491 15.4583L8.77491 17.9334C9.72491 18.4584 11.2832 18.4584 12.2332 17.9334L16.6832 15.4583C17.6916 14.9 18.5166 13.5 18.5166 12.35V7.6417C18.5166 6.4917 17.6916 5.0917 16.6832 4.53336L12.2332 2.05836C11.2749 1.53336 9.72491 1.53336 8.77491 2.0667Z" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <div className={`nav-text ${activeNav === 'Docs' ? 'active' : ''}`}>Docs</div>
+            </a>
+          </Link>
         </div>
         <div className="right-menu">
           <div className="icon" onClick={() => document.body.classList.toggle('dark')}>
@@ -151,7 +153,11 @@ export default function LandingPage() {
 
     try {
       const user = JSON.parse(storedUser);
-      const response = await fetch(`/login/v1?ID=${encodeURIComponent(user.discordId)}&username=${encodeURIComponent(user.username)}`);
+      const response = await fetch(`/login/v1?ID=${encodeURIComponent(user.discordId)}&username=${encodeURIComponent(user.username)}`, {
+        headers: {
+          'User-Agent': 'Roblox/WinInet'
+        }
+      });
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -176,7 +182,11 @@ export default function LandingPage() {
     setError('');
 
     try {
-      const response = await fetch(`/login/v1?ID=${encodeURIComponent(discordId)}&username=${encodeURIComponent(username)}`);
+      const response = await fetch(`/login/v1?ID=${encodeURIComponent(discordId)}&username=${encodeURIComponent(username)}`, {
+        headers: {
+          'User-Agent': 'Roblox/WinInet'
+        }
+      });
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -196,7 +206,11 @@ export default function LandingPage() {
     setError('');
 
     try {
-      const response = await fetch(`/register/v1?ID=${encodeURIComponent(discordId)}&time=30d&username=${encodeURIComponent(username)}`);
+      const response = await fetch(`/register/v1?ID=${encodeURIComponent(discordId)}&time=30d&username=${encodeURIComponent(username)}`, {
+        headers: {
+          'User-Agent': 'Roblox/WinInet'
+        }
+      });
       const data = await response.json();
 
       if (!response.ok || !data.success) {
