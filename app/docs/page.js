@@ -178,18 +178,18 @@ function ResponseCard({ endpoint, method, params, responses }) {
         <span className="method">{method}</span>
         <span className="endpoint">{endpoint}</span>
       </div>
-      {params && (
+      {params && Object.keys(params).length > 0 && (
         <div className="params-table">
           <div className="params-header">
             <span>Name</span>
             <span>Type</span>
             <span>Description</span>
           </div>
-          {params.map((param, index) => (
+          {Object.entries(params).map(([name, { type, description }], index) => (
             <div key={index} className="params-row">
-              <span>{param.name}{param.required ? '*' : ''}</span>
-              <span>{param.type}</span>
-              <span>{param.description}</span>
+              <span>{name}</span>
+              <span>{type}</span>
+              <span>{description}</span>
             </div>
           ))}
         </div>
