@@ -739,3 +739,60 @@ body {
 .language-json .boolean { color: #ff6b6b; }
 .language-json .null { color: #ffcc00; }
 .language-json .key { color: #a1c4fd; }
+
+.content-wrapper {
+  display: flex;
+  margin-top: 60px; /* Adjust based on topbar height */
+}
+
+.sidebar {
+  width: 250px;
+  background: #1e1e1e;
+  border-right: 1px solid rgba(161, 0, 255, 0.3);
+  padding: 20px 0;
+  position: fixed;
+  height: calc(100vh - 60px);
+  overflow-y: auto;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 20px;
+  color: var(--text-dark);
+  text-decoration: none;
+  font-size: 14px;
+  transition: var(--transition);
+}
+
+.sidebar-item:hover,
+.sidebar-item.active {
+  background: rgba(161, 0, 255, 0.1);
+  color: var(--primary);
+}
+
+.sidebar-icon {
+  margin-right: 10px;
+}
+
+.main-content {
+  margin-left: 250px; /* Match sidebar width */
+  width: calc(100% - 250px);
+  padding: 20px;
+}
+
+/* Ensure existing styles work with new layout */
+.docs-section {
+  padding: 40px 20px;
+  background: rgba(30, 30, 30, 0.9);
+  border-radius: 16px;
+  border: 1px solid rgba(161, 0, 255, 0.3);
+  box-shadow: var(--shadow);
+  margin-bottom: 20px;
+}
+
