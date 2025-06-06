@@ -132,6 +132,35 @@ function Topbar({ username, onSignOut }) {
   );
 }
 
+function ResponseCard({ endpoint, method, responses }) {
+  const [activeTab, setActiveTab] = useState(Object.keys(responses)[0]);
+
+  return (
+    <div className="response-card">
+      <div className="request-header">
+        <span className="method">{method}</span>
+        <span className="endpoint">{endpoint}</span>
+      </div>
+      <div className="tab-buttons">
+        {Object.keys(responses).map((status) => (
+          <button
+            key={status}
+            className={`tab-button ${activeTab === status ? 'active' : ''}`}
+            onClick={() => setActiveTab(status)}
+          >
+            {status}
+          </button>
+        ))}
+      </div>
+      <div className="response-content">
+        <pre className="language-json">
+          {JSON.stringify(responses[activeTab], null, 2)}
+        </pre>
+      </div>
+    </div>
+  );
+}
+
 export default function DocsPage() {
   const [username, setUsername] = useState('');
   const [discordId, setDiscordId] = useState('');
@@ -222,7 +251,6 @@ export default function DocsPage() {
                   <li>Headers: <code>User-Agent: Roblox/WinInet</code></li>
                   <li>Returns: API version, status, and message</li>
                   <li>Example: <code>GET https://utils32.vercel.app/status</code></li>
-                  <li>Response: <pre style={{ margin: '5px 0', color: '#e0e0e0' }}>{`{"version": "v3", "active": true, "message": "API is up and working!", "warning": false, "warning_message": "No warning"}`}</pre></li>
                 </ul>
               </li>
               <li>
@@ -332,397 +360,78 @@ export default function DocsPage() {
           <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}>
             <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Detailed API Responses</h2>
 
+            <h3 style={{ fontSize: '1.25em', marginTop: '15px' }}>GET /keys/:api_key/details</h3>
+            <ResponseCard
+              endpoint="https://api.luarmor.net/v3/keys/:api_key/details"
+              method="GET"
+              responses={{
+                '200': { success: true, message: 'API key details retrieved' },
+                '403': { success: false, message: 'Wrong API key' },
+                '400': { success: false, message: 'Invalid API key' }
+              }}
+            />
+
             <h3 style={{ fontSize: '1.25em', marginTop: '15px' }}>GET /scripts-list</h3>
-            <p>Retrieve a list of available script names.</p>
-            <p><strong>200: OK</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`["script1", "script2", "script3"]`}
-            </pre>
-            <p><strong>401: Unauthorized</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Unauthorized"
-}`}
-            </pre>
-            <p><strong>500: Internal Server Error</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Failed to fetch scripts"
-}`}
-            </pre>
+            <ResponseCard
+              endpoint="https://utils32.vercel.app/scripts-list"
+              method="GET"
+              responses={{
+                '200': { success: true, scripts: ['script1', 'script2', 'script3'] },
+                '401': { success: false, error: 'Unauthorized' },
+                '500': { success: false, error: 'Failed to fetch scripts' }
+              }}
+            />
 
             <h3 style={{ fontSize: '1.25em', marginTop: '15px' }}>GET /auth/v1</h3>
-            <p>Authenticate a user with a key and hardware ID (HWID). Optionally validate a game ID.</p>
-            <p><strong>200: OK</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "success": true,
-  "key": "AbCdEfGhIjKlMn",
-  "hwid": "1234567890",
-  "discordId": "123456789012345678",
-  "username": "user123",
-  "createTime": 1625097600,
-  "endTime": 1656633600,
-  "Games": {
-    "ValidGame": true,
-    "Code": "https://example.com/script.js"
-  }
-}`}
-            </pre>
-            <p><strong>400: Bad Request</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Missing key or hwid"
-}`}
-            </pre>
-            <p><strong>401: Unauthorized</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Invalid key"
-}`}
-            </pre>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Invalid HWID"
-}`}
-            </pre>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Key expired"
-}`}
-            </pre>
+            <ResponseCard
+              endpoint="https://utils32.vercel.app/auth/v1"
+              method="GET"
+              responses={{
+                '200': {
+                  success: true,
+                  key: 'AbCdEfGhIjKlMn',
+                  hwid: '1234567890',
+                  discordId: '123456789012345678',
+                  username: 'user123',
+                  createTime: 1625097600,
+                  endTime: 1656633600,
+                  Games: { ValidGame: true, Code: 'https://example.com/script.js' }
+                },
+                '400': { success: false, error: 'Missing key or hwid' },
+                '401': { success: false, error: 'Invalid key' }
+              }}
+            />
 
             <h3 style={{ fontSize: '1.25em', marginTop: '15px' }}>GET /dAuth/v1</h3>
-            <p>Authenticate a user with a Discord ID. Optionally validate a game ID.</p>
-            <p><strong>200: OK</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "success": true,
-  "key": "AbCdEfGhIjKlMn",
-  "hwid": "1234567890",
-  "discordId": "123456789012345678",
-  "username": "user123",
-  "createTime": 1625097600,
-  "endTime": 1656633600,
-  "Games": {
-    "ValidGame": true,
-    "Code": "https://example.com/script.js"
-  }
-}`}
-            </pre>
-            <p><strong>400: Bad Request</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Missing Discord ID"
-}`}
-            </pre>
-            <p><strong>401: Unauthorized</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Key expired"
-}`}
-            </pre>
-            <p><strong>404: Not Found</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "No user found with this Discord ID"
-}`}
-            </pre>
+            <ResponseCard
+              endpoint="https://utils32.vercel.app/dAuth/v1"
+              method="GET"
+              responses={{
+                '200': {
+                  success: true,
+                  key: 'AbCdEfGhIjKlMn',
+                  hwid: '1234567890',
+                  discordId: '123456789012345678',
+                  username: 'user123',
+                  createTime: 1625097600,
+                  endTime: 1656633600,
+                  Games: { ValidGame: true, Code: 'https://example.com/script.js' }
+                },
+                '400': { success: false, error: 'Missing Discord ID' },
+                '401': { success: false, error: 'Key expired' }
+              }}
+            />
 
             <h3 style={{ fontSize: '1.25em', marginTop: '15px' }}>GET /files/v1</h3>
-            <p>Retrieve a script file based on filename and key.</p>
-            <p><strong>200: OK</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "GameID": "12345",
-  "Code": "https://example.com/script.js"
-}`}
-            </pre>
-            <p><strong>400: Bad Request</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Missing file name or key"
-}`}
-            </pre>
-            <p><strong>401: Unauthorized</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Invalid key"
-}`}
-            </pre>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Key expired"
-}`}
-            </pre>
-            <p><strong>404: Not Found</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "File not found"
-}`}
-            </pre>
-
-            <h3 style={{ fontSize: '1.25em', marginTop: '15px' }}>GET /manage/v1?action=list</h3>
-            <p>List all users (admin only).</p>
-            <p><strong>200: OK</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "success": true,
-  "users": [
-    {
-      "key": "AbCdEfGhIjKlMn",
-      "hwid": "1234567890",
-      "discordId": "123456789012345678",
-      "username": "user123",
-      "createTime": 1625097600,
-      "endTime": 1656633600
-    }
-  ]
-}`}
-            </pre>
-            <p><strong>400: Bad Request</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Missing action parameter"
-}`}
-            </pre>
-            <p><strong>401: Unauthorized</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Missing or invalid Authorization header"
-}`}
-            </pre>
-            <p><strong>403: Forbidden</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Unauthorized - Admin access required"
-}`}
-            </pre>
-
-            <h3 style={{ fontSize: '1.25em', marginTop: '15px' }}>POST /manage/v1?action=update</h3>
-            <p>Update a user's details (admin only).</p>
-            <p><strong>200: OK</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "success": true,
-  "user": {
-    "key": "AbCdEfGhIjKlMn",
-    "hwid": "1234567890",
-    "discordId": "123456789012345678",
-    "username": "user123",
-    "createTime": 1625097600,
-    "endTime": 1656633600
-  }
-}`}
-            </pre>
-            <p><strong>400: Bad Request</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Missing required fields (discordId, username, endTime)"
-}`}
-            </pre>
-            <p><strong>404: Not Found</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "User not found"
-}`}
-            </pre>
-            <p><strong>401: Unauthorized</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Missing or invalid Authorization header"
-}`}
-            </pre>
-            <p><strong>403: Forbidden</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Unauthorized - Admin access required"
-}`}
-            </pre>
-
-            <h3 style={{ fontSize: '1.25em', marginTop: '15px' }}>POST /manage/v1?action=delete</h3>
-            <p>Delete a user (admin only).</p>
-            <p><strong>200: OK</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "success": true
-}`}
-            </pre>
-            <p><strong>400: Bad Request</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Missing discordId"
-}`}
-            </pre>
-            <p><strong>404: Not Found</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "User not found"
-}`}
-            </pre>
-            <p><strong>401: Unauthorized</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Missing or invalid Authorization header"
-}`}
-            </pre>
-            <p><strong>403: Forbidden</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Unauthorized - Admin access required"
-}`}
-            </pre>
-
-            <h3 style={{ fontSize: '1.25em', marginTop: '15px' }}>GET /register/v1</h3>
-            <p>Register a new user with Discord ID, username, and time duration.</p>
-            <p><strong>200: OK</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "success": true,
-  "key": "AbCdEfGhIjKlMn",
-  "hwid": "",
-  "discordId": "123456789012345678",
-  "username": "user123",
-  "createTime": 1625097600,
-  "endTime": 1656633600
-}`}
-            </pre>
-            <p><strong>400: Bad Request</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Missing Discord ID, time, or username"
-}`}
-            </pre>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Username must be 3-20 characters and contain only letters, numbers, or underscores"
-}`}
-            </pre>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Invalid time format. Use format like 100s, 100m, 100h, 100d, 100mo, or 100yr"
-}`}
-            </pre>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "User already registered"
-}`}
-            </pre>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Username already taken"
-}`}
-            </pre>
-
-            <h3 style={{ fontSize: '1.25em', marginTop: '15px' }}>GET /login/v1</h3>
-            <p>Log in a user with Discord ID and username.</p>
-            <p><strong>200: OK</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "success": true,
-  "key": "AbCdEfGhIjKlMn",
-  "hwid": "1234567890",
-  "discordId": "123456789012345678",
-  "username": "user123",
-  "createTime": 1625097600,
-  "endTime": 1656633600
-}`}
-            </pre>
-            <p><strong>400: Bad Request</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Missing Discord ID or username"
-}`}
-            </pre>
-            <p><strong>401: Unauthorized</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Invalid username"
-}`}
-            </pre>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Key expired"
-}`}
-            </pre>
-            <p><strong>404: Not Found</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "No user found with this Discord ID"
-}`}
-            </pre>
-
-            <h3 style={{ fontSize: '1.25em', marginTop: '15px' }}>GET /users/v1</h3>
-            <p>Retrieve a list of all users.</p>
-            <p><strong>200: OK</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "success": true,
-  "users": [
-    {
-      "key": "AbCdEfGhIjKlMn",
-      "hwid": "1234567890",
-      "discordId": "123456789012345678",
-      "username": "user123",
-      "createTime": 1625097600,
-      "endTime": 1656633600
-    }
-  ]
-}`}
-            </pre>
-
-            <h3 style={{ fontSize: '1.25em', marginTop: '15px' }}>GET /reset-hwid/v1</h3>
-            <p>Reset the HWID for a user.</p>
-            <p><strong>200: OK</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "success": true,
-  "message": "HWID reset successfully"
-}`}
-            </pre>
-            <p><strong>400: Bad Request</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Missing Discord ID"
-}`}
-            </pre>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "No HWID set"
-}`}
-            </pre>
-            <p><strong>404: Not Found</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "User not found"
-}`}
-            </pre>
-            <p><strong>429: Too Many Requests</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "HWID reset limit reached (2/day)"
-}`}
-            </pre>
-            <p><strong>500: Internal Server Error</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Internal server error"
-}`}
-            </pre>
-
-            <h3 style={{ fontSize: '1.25em', marginTop: '15px' }}>General Middleware Errors</h3>
-            <p><strong>404: Not Found (Unauthorized User-Agent)</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Unauthorized"
-}`}
-            </pre>
-            <p><strong>500: Internal Server Error (General)</strong></p>
-            <pre style={{ backgroundColor: '#333', padding: '10px', borderRadius: '3px' }}>
-              {`{
-  "error": "Internal server error"
-}`}
-            </pre>
+            <ResponseCard
+              endpoint="https://utils32.vercel.app/files/v1"
+              method="GET"
+              responses={{
+                '200': { GameID: '12345', Code: 'https://example.com/script.js' },
+                '400': { success: false, error: 'Missing file name or key' },
+                '401': { success: false, error: 'Invalid key' }
+              }}
+            />
           </div>
         </section>
       </div>
