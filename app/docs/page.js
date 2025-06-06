@@ -137,9 +137,6 @@ export default function DocsPage() {
   const [discordId, setDiscordId] = useState('');
   const [error, setError] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [selectedEndpoint, setSelectedEndpoint] = useState('');
-  const [requestParams, setRequestParams] = useState({});
-  const [requestResponse, setRequestResponse] = useState('');
 
   const checkAuth = async () => {
     const storedUser = localStorage.getItem('user');
@@ -179,54 +176,6 @@ export default function DocsPage() {
     window.location.href = '/';
   };
 
-  const handleSendRequest = async () => {
-    if (!selectedEndpoint) {
-      setRequestResponse('Please select an endpoint');
-      return;
-    }
-
-    try {
-      let url = selectedEndpoint;
-      const queryParams = new URLSearchParams();
-
-      for (const [key, value] of Object.entries(requestParams)) {
-        if (value) queryParams.set(key, value);
-      }
-
-      if (queryParams.toString()) {
-        url += `?${queryParams.toString()}`;
-      }
-
-      const headers = {};
-      if (!['/login/v1', '/dAuth/v1', '/reset-hwid/v1'].includes(selectedEndpoint)) {
-        headers['User-Agent'] = 'Roblox/WinInet';
-      }
-      if (selectedEndpoint.includes('/manage/v1')) {
-        headers['Authorization'] = `Bearer ${discordId}`;
-      } else if (selectedEndpoint.includes('/scripts-list')) {
-        headers['Authorization'] = 'UserMode-2d93n2002n8';
-      } else if (selectedEndpoint.includes('/files/v1')) {
-        const key = requestParams.key;
-        if (!key) {
-          setRequestResponse('Error: Key is required for /files/v1 endpoint');
-          return;
-        }
-        headers['Authorization'] = `Bearer ${key}`;
-      }
-
-      const response = await fetch(url, { headers });
-      const data = await response.json();
-
-      setRequestResponse(JSON.stringify(data, null, 2));
-    } catch (error) {
-      setRequestResponse('Error: ' + error.message);
-    }
-  };
-
-  const handleParamChange = (key, value) => {
-    setRequestParams((prev) => ({ ...prev, [key]: value }));
-  };
-
   useEffect(() => {
     checkAuth();
   }, []);
@@ -246,21 +195,6 @@ export default function DocsPage() {
       </div>
     );
   }
-
-  const endpointOptions = {
-    '/register/v1': ['ID', 'time', 'username'],
-    '/auth/v1': ['hwid', 'key', 'gameId'],
-    '/dAuth/v1': ['ID', 'gameId'],
-    '/files/v1': ['file', 'key'],
-    '/manage/v1?action=list': [],
-    '/manage/v1?action=update': ['discordId', 'username', 'endTime', 'hwid'],
-    '/manage/v1?action=delete': ['discordId'],
-    '/scripts-list': [],
-    '/login/v1': ['ID', 'username'],
-    '/users/v1': [],
-    '/reset-hwid/v1': [],
-    '/status': []
-  };
 
   return (
     <div className="landing-page" style={{ backgroundColor: '#1a1a1a', color: '#e0e0e0' }}>
@@ -789,56 +723,6 @@ export default function DocsPage() {
   "error": "Internal server error"
 }`}
             </pre>
-          </div>
-
-          <div style={{ backgroundColor: '#2d2d2d', padding: '15px', borderRadius: '5px' }}>
-            <h2 style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: '10px' }}>Interactive API Tester</h2>
-            <div style={{ marginTop: '10px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', color: '#3498db' }}>Select Endpoint</label>
-              <select
-                value={selectedEndpoint}
-                onChange={(e) => {
-                  setSelectedEndpoint(e.target.value);
-                  setRequestParams({});
-                  setRequestResponse('');
-                }}
-                style={{ width: '100%', padding: '8px', backgroundColor: '#333', color: '#e0e0e0', border: 'none', borderRadius: '3px' }}
-              >
-                <option value="">-- Select an Endpoint --</option>
-                {Object.keys(endpointOptions).map((endpoint) => (
-                  <option key={endpoint} value={endpoint}>
-                    {endpoint}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {selectedEndpoint && (
-              <div style={{ marginTop: '15px' }}>
-                {endpointOptions[selectedEndpoint].map((param) => (
-                  <div key={param} style={{ marginBottom: '10px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px', color: '#3498db' }}>{param}</label>
-                    <input
-                      type="text"
-                      value={requestParams[param] || ''}
-                      onChange={(e) => handleParamChange(param, e.target.value)}
-                      style={{ width: '100%', padding: '8px', backgroundColor: '#333', color: '#e0e0e0', border: 'none', borderRadius: '3px' }}
-                      placeholder={`Enter ${param}`}
-                    />
-                  </div>
-                ))}
-                <button
-                  onClick={handleSendRequest}
-                  style={{ width: '100%', padding: '10px', backgroundColor: '#3498db', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
-                >
-                  Send Request
-                </button>
-                {requestResponse && (
-                  <pre style={{ marginTop: '15px', padding: '10px', backgroundColor: '#333', borderRadius: '3px', overflowX: 'auto' }}>
-                    {requestResponse}
-                  </pre>
-                )}
-              </div>
-            )}
           </div>
         </section>
       </div>
