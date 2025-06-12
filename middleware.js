@@ -101,15 +101,15 @@ export async function middleware(request) {
   }
 
   try {
-    // Check User-Agent only for non-exempt paths
-    const userAgent = request.headers.get('user-agent') || '';
-    const exemptPaths = ['/login/v1', '/dAuth/v1', '/reset-hwid/v1'];
-    if (!exemptPaths.includes(pathname) && userAgent !== 'Roblox/WinInet' && production === false) {
-      const errorMessage = `[${timestamp}] Unauthorized: User-Agent is not Roblox/WinInet and production is false`;
-      console.error(errorMessage);
-      await sendWebhookLog(request, errorMessage, '[ERROR]');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 404 });
-    }
+// Check User-Agent only for non-exempt paths
+const userAgent = request.headers.get('user-agent') || '';
+const exemptPaths = ['/login/v1', '/dAuth/v1', '/reset-hwid/v1', '/register/v1'];
+if (!exemptPaths.includes(pathname) && userAgent !== 'Roblox/WinInet' && production === false) {
+  const errorMessage = `[${timestamp}] Unauthorized: User-Agent is not Roblox/WinInet and production is false`;
+  console.error(errorMessage);
+  await sendWebhookLog(request, errorMessage, '[ERROR]');
+  return NextResponse.json({ error: 'Unauthorized' }, { status: 404 });
+}
 
     if (pathname.startsWith('/scripts-list')) {
       const logMessage = `[${timestamp}] Handling /scripts-list`;
