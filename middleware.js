@@ -22,18 +22,37 @@ async function sendWebhookLog(request, message, prefix) {
   const embedColor = prefix === '[ERROR]' ? 15158332 : prefix === '[WARN]' ? 16763904 : 65280;
 
   const embed = {
-    title: 'Middleware Log',
-    description: `${prefix} ${message}`,
+    title: 'Nebula Middleware Log',
+    description: `[${timestamp}] ${prefix} ${message.substring(0, 100)}`, // Limit description to 100 chars
     color: embedColor,
     fields: [
-      { name: 'Timestamp', value: timestamp, inline: true },
-      { name: 'Request ID', value: request.headers.get('x-vercel-request-id') || 'N/A', inline: true },
-      { name: 'Path', value: url.pathname, inline: true },
-      { name: 'Host', value: request.headers.get('host') || 'N/A', inline: true },
-      { name: 'User Agent', value: request.headers.get('user-agent') || 'N/A', inline: true },
-      { name: 'Search Params', value: JSON.stringify(searchParams) || 'None', inline: true },
-      { name: 'Full URL', value: fullUrl, inline: false },
-      { name: 'Location', value: request.geo?.city || 'N/A' + ', ' + (request.geo?.country || 'N/A') + ' (' + (request.geo?.region || 'N/A') + ')', inline: false },
+      {
+        name: 'Request Details',
+        value: [
+          `Path: ${url.pathname.substring(0, 50)}`, // Limit to 50 chars
+          `Host: ${request.headers.get('host') || 'N/A'}`,
+          `User Agent: ${request.headers.get('user-agent')?.substring(0, 50) || 'N/A'}`, // Limit to 50 chars
+        ].join('\n'),
+        inline: true,
+      },
+      {
+        name: 'Search Params',
+        value: JSON.stringify(searchParams).substring(0, 100) || 'None', // Limit to 100 chars
+        inline: true,
+      },
+      {
+        name: 'Metadata',
+        value: [
+          `Request ID: ${request.headers.get('x-vercel-request-id') || 'N/A'}`,
+          `Full URL: ${fullUrl.substring(0, 100)}`, // Limit to 100 chars
+        ].join('\n'),
+        inline: false,
+      },
+      {
+        name: 'Location',
+        value: `${request.geo?.city || 'N/A'}, ${request.geo?.country || 'N/A'} (${request.geo?.region || 'N/A'})`,
+        inline: false,
+      },
     ],
     footer: { text: 'Nebula Middleware Logs' },
   };
