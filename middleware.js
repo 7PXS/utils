@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put, list, del } from '@vercel/blob';
+import { get } from '@vercel/edge-config';
 
 // Configuration
 const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_utjs6NoOOU3BdeXE_0pNKDMi9ecw5Gh6ls3KB2OSOb2bKxs';
@@ -262,7 +263,7 @@ export async function middleware(request) {
         return NextResponse.json(createResponse(false, {}, 'Unauthorized'), { status: 401 });
       }
 
-      const scripts = await get('scripts', { edgeConfig: process.env.EDGE_CONFIG_URL });
+      const scripts = await get('scripts');
       console.log(`[${timestamp}] /scripts-list: Retrieved ${Object.keys(scripts).length} scripts`);
       await sendWebhookLog(request, `/scripts-list: Retrieved ${Object.keys(scripts).length} scripts`, 'SUCCESS');
       return NextResponse.json(Object.keys(scripts));
@@ -333,7 +334,7 @@ export async function middleware(request) {
 
       let gamesData = { ValidGame: false, Code: null };
       if (gameId) {
-        const scripts = await get('scripts', { edgeConfig: process.env.EDGE_CONFIG_URL });
+        const scripts = await get('scripts');
         const matchingScriptEntry = Object.entries(scripts).find(([_, script]) => script.GameID === gameId);
         if (matchingScriptEntry) {
           const [scriptName, scriptData] = matchingScriptEntry;
@@ -385,7 +386,7 @@ export async function middleware(request) {
 
       let gamesData = { ValidGame: false, Code: null };
       if (gameId) {
-        const scripts = await get('scripts', { edgeConfig: process.env.EDGE_CONFIG_URL });
+        const scripts = await get('scripts');
         const matchingScriptEntry = Object.entries(scripts).find(([_, script]) => script.GameID === gameId);
         if (matchingScriptEntry) {
           const [scriptName, scriptData] = matchingScriptEntry;
@@ -435,7 +436,7 @@ export async function middleware(request) {
         return NextResponse.json(createResponse(false, {}, 'Key expired'), { status: 401 });
       }
 
-      const scripts = await get('scripts', { edgeConfig: process.env.EDGE_CONFIG_URL });
+      const scripts = await get('scripts');
       const script = Object.keys(scripts).find(key => key.toLowerCase() === fileName);
       if (!script) {
         console.error(`[${timestamp}] /files/v1: File not found: ${fileName}`);
@@ -662,7 +663,7 @@ export async function middleware(request) {
       resetData.resets.push({ timestamp });
       await updateResetData(discordId, today, resetData);
       console.log(`[${timestamp}] /reset-hwid/v1: HWID reset for Discord ID ${discordId} (${resetData.count}/2 today)`);
-      await sendWebhookLog(request, `/reset-hwid/v1: HWID reset for Discord ID ${discordId} (${resetData.count}/2 today)`, 'SUCCESS');
+      await sendWebhookLog(request, `/reset-hwid/v1: HWID reset for Discord ID ${diskey
       return NextResponse.json(createResponse(true, { message: 'HWID reset successfully' }));
     }
 
