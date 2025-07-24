@@ -29,6 +29,21 @@ const getUserByDiscordId = async (discordId) => {
   return response.json();
 };
 
+const getUserByHwid = async (hwid) => {
+  const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
+  for (const blob of blobs) {
+    try {
+      const response = await fetch(blob.url);
+      if (!response.ok) continue;
+      const userData = await response.json();
+      if (userData.hwid === hwid) return userData;
+    } catch (error) {
+      console.error(`Error reading blob ${blob.pathname}: ${error.message}`);
+    }
+  }
+  return null;
+};
+
 const getAllUsers = async () => {
   const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
   const users = [];
@@ -150,9 +165,30 @@ export async function middleware(request) {
       const hwid = searchParams.get('hwid');
       const gameId = searchParams.get('gameId');
 
-      if (!key || !hwid) {
-        console.error(`[${timestamp}] /auth/v1: Missing key or hwid`);
-        return NextResponse.json(createResponse(false, {}, 'Missing key or hwid'), { status: 400 });
+      if (!hwid) {
+        console.error(`[${timestamp}] /auth/v1: Missing hwid`);
+        return NextResponse.json(createResponse(false, {}, 'Missing hwid'), { status: 400 });
+      }
+
+      // HWID-only check
+      if (!key && hwid) {
+        const userData = await getUserByHwid(hwid);
+        if (!userData) {
+          console.error(`[${timestamp}] /auth/v1: No key linked to HWID ${hwid}`);
+          return NextResponse.json(createResponse(false, {}, 'No key linked to this HWID'), { status: 404 });
+        }
+
+        return NextResponse.json(createResponse(true, {
+          key: userData.key,
+          discordId: userData.discordId,
+          username: userData.username
+        }));
+      }
+
+      // Key and HWID check
+      if (!key) {
+        console.error(`[${timestamp}] /auth/v1: Missing key`);
+        return NextResponse.json(createResponse(false, {}, 'Missing key'), { status: 400 });
       }
 
       const userData = await getUserByKey(key);
