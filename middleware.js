@@ -57,14 +57,14 @@ const sendWebhookLog = async (request, message, level = 'INFO') => {
 
   const embed = {
     title: `Nebula Middleware - ${level}`,
-    description: `[${timestamp}] ${message.substring(0, 100)}`,
+    description: `\`${timestamp}\` **${message.substring(0, 100)}**`,
     color: embedColors[level] || embedColors.INFO,
     fields: [
       {
         name: 'Request',
-        value: `Path: ${url.pathname.substring(0, 50)}\n` +
-               `Host: ${request.headers.get('host') || 'N/A'}\n` +
-               `IP: ${request.headers.get('x-forwarded-for') || 'N/A'}`,
+        value: `\`Path\`: ${url.pathname.substring(0, 50)}\n` +
+               `\`Host\`: ${request.headers.get('host') || 'N/A'}\n` +
+               `\`IP\`: ${request.headers.get('x-forwarded-for') || 'N/A'}`,
         inline: true
       },
       {
@@ -79,9 +79,9 @@ const sendWebhookLog = async (request, message, level = 'INFO') => {
       },
       {
         name: 'Metadata',
-        value: `Request ID: ${request.headers.get('x-vercel-request-id') || 'N/A'}\n` +
-               `URL: ${fullUrl.substring(0, 100)}\n` +
-               `User Agent: ${request.headers.get('user-agent')?.substring(0, 50) || 'N/A'}`,
+        value: `\`Request ID\`: ${request.headers.get('x-vercel-request-id') || 'N/A'}\n` +
+               `\`URL\`: ${fullUrl.substring(0, 100)}\n` +
+               `\`User Agent\`: ${request.headers.get('user-agent')?.substring(0, 50) || 'N/A'}`,
         inline: false
       },
       {
