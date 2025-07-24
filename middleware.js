@@ -663,7 +663,7 @@ export async function middleware(request) {
       resetData.resets.push({ timestamp });
       await updateResetData(discordId, today, resetData);
       console.log(`[${timestamp}] /reset-hwid/v1: HWID reset for Discord ID ${discordId} (${resetData.count}/2 today)`);
-      await sendWebhookLog(request, `/reset-hwid/v1: HWID reset for Discord ID ${diskey
+      await sendWebhookLog(request, `/reset-hwid/v1: HWID reset for Discord ID ${discordId} (${resetData.count}/2 today)`, 'SUCCESS');
       return NextResponse.json(createResponse(true, { message: 'HWID reset successfully' }));
     }
 
