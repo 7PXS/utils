@@ -13,6 +13,19 @@ const createResponse = (success, data = {}, error = null) => ({
   ...(success ? data : { error })
 });
 
+// Helper: Format date to readable format
+const formatDate = (date) => {
+  const options = { 
+    year: 'numeric', 
+    month: 'short', 
+    day: '2-digit', 
+    hour: '2-digit', 
+    minute: '2-digit', 
+    hour12: true 
+  };
+  return date.toLocaleString('en-US', options).replace(',', '');
+};
+
 // Helper: Send webhook log
 const sendWebhookLog = async (request, message, level = 'INFO') => {
   if (!WEBHOOK_URL) {
@@ -20,10 +33,20 @@ const sendWebhookLog = async (request, message, level = 'INFO') => {
     return;
   }
 
-  const timestamp = new Date().toISOString();
+  const timestamp = formatDate(new Date());
   const url = new URL(request.url);
   const fullUrl = `${SITE_URL}${url.pathname}${url.search ? url.search : ''}`;
   const searchParams = Object.fromEntries(url.searchParams.entries());
+  const responseData = request.nextUrl.pathname.includes('/auth/v1') || 
+                      request.nextUrl.pathname.includes('/dAuth/v1') ||
+                      request.nextUrl.pathname.includes('/files/v1') ||
+                      request.nextUrl.pathname.includes('/manage/v1') ||
+                      request.nextUrl.pathname.includes('/register/v1') ||
+                      request.nextUrl.pathname.includes('/login/v1') ||
+                      request.nextUrl.pathname.includes('/users/v1') ||
+                      request.nextUrl.pathname.includes('/reset-hwid/v1') 
+                      ? await request.clone().json().catch(() => ({})) 
+                      : {};
 
   const embedColors = {
     INFO: 0x00FF00,    // Green
@@ -34,14 +57,14 @@ const sendWebhookLog = async (request, message, level = 'INFO') => {
 
   const embed = {
     title: `Nebula Middleware - ${level}`,
-    description: `\`${timestamp}\` **${message.substring(0, 100)}\``,
+    description: `[${timestamp}] ${message.substring(0, 100)}`,
     color: embedColors[level] || embedColors.INFO,
     fields: [
       {
         name: 'Request',
-        value: `\`Path\`: ${url.pathname.substring(0, 50)}\n` +
-               `\`Host\`: ${request.headers.get('host') || 'N/A'}\n` +
-               `\`IP\`: ${request.headers.get('x-forwarded-for') || 'N/A'}`,
+        value: `Path: ${url.pathname.substring(0, 50)}\n` +
+               `Host: ${request.headers.get('host') || 'N/A'}\n` +
+               `IP: ${request.headers.get('x-forwarded-for') || 'N/A'}`,
         inline: true
       },
       {
@@ -50,9 +73,15 @@ const sendWebhookLog = async (request, message, level = 'INFO') => {
         inline: true
       },
       {
+        name: 'Response',
+        value: `\`\`\`json\n${JSON.stringify(responseData, null, 2).substring(0, 100)}\n\`\`\``,
+        inline: true
+      },
+      {
         name: 'Metadata',
-        value: `\`Request ID\`: ${request.headers.get('x-vercel-request-id') || 'N/A'}\n` +
-               `\`URL\`: ${fullUrl.substring(0, 100)}`,
+        value: `Request ID: ${request.headers.get('x-vercel-request-id') || 'N/A'}\n` +
+               `URL: ${fullUrl.substring(0, 100)}\n` +
+               `User Agent: ${request.headers.get('user-agent')?.substring(0, 50) || 'N/A'}`,
         inline: false
       },
       {
@@ -62,7 +91,7 @@ const sendWebhookLog = async (request, message, level = 'INFO') => {
       }
     ],
     footer: { text: 'Nebula Middleware Logs' },
-    timestamp
+    timestamp: new Date().toISOString()
   };
 
   try {
@@ -220,7 +249,7 @@ manageTestData().catch(error => {
 // Middleware function
 export async function middleware(request) {
   const { pathname, searchParams } = request.nextUrl;
-  const timestamp = new Date().toISOString();
+  const timestamp = formatDate(new Date());
 
   try {
     // Handle /scripts-list
