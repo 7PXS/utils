@@ -58,7 +58,7 @@ const sendWebhookLog = async (request, message, level = 'INFO') => {
 
   const embed = {
     title: `Nebula Middleware - ${level}`,
-    description: `\`${timestamp}\` **${message.substring(0, 100)}**`,
+    description: `\`${timestamp}\``,
     color: embedColors[level] || embedColors.INFO,
     fields: [
       {
@@ -75,7 +75,7 @@ const sendWebhookLog = async (request, message, level = 'INFO') => {
       },
       {
         name: 'Response',
-        value: `\`\`\`json\n${JSON.stringify(responseData, null, 2).substring(0, 100)}\n\`\`\``,
+        value: `\`\`\`json\n${JSON.stringify(message.substring(0, 100), null, 2)}\n\`\`\``,
         inline: true
       },
       {
@@ -115,80 +115,163 @@ const sendWebhookLog = async (request, message, level = 'INFO') => {
 
 // Database helpers
 const getUserByKey = async (key) => {
-  const { blobs } = await list({ prefix: `Users/${key}-`, token: BLOB_READ_WRITE_TOKEN });
-  if (blobs.length === 0) return null;
-  const response = await fetch(blobs[0].url);
-  if (!response.ok) throw new Error(`Failed to fetch blob: ${response.statusText}`);
-  return response.json();
+  try {
+    const { blobs } = await list({ prefix: `Users/${key}-`, token: BLOB_READ_WRITE_TOKEN });
+    if (blobs.length === 0) {
+      console.log(`No blobs found for key prefix: Users/${key}-`);
+      return null;
+    }
+    const response = await fetch(blobs[0].url);
+    if (!response.ok) {
+      console.error(`Failed to fetch blob ${blobs[0].url}: ${response.statusText}`);
+      throw new Error(`Failed to fetch blob: ${response.statusText}`);
+    }
+    const data = await response.json();
+    console.log(`Retrieved user data for key ${key}:`, JSON.stringify(data, null, 2));
+    return data;
+  } catch (error) {
+    console.error(`Error in getUserByKey for key ${key}: ${error.message}`);
+    return null;
+  }
 };
 
 const getUserByDiscordId = async (discordId) => {
-  const { blobs } = await list({ prefix: `Users/-${discordId}.json`, token: BLOB_READ_WRITE_TOKEN });
-  if (blobs.length === 0) return null;
-  const response = await fetch(blobs[0].url);
-  if (!response.ok) throw new Error(`Failed to fetch blob: ${response.statusText}`);
-  return response.json();
+  try {
+    const { blobs } = await list({ prefix: `Users/-${discordId}.json`, token: BLOB_READ_WRITE_TOKEN });
+    if (blobs.length === 0) {
+      console.log(`No blobs found for Discord ID: Users/-${discordId}.json`);
+      return null;
+    }
+    const response = await fetch(blobs[0].url);
+    if (!response.ok) {
+      console.error(`Failed to fetch blob ${blobs[0].url}: ${response.statusText}`);
+      throw new Error(`Failed to fetch blob: ${response.statusText}`);
+    }
+    const data = await response.json();
+    console.log(`Retrieved user data for Discord ID ${discordId}:`, JSON.stringify(data, null, 2));
+    return data;
+  } catch (error) {
+    console.error(`Error in getUserByDiscordId for Discord ID ${discordId}: ${error.message}`);
+    return null;
+  }
 };
 
 const getUserByHwid = async (hwid) => {
-  const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
-  for (const blob of blobs) {
-    try {
-      const response = await fetch(blob.url);
-      if (!response.ok) continue;
-      const userData = await response.json();
-      if (userData.hwid === hwid) return userData;
-    } catch (error) {
-      console.error(`Error reading blob ${blob.pathname}: ${error.message}`);
+  try {
+    const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
+    for (const blob of blobs) {
+      try {
+        const response = await fetch(blob.url);
+        if (!response.ok) continue;
+        const userData = await response.json();
+        if (userData.hwid === hwid) {
+          console.log(`Found user with HWID ${hwid}:`, JSON.stringify(userData, null, 2));
+          return userData;
+        }
+      } catch (error) {
+        console.error(`Error reading blob ${blob.pathname}: ${error.message}`);
+      }
     }
+    console.log(`No user found with HWID ${hwid}`);
+    return null;
+  } catch (error) {
+    console.error(`Error in getUserByHwid for HWID ${hwid}: ${error.message}`);
+    return null;
   }
-  return null;
 };
 
 const getAllUsers = async () => {
-  const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
-  const users = [];
-  for (const blob of blobs) {
-    try {
-      const response = await fetch(blob.url);
-      if (response.ok) users.push(await response.json());
-    } catch (error) {
-      console.error(`Error reading blob ${blob.pathname}: ${error.message}`);
+  try {
+    const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
+    const users = [];
+    for (const blob of blobs) {
+      try {
+        const response = await fetch(blob.url);
+        if (response.ok) {
+          const userData = await response.json();
+          users.push(userData);
+          console.log(`Retrieved user from blob ${blob.pathname}:`, JSON.stringify(userData, null, 2));
+        }
+      } catch (error) {
+        console.error(`Error reading blob ${blob.pathname}: ${error.message}`);
+      }
     }
+    console.log(`Retrieved ${users.length} users`);
+    return users;
+  } catch (error) {
+    console.error(`Error in getAllUsers: ${error.message}`);
+    return [];
   }
-  return users;
 };
 
 const updateUser = async (key, discordId, data) => {
-  await put(`Users/${key}-${discordId}.json`, JSON.stringify(data), {
-    access: 'public',
-    token: BLOB_READ_WRITE_TOKEN,
-    addRandomSuffix: false,
-  });
+  try {
+    const blobPath = `Users/${key}-${discordId}.json`;
+    console.log(`Updating user at ${blobPath}:`, JSON.stringify(data, null, 2));
+    await put(blobPath, JSON.stringify(data), {
+      access: 'public',
+      token: BLOB_READ_WRITE_TOKEN,
+      addRandomSuffix: false,
+    });
+    console.log(`Successfully updated user ${discordId} at ${blobPath}`);
+  } catch (error) {
+    console.error(`Error updating user ${discordId}: ${error.message}`);
+    throw error;
+  }
 };
 
 const deleteUser = async (discordId) => {
-  const { blobs } = await list({ prefix: `Users/-${discordId}.json`, token: BLOB_READ_WRITE_TOKEN });
-  if (blobs.length === 0) return false;
-  await del(blobs[0].url, { token: BLOB_READ_WRITE_TOKEN });
-  return true;
+  try {
+    const { blobs } = await list({ prefix: `Users/-${discordId}.json`, token: BLOB_READ_WRITE_TOKEN });
+    if (blobs.length === 0) {
+      console.log(`No user found to delete for Discord ID ${discordId}`);
+      return false;
+    }
+    await del(blobs[0].url, { token: BLOB_READ_WRITE_TOKEN });
+    console.log(`Deleted user with Discord ID ${discordId} at ${blobs[0].url}`);
+    return true;
+  } catch (error) {
+    console.error(`Error deleting user ${discordId}: ${error.message}`);
+    return false;
+  }
 };
 
 const getResetData = async (discordId, today) => {
-  const resetKey = `HwidResets/${discordId}/${today}.json`;
-  const { blobs } = await list({ prefix: resetKey, token: BLOB_READ_WRITE_TOKEN });
-  if (blobs.length === 0) return { count: 0, resets: [] };
-  const response = await fetch(blobs[0].url);
-  if (!response.ok) throw new Error(`Failed to fetch reset blob: ${response.statusText}`);
-  return response.json();
+  try {
+    const resetKey = `HwidResets/${discordId}/${today}.json`;
+    const { blobs } = await list({ prefix: resetKey, token: BLOB_READ_WRITE_TOKEN });
+    if (blobs.length === 0) {
+      console.log(`No reset data found for ${discordId} on ${today}`);
+      return { count: 0, resets: [] };
+    }
+    const response = await fetch(blobs[0].url);
+    if (!response.ok) {
+      console.error(`Failed to fetch reset blob ${blobs[0].url}: ${response.statusText}`);
+      throw new Error(`Failed to fetch reset blob: ${response.statusText}`);
+    }
+    const data = await response.json();
+    console.log(`Retrieved reset data for ${discordId} on ${today}:`, JSON.stringify(data, null, 2));
+    return data;
+  } catch (error) {
+    console.error(`Error in getResetData for ${discordId}: ${error.message}`);
+    return { count: 0, resets: [] };
+  }
 };
 
 const updateResetData = async (discordId, today, data) => {
-  await put(`HwidResets/${discordId}/${today}.json`, JSON.stringify(data), {
-    access: 'public',
-    token: BLOB_READ_WRITE_TOKEN,
-    addRandomSuffix: false,
-  });
+  try {
+    const resetKey = `HwidResets/${discordId}/${today}.json`;
+    console.log(`Updating reset data at ${resetKey}:`, JSON.stringify(data, null, 2));
+    await put(resetKey, JSON.stringify(data), {
+      access: 'public',
+      token: BLOB_READ_WRITE_TOKEN,
+      addRandomSuffix: false,
+    });
+    console.log(`Successfully updated reset data for ${discordId} on ${today}`);
+  } catch (error) {
+    console.error(`Error updating reset data for ${discordId}: ${error.message}`);
+    throw error;
+  }
 };
 
 // Helper: Generate 14-character key
@@ -210,6 +293,20 @@ const parseTimeToSeconds = (timeStr) => {
   return value * secondsInUnit[match[2]];
 };
 
+// Helper: Check if script exists for gameId
+const checkGameScript = async (gameId) => {
+  try {
+    const scriptPath = `Scripts/${gameId}.json`;
+    const { blobs } = await list({ prefix: scriptPath, token: BLOB_READ_WRITE_TOKEN });
+    const exists = blobs.length > 0;
+    console.log(`Script check for gameId ${gameId}: ${exists ? 'Script exists' : 'No script found'}`);
+    return exists;
+  } catch (error) {
+    console.error(`Error checking script for gameId ${gameId}: ${error.message}`);
+    return false;
+  }
+};
+
 // Test user management
 const manageTestData = async () => {
   const testDiscordId = 'test-123456789';
@@ -217,26 +314,23 @@ const manageTestData = async () => {
   const testKey = 'test-key-123456';
   const now = Math.floor(Date.now() / 1000);
 
-  if (!production) {
-    const existingUser = await getUserByDiscordId(testDiscordId);
-    if (!existingUser) {
-      await updateUser(testKey, testDiscordId, {
-        key: testKey,
-        hwid: '',
-        discordId: testDiscordId,
-        username: testUsername,
-        createTime: now,
-        endTime: now + 86400, // 1 day
-        games: [{ gameId: '12345', script: 'print("Test script loaded")' }]
-      });
-      console.log(`Test user ${testUsername} added`);
-      await sendWebhookLog({ url: SITE_URL, headers: new Headers() }, `Test user ${testUsername} added`, 'SUCCESS');
-    }
-  } else {
+  const existingUser = await getUserByDiscordId(testDiscordId);
+  if (!production && !existingUser) {
+    await updateUser(testKey, testDiscordId, {
+      key: testKey,
+      hwid: '',
+      discordId: testDiscordId,
+      username: testUsername,
+      createTime: now,
+      endTime: now + 86400 // 1 day
+    });
+    console.log(`Test user ${testUsername} added`);
+    await sendWebhookLog({ url: SITE_URL, headers: new Headers() }, `Test user ${testUsername} added`, 'SUCCESS');
+  } else if (production && existingUser) {
     const deleted = await deleteUser(testDiscordId);
     if (deleted) {
-      console.log('Test user removed');
-      await sendWebhookLog({ url: SITE_URL, headers: new Headers() }, 'Test user removed', 'SUCCESS');
+      console.log(`Test user ${testUsername} removed`);
+      await sendWebhookLog({ url: SITE_URL, headers: new Headers() }, `Test user ${testUsername} removed`, 'SUCCESS');
     }
   }
 };
@@ -334,17 +428,15 @@ export async function middleware(request) {
 
       let gamesData = { ValidGame: false, Code: null };
       if (gameId) {
-        const scripts = await get('scripts');
-        const matchingScriptEntry = Object.entries(scripts).find(([_, script]) => script.GameID === gameId);
-        if (matchingScriptEntry) {
-          const [scriptName, scriptData] = matchingScriptEntry;
-          gamesData = { ValidGame: true, Code: scriptData.Code };
-          console.log(`[${timestamp}] /auth/v1: Valid game found for gameId ${gameId}, script: ${scriptName}`);
-          await sendWebhookLog(request, `/auth/v1: Valid game found for gameId ${gameId}, script: ${scriptName}`, 'SUCCESS');
+        const scriptExists = await checkGameScript(gameId);
+        if (scriptExists) {
+          console.log(`[${timestamp}] /auth/v1: Script exists for gameId ${gameId}`);
+          await sendWebhookLog(request, `/auth/v1: Script exists for gameId ${gameId}`, 'SUCCESS');
         } else {
-          console.error(`[${timestamp}] /auth/v1: No game found for gameId ${gameId}`);
-          await sendWebhookLog(request, `/auth/v1: No game found for gameId ${gameId}`, 'ERROR');
+          console.error(`[${timestamp}] /auth/v1: No script found for gameId ${gameId}`);
+          await sendWebhookLog(request, `/auth/v1: No script found for gameId ${gameId}`, 'ERROR');
         }
+        gamesData = { ValidGame: scriptExists, Code: null }; // Code not retrieved for now
       }
 
       return NextResponse.json(createResponse(true, {
@@ -386,17 +478,15 @@ export async function middleware(request) {
 
       let gamesData = { ValidGame: false, Code: null };
       if (gameId) {
-        const scripts = await get('scripts');
-        const matchingScriptEntry = Object.entries(scripts).find(([_, script]) => script.GameID === gameId);
-        if (matchingScriptEntry) {
-          const [scriptName, scriptData] = matchingScriptEntry;
-          gamesData = { ValidGame: true, Code: scriptData.Code };
-          console.log(`[${timestamp}] /dAuth/v1: Valid game found for gameId ${gameId}, script: ${scriptName}`);
-          await sendWebhookLog(request, `/dAuth/v1: Valid game found for gameId ${gameId}, script: ${scriptName}`, 'SUCCESS');
+        const scriptExists = await checkGameScript(gameId);
+        if (scriptExists) {
+          console.log(`[${timestamp}] /dAuth/v1: Script exists for gameId ${gameId}`);
+          await sendWebhookLog(request, `/dAuth/v1: Script exists for gameId ${gameId}`, 'SUCCESS');
         } else {
-          console.error(`[${timestamp}] /dAuth/v1: No game found for gameId ${gameId}`);
-          await sendWebhookLog(request, `/dAuth/v1: No game found for gameId ${gameId}`, 'ERROR');
+          console.error(`[${timestamp}] /dAuth/v1: No script found for gameId ${gameId}`);
+          await sendWebhookLog(request, `/dAuth/v1: No script found for gameId ${gameId}`, 'ERROR');
         }
+        gamesData = { ValidGame: scriptExists, Code: null }; // Code not retrieved for now
       }
 
       return NextResponse.json(createResponse(true, {
@@ -528,13 +618,13 @@ export async function middleware(request) {
       const username = searchParams.get('username');
 
       if (!discordId || !timeStr || !username) {
-        console.error(`[${timestamp}] /register/v1: Missing required parameters`);
+        console.error(`[${timestamp}] /register/v1: Missing required parameters (ID: ${discordId}, time: ${timeStr}, username: ${username})`);
         await sendWebhookLog(request, `/register/v1: Missing required parameters`, 'ERROR');
         return NextResponse.json(createResponse(false, {}, 'Missing Discord ID, time, or username'), { status: 400 });
       }
 
       if (username.length < 3 || username.length > 20 || !/^[a-zA-Z0-9_]+$/.test(username)) {
-        console.error(`[${timestamp}] /register/v1: Invalid username format`);
+        console.error(`[${timestamp}] /register/v1: Invalid username format: ${username}`);
         await sendWebhookLog(request, `/register/v1: Invalid username format`, 'ERROR');
         return NextResponse.json(createResponse(false, {}, 'Username must be 3-20 characters, letters, numbers, or underscores'), { status: 400 });
       }
@@ -572,7 +662,7 @@ export async function middleware(request) {
       };
 
       await updateUser(newKey, discordId, user);
-      console.log(`[${timestamp}] /register/v1: Registered user ${username} with key ${newKey}`);
+      console.log(`[${timestamp}] /register/v1: Registered user ${username} with key ${newKey} and Discord ID ${discordId}`);
       await sendWebhookLog(request, `/register/v1: Registered user ${username} with key ${newKey}`, 'SUCCESS');
       return NextResponse.json(createResponse(true, user));
     }
@@ -585,25 +675,11 @@ export async function middleware(request) {
       const username = searchParams.get('username');
 
       if (!discordId || !username) {
-        console.error(`[${timestamp}] /login/v1: Missing Discord ID or username`);
+        console.error(`[${timestamp}] /login/v1: Missing Discord ID or username (ID: ${discordId}, username: ${username})`);
         await sendWebhookLog(request, `/login/v1: Missing Discord ID or username`, 'ERROR');
         return NextResponse.json(createResponse(false, {}, 'Missing Discord ID or username'), { status: 400 });
       }
 
-      // Handle test user login in non-production mode
-      if (!production && discordId === 'test-123456789' && username === 'TestUser') {
-        const userData = await getUserByDiscordId(discordId);
-        if (userData) {
-          console.log(`[${timestamp}] /login/v1: Test user login successful for Discord ID ${discordId}`);
-          await sendWebhookLog(request, `/login/v1: Test user login successful for Discord ID ${discordId}`, 'SUCCESS');
-          return NextResponse.json(createResponse(true, userData));
-        }
-        console.error(`[${timestamp}] /login/v1: Test user not found with Discord ID ${discordId}`);
-        await sendWebhookLog(request, `/login/v1: Test user not found with Discord ID ${discordId}`, 'ERROR');
-        return NextResponse.json(createResponse(false, {}, 'Test user not found'), { status: 404 });
-      }
-
-      // Regular user login
       const userData = await getUserByDiscordId(discordId);
       if (!userData) {
         console.error(`[${timestamp}] /login/v1: No user found with Discord ID ${discordId}`);
@@ -612,7 +688,7 @@ export async function middleware(request) {
       }
 
       if (userData.username !== username) {
-        console.error(`[${timestamp}] /login/v1: Invalid username for Discord ID ${discordId}`);
+        console.error(`[${timestamp}] /login/v1: Invalid username ${username} for Discord ID ${discordId}. Expected: ${userData.username}`);
         await sendWebhookLog(request, `/login/v1: Invalid username for Discord ID ${discordId}`, 'ERROR');
         return NextResponse.json(createResponse(false, {}, 'Invalid username'), { status: 401 });
       }
@@ -623,7 +699,7 @@ export async function middleware(request) {
         return NextResponse.json(createResponse(false, {}, 'Key expired'), { status: 401 });
       }
 
-      console.log(`[${timestamp}] /login/v1: Login successful for Discord ID ${discordId}`);
+      console.log(`[${timestamp}] /login/v1: Login successful for Discord ID ${discordId}, username ${username}`);
       await sendWebhookLog(request, `/login/v1: Login successful for Discord ID ${discordId}`, 'SUCCESS');
       return NextResponse.json(createResponse(true, userData));
     }
@@ -641,7 +717,7 @@ export async function middleware(request) {
     // Handle /reset-hwid/v1
     if (pathname.startsWith('/reset-hwid/v1')) {
       await sendWebhookLog(request, `Handling /reset-hwid/v1`, 'INFO');
-      console.log(`[${timestamp}] Handling /reset-hwid/v1`);
+      console.log(`[${timestamp}] /reset-hwid/v1`);
       const authHeader = request.headers.get('authorization');
       const discordId = authHeader?.split(' ')[1];
 
@@ -668,7 +744,8 @@ export async function middleware(request) {
       const resetData = await getResetData(discordId, today);
 
       if (resetData.count >= 2 && discordId !== '1272720391462457400') {
-        console.error(`[${timestamp}] /reset-hwid/v1: HWID reset limit reached for Discord ID ${discordId}`);
+        console.error(`[${timestamp}] /reset-hwid/v1: HWID reset limit reached for Discord ID ${discor
+System: dId}`);
         await sendWebhookLog(request, `/reset-hwid/v1: HWID reset limit reached for Discord ID ${discordId}`, 'ERROR');
         return NextResponse.json(createResponse(false, {}, 'HWID reset limit reached (2/day)'), { status: 429 });
       }
