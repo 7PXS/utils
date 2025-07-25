@@ -590,6 +590,20 @@ export async function middleware(request) {
         return NextResponse.json(createResponse(false, {}, 'Missing Discord ID or username'), { status: 400 });
       }
 
+      // Handle test user login in non-production mode
+      if (!production && discordId === 'test-123456789' && username === 'TestUser') {
+        const userData = await getUserByDiscordId(discordId);
+        if (userData) {
+          console.log(`[${timestamp}] /login/v1: Test user login successful for Discord ID ${discordId}`);
+          await sendWebhookLog(request, `/login/v1: Test user login successful for Discord ID ${discordId}`, 'SUCCESS');
+          return NextResponse.json(createResponse(true, userData));
+        }
+        console.error(`[${timestamp}] /login/v1: Test user not found with Discord ID ${discordId}`);
+        await sendWebhookLog(request, `/login/v1: Test user not found with Discord ID ${discordId}`, 'ERROR');
+        return NextResponse.json(createResponse(false, {}, 'Test user not found'), { status: 404 });
+      }
+
+      // Regular user login
       const userData = await getUserByDiscordId(discordId);
       if (!userData) {
         console.error(`[${timestamp}] /login/v1: No user found with Discord ID ${discordId}`);
@@ -609,6 +623,8 @@ export async function middleware(request) {
         return NextResponse.json(createResponse(false, {}, 'Key expired'), { status: 401 });
       }
 
+      console.log(`[${timestamp}] /login/v1: Login successful for Discord ID ${discordId}`);
+      await sendWebhookLog(request, `/login/v1: Login successful for Discord ID ${discordId}`, 'SUCCESS');
       return NextResponse.json(createResponse(true, userData));
     }
 
