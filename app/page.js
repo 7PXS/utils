@@ -139,7 +139,7 @@ function Topbar({ username, onSignOut }) {
 }
 
 export default function LandingPage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [discordId, setDiscordId] = useState('');
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
@@ -147,16 +147,20 @@ export default function LandingPage() {
   const checkAuth = async () => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
+      console.log('No user found in localStorage');
       setIsAuthenticated(false);
       return false;
     }
 
     try {
       const user = JSON.parse(storedUser);
+      console.log(`Checking auth for Discord ID: ${user.discordId}, Username: ${user.username}`);
       const response = await fetch(`/login/v1?ID=${encodeURIComponent(user.discordId)}&username=${encodeURIComponent(user.username)}`);
       const data = await response.json();
+      console.log('Login response:', data);
 
       if (!response.ok || !data.success) {
+        console.error(`Authentication failed: ${data.error || 'Unknown error'}`);
         localStorage.removeItem('user');
         setIsAuthenticated(false);
         setError(data.error || 'Authentication failed');
@@ -164,9 +168,11 @@ export default function LandingPage() {
       }
 
       setUsername(user.username);
+      setDiscordId(user.discordId);
       setIsAuthenticated(true);
       return true;
     } catch (error) {
+      console.error('Error checking authentication:', error.message);
       setError('Error checking authentication');
       setIsAuthenticated(false);
       return false;
@@ -176,12 +182,15 @@ export default function LandingPage() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
+    console.log(`Attempting login with Discord ID: ${discordId}, Username: ${username}`);
 
     try {
       const response = await fetch(`/login/v1?ID=${encodeURIComponent(discordId)}&username=${encodeURIComponent(username)}`);
       const data = await response.json();
+      console.log('Login response:', data);
 
       if (!response.ok || !data.success) {
+        console.error(`Login failed: ${data.error || 'Unknown error'}`);
         setError(data.error || 'Login failed');
         return;
       }
@@ -189,6 +198,7 @@ export default function LandingPage() {
       localStorage.setItem('user', JSON.stringify({ discordId, username }));
       setIsAuthenticated(true);
     } catch (error) {
+      console.error('Login error:', error.message);
       setError('An error occurred during login');
     }
   };
@@ -196,6 +206,7 @@ export default function LandingPage() {
   const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
+    console.log(`Attempting registration with Discord ID: ${discordId}, Username: ${username}`);
 
     try {
       const response = await fetch(`/register/v1?ID=${encodeURIComponent(discordId)}&time=30d&username=${encodeURIComponent(username)}`, {
@@ -204,8 +215,10 @@ export default function LandingPage() {
         }
       });
       const data = await response.json();
+      console.log('Register response:', data);
 
       if (!response.ok || !data.success) {
+        console.error(`Registration failed: ${data.error || 'Unknown error'}`);
         setError(data.error || 'Registration failed');
         return;
       }
@@ -213,11 +226,13 @@ export default function LandingPage() {
       localStorage.setItem('user', JSON.stringify({ discordId, username }));
       setIsAuthenticated(true);
     } catch (error) {
+      console.error('Registration error:', error.message);
       setError('An error occurred during registration');
     }
   };
 
   const handleSignOut = () => {
+    console.log('Signing out user');
     localStorage.removeItem('user');
     setIsAuthenticated(false);
     setUsername('');
