@@ -1,12 +1,101 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put, list, del } from '@vercel/blob';
 import { get } from '@vercel/edge-config';
+import { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
 // Configuration
 const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_utjs6NoOOU3BdeXE_0pNKDMi9ecw5Gh6ls3KB2OSOb2bKxs';
 const WEBHOOK_URL = 'https://discord.com/api/webhooks/1378937855199674508/nHwMtepJ3hKpzKDZErNkMdgIZPWhix80nkqSyMgYlbMMuOrLhHcF0HYsmLcq6CZeJrco';
 const SITE_URL = 'https://utils32.vercel.app';
+const BOT_TOKEN = 'MTM3NzM3ODc2MTgxNjg3MDkyMg.Go77Vn.mzi1-8WG89GKA8hDFOlowyv_MNPHi1jDNVwuFE';
+const ADMIN_ID = '1272720391462457400';
+const GUILD_ID = ''; // Set your guild ID
 const production = false;
+
+// Discord Bot Setup
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers,
+  ],
+});
+
+client.once('ready', () => {
+  console.log(`Bot logged in as ${client.user.tag}`);
+  registerCommands();
+});
+
+async function registerCommands() {
+  const commands = [
+    new SlashCommandBuilder()
+      .setName('panel')
+      .setDescription('Displays the Nebula control panel'),
+    new SlashCommandBuilder()
+      .setName('register')
+      .setDescription('Register a new user')
+      .addStringOption(option =>
+        option.setName('username')
+          .setDescription('Your username (3-20 characters, letters, numbers, underscores)')
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName('time')
+          .setDescription('Subscription duration (e.g., 1d, 1mo)')
+          .setRequired(true)),
+    new SlashCommandBuilder()
+      .setName('login')
+      .setDescription('Log in to your Nebula account')
+      .addStringOption(option =>
+        option.setName('username')
+          .setDescription('Your username')
+          .setRequired(true)),
+    new SlashCommandBuilder()
+      .setName('reset-hwid')
+      .setDescription('Reset your HWID'),
+    new SlashCommandBuilder()
+      .setName('stats')
+      .setDescription('View your account stats'),
+    new SlashCommandBuilder()
+      .setName('redeem')
+      .setDescription('Redeem a key')
+      .addStringOption(option =>
+        option.setName('key')
+          .setDescription('Your key')
+          .setRequired(true)),
+    new SlashCommandBuilder()
+      .setName('manage')
+      .setDescription('Manage users (Admin only)')
+      .addStringOption(option =>
+        option.setName('action')
+          .setDescription('Action to perform')
+          .setRequired(true)
+          .addChoices(
+            { name: 'List', value: 'list' },
+            { name: 'Update', value: 'update' },
+            { name: 'Delete', value: 'delete' }
+          ))
+      .addStringOption(option =>
+        option.setName('discord_id')
+          .setDescription('User Discord ID')
+          .setRequired(false))
+      .addStringOption(option =>
+        option.setName('username')
+          .setDescription('New username for update')
+          .setRequired(false))
+      .addIntegerOption(option =>
+        option.setName('end_time')
+          .setDescription('New end time (Unix timestamp) for update')
+          .setRequired(false)),
+  ];
+
+  try {
+    await client.application.commands.set(commands, GUILD_ID);
+    console.log('Slash commands registered');
+  } catch (error) {
+    console.error('Error registering commands:', error);
+  }
+}
 
 // Helper: Create response object
 const createResponse = (success, data = {}, error = null) => ({
@@ -29,13 +118,10 @@ const formatDate = (date) => {
 
 // Helper: Send webhook log
 const sendWebhookLog = async (request, message, level = 'INFO', responseData = {}) => {
-  if (!WEBHOOK_URL) {
-    console.warn('WEBHOOK_URL not set, skipping webhook log');
-    return;
-  }
+  if (!WEBHOOK_URL) return;
 
   const timestamp = formatDate(new Date());
-  const url = new URL(request.url);
+  const url = new URL(request.url || SITE_URL);
   const fullUrl = `${SITE_URL}${url.pathname}${url.search ? url.search : ''}`;
   const searchParams = Object.fromEntries(url.searchParams.entries());
 
@@ -47,8 +133,8 @@ const sendWebhookLog = async (request, message, level = 'INFO', responseData = {
       {
         name: 'Request',
         value: `\`Path\`: ${url.pathname.substring(0, 50)}\n` +
-               `\`Host\`: ${request.headers.get('host') || 'N/A'}\n` +
-               `\`IP\`: ${request.headers.get('x-forwarded-for') || 'N/A'}`,
+               `\`Host\`: ${request.headers?.get('host') || 'N/A'}\n` +
+               `\`IP\`: ${request.headers?.get('x-forwarded-for') || 'N/A'}`,
         inline: true
       },
       {
@@ -63,9 +149,9 @@ const sendWebhookLog = async (request, message, level = 'INFO', responseData = {
       },
       {
         name: 'Metadata',
-        value: `\`Request ID\`: ${request.headers.get('x-vercel-request-id') || 'N/A'}\n` +
+        value: `\`Request ID\`: ${request.headers?.get('x-vercel-request-id') || 'N/A'}\n` +
                `\`URL\`: ${fullUrl.substring(0, 100)}\n` +
-               `\`User Agent\`: ${request.headers.get('user-agent')?.substring(0, 50) || 'N/A'}`,
+               `\`User Agent\`: ${request.headers?.get('user-agent')?.substring(0, 50) || 'N/A'}`,
         inline: false
       },
       {
@@ -79,12 +165,11 @@ const sendWebhookLog = async (request, message, level = 'INFO', responseData = {
   };
 
   try {
-    const response = await fetch(WEBHOOK_URL, {
+    await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ embeds: [embed] })
     });
-    if (!response.ok) throw new Error(`Webhook failed: ${response.status}`);
   } catch (error) {
     console.error(`Failed to send webhook log: ${error.message}`);
   }
@@ -266,9 +351,250 @@ const manageTestData = async () => {
   }
 };
 
-// Initialize test data
+// Bot interaction handlers
+async function createPanelEmbed(interaction) {
+  const embed = new EmbedBuilder()
+    .setTitle('Nebula Control Panel')
+    .setDescription('Manage your Nebula account with the buttons below.')
+    .setColor('#00AAFF')
+    .setFooter({ text: 'Nebula Whitelisting Service' })
+    .setTimestamp();
+
+  const row = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('redeem_key')
+        .setLabel('Redeem Key')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('get_script')
+        .setLabel('Get Script')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(true),
+      new ButtonBuilder()
+        .setCustomId('get_role')
+        .setLabel('Get Role')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('reset_hwid')
+        .setLabel('Reset HWID')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('get_stats')
+        .setLabel('Get Stats')
+        .setStyle(ButtonStyle.Primary)
+    );
+
+  await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+}
+
+async function getExecutionCount() {
+  try {
+    const users = await getAllUsers();
+    return users.length;
+  } catch (error) {
+    console.error('Error fetching execution count:', error);
+    return 0;
+  }
+}
+
+async function handleBotInteraction(interaction) {
+  const discordId = interaction.user.id;
+  const username = interaction.member?.nickname || interaction.user.username;
+  const timestamp = formatDate(new Date());
+
+  if (interaction.isCommand()) {
+    const { commandName } = interaction;
+
+    if (commandName === 'panel') {
+      await createPanelEmbed(interaction);
+      await sendWebhookLog({ url: `${SITE_URL}/bot/v1`, headers: new Headers() }, `Bot: /panel executed by ${discordId}`, 'SUCCESS', { command: 'panel' });
+    } else if (commandName === 'register') {
+      const inputUsername = interaction.options.getString('username');
+      const time = interaction.options.getString('time');
+      const response = await handleApiRequest(`/register/v1?ID=${discordId}&username=${encodeURIComponent(inputUsername)}&time=${encodeURIComponent(time)}`);
+      const embed = new EmbedBuilder()
+        .setTitle(response.success ? 'Registration Successful' : 'Registration Failed')
+        .setDescription(response.success ? `Key: ${response.key}\nUsername: ${response.username}\nExpires: <t:${response.endTime}:R>` : response.error)
+        .setColor(response.success ? '#00FF00' : '#FF0000');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await sendWebhookLog({ url: `${SITE_URL}/bot/v1`, headers: new Headers() }, `Bot: /register by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
+    } else if (commandName === 'login') {
+      const inputUsername = interaction.options.getString('username');
+      const response = await handleApiRequest(`/login/v1?ID=${discordId}&username=${encodeURIComponent(inputUsername)}`);
+      const embed = new EmbedBuilder()
+        .setTitle(response.success ? 'Login Successful' : 'Login Failed')
+        .setDescription(response.success ? `Key: ${response.key}\nUsername: ${response.username}\nExpires: <t:${response.endTime}:R>` : response.error)
+        .setColor(response.success ? '#00FF00' : '#FF0000');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await sendWebhookLog({ url: `${SITE_URL}/bot/v1`, headers: new Headers() }, `Bot: /login by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
+    } else if (commandName === 'reset-hwid') {
+      const response = await handleApiRequest(`/reset-hwid/v1`, {}, 'GET', { Authorization: `Bearer ${discordId}` });
+      const embed = new EmbedBuilder()
+        .setTitle(response.success ? 'HWID Reset Successful' : 'HWID Reset Failed')
+        .setDescription(response.success ? 'Your HWID has been reset.' : response.error)
+        .setColor(response.success ? '#00FF00' : '#FF0000');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await sendWebhookLog({ url: `${SITE_URL}/bot/v1`, headers: new Headers() }, `Bot: /reset-hwid by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
+    } else if (commandName === 'stats') {
+      const response = await handleApiRequest(`/login/v1?ID=${discordId}&username=${encodeURIComponent(username)}`);
+      const resetData = await getResetData(discordId, new Date().toISOString().split('T')[0]);
+      const executionCount = await getExecutionCount();
+      const embed = new EmbedBuilder()
+        .setTitle(response.success ? 'Account Stats' : 'Stats Failed')
+        .setDescription(response.success ?
+          `**Key**: ${response.key}\n**Username**: ${response.username}\n**Total Executions**: ${executionCount}\n**Last HWID Reset**: ${resetData.resets.length > 0 ? new Date(resetData.resets[resetData.resets.length - 1].timestamp).toLocaleString() : 'Never'}\n**Total HWID Resets**: ${resetData.count}\n**Expire Date**: <t:${response.endTime}:R>\n**Blacklisted**: Not implemented` :
+          response.error)
+        .setColor(response.success ? '#00FF00' : '#FF0000');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await sendWebhookLog({ url: `${SITE_URL}/bot/v1`, headers: new Headers() }, `Bot: /stats by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
+    } else if (commandName === 'redeem') {
+      const key = interaction.options.getString('key');
+      const response = await handleApiRequest(`/auth/v1?key=${encodeURIComponent(key)}&hwid=${discordId}`);
+      const embed = new EmbedBuilder()
+        .setTitle(response.success ? 'Key Redeemed' : 'Redemption Failed')
+        .setDescription(response.success ? `Key: ${response.key}\nUsername: ${response.username}\nExpires: <t:${response.endTime}:R>` : response.error)
+        .setColor(response.success ? '#00FF00' : '#FF0000');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await sendWebhookLog({ url: `${SITE_URL}/bot/v1`, headers: new Headers() }, `Bot: /redeem by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
+    } else if (commandName === 'manage') {
+      if (discordId !== ADMIN_ID) {
+        const embed = new EmbedBuilder()
+          .setTitle('Access Denied')
+          .setDescription('Admin access required.')
+          .setColor('#FF0000');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await sendWebhookLog({ url: `${SITE_URL}/bot/v1`, headers: new Headers() }, `Bot: /manage denied for ${discordId}`, 'ERROR', { error: 'Admin access required' });
+        return;
+      }
+
+      const action = interaction.options.getString('action');
+      if (action === 'list') {
+        const response = await handleApiRequest(`/manage/v1?action=list`, {}, 'GET', { Authorization: `Bearer ${ADMIN_ID}` });
+        const embed = new EmbedBuilder()
+          .setTitle(response.success ? 'User List' : 'List Failed')
+          .setDescription(response.success ? response.users.map(u => `ID: ${u.discordId}, Username: ${u.username}, Expires: <t:${u.endTime}:R>`).join('\n') || 'No users found' : response.error)
+          .setColor(response.success ? '#00FF00' : '#FF0000');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await sendWebhookLog({ url: `${SITE_URL}/bot/v1`, headers: new Headers() }, `Bot: /manage list by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
+      } else if (action === 'update') {
+        const targetDiscordId = interaction.options.getString('discord_id');
+        const newUsername = interaction.options.getString('username');
+        const endTime = interaction.options.getInteger('end_time');
+        const response = await handleApiRequest(`/manage/v1?action=update`, {}, 'POST', { Authorization: `Bearer ${ADMIN_ID}` }, {
+          discordId: targetDiscordId,
+          username: newUsername,
+          endTime,
+        });
+        const embed = new EmbedBuilder()
+          .setTitle(response.success ? 'User Updated' : 'Update Failed')
+          .setDescription(response.success ? `Updated ${response.user.username} (ID: ${response.user.discordId})` : response.error)
+          .setColor(response.success ? '#00FF00' : '#FF0000');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await sendWebhookLog({ url: `${SITE_URL}/bot/v1`, headers: new Headers() }, `Bot: /manage update by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
+      } else if (action === 'delete') {
+        const targetDiscordId = interaction.options.getString('discord_id');
+        const response = await handleApiRequest(`/manage/v1?action=delete`, {}, 'POST', { Authorization: `Bearer ${ADMIN_ID}` }, { discordId: targetDiscordId });
+        const embed = new EmbedBuilder()
+          .setTitle(response.success ? 'User Deleted' : 'Deletion Failed')
+          .setDescription(response.success ? `Deleted user ID: ${targetDiscordId}` : response.error)
+          .setColor(response.success ? '#00FF00' : '#FF0000');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await sendWebhookLog({ url: `${SITE_URL}/bot/v1`, headers: new Headers() }, `Bot: /manage delete by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
+      }
+    }
+  } else if (interaction.isButton()) {
+    const customId = interaction.customId;
+    if (customId === 'redeem_key') {
+      const response = await handleApiRequest(`/auth/v1?key=${discordId}&hwid=${discordId}`);
+      const embed = new EmbedBuilder()
+        .setTitle(response.success ? 'Key Redeemed' : 'Redemption Failed')
+        .setDescription(response.success ? `Key: ${response.key}\nUsername: ${response.username}\nExpires: <t:${response.endTime}:R>` : response.error)
+        .setColor(response.success ? '#00FF00' : '#FF0000');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await sendWebhookLog({ url: `${SITE_URL}/bot/v1`, headers: new Headers() }, `Bot: redeem_key button by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
+    } else if (customId === 'get_script') {
+      const embed = new EmbedBuilder()
+        .setTitle('Get Script')
+        .setDescription('This feature is not implemented yet.')
+        .setColor('#FFA500');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await sendWebhookLog({ url: `${SITE_URL}/bot/v1`, headers: new Headers() }, `Bot: get_script button by ${discordId}`, 'INFO', { message: 'Not implemented' });
+    } else if (customId === 'get_role') {
+      const roleId = ''; // Set your role ID here
+      if (!roleId) {
+        const embed = new EmbedBuilder()
+          .setTitle('Role Assignment Failed')
+          .setDescription('Role ID not configured.')
+          .setColor('#FF0000');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await sendWebhookLog({ url: `${SITE_URL}/bot/v1`, headers: new Headers() }, `Bot: get_role button failed for ${discordId}`, 'ERROR', { error: 'Role ID not configured' });
+        return;
+      }
+      try {
+        await interaction.member.roles.add(roleId);
+        const embed = new EmbedBuilder()
+          .setTitle('Role Assigned')
+          .setDescription('Role successfully assigned!')
+          .setColor('#00FF00');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await sendWebhookLog({ url: `${SITE_URL}/bot/v1`, headers: new Headers() }, `Bot: get_role button by ${discordId}`, 'SUCCESS', { message: 'Role assigned' });
+      } catch (error) {
+        const embed = new EmbedBuilder()
+          .setTitle('Role Assignment Failed')
+          .setDescription(`Error: ${error.message}`)
+          .setColor('#FF0000');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await sendWebhookLog({ url: `${SITE_URL}/bot/v1`, headers: new Headers() }, `Bot: get_role button failed for ${discordId}`, 'ERROR', { error: error.message });
+      }
+    } else if (customId === 'reset_hwid') {
+      const response = await handleApiRequest(`/reset-hwid/v1`, {}, 'GET', { Authorization: `Bearer ${discordId}` });
+      const embed = new EmbedBuilder()
+        .setTitle(response.success ? 'HWID Reset Successful' : 'HWID Reset Failed')
+        .setDescription(response.success ? 'Your HWID has been reset.' : response.error)
+        .setColor(response.success ? '#00FF00' : '#FF0000');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await sendWebhookLog({ url: `${SITE_URL}/bot/v1`, headers: new Headers() }, `Bot: reset_hwid button by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
+    } else if (customId === 'get_stats') {
+      const response = await handleApiRequest(`/login/v1?ID=${discordId}&username=${encodeURIComponent(username)}`);
+      const resetData = await getResetData(discordId, new Date().toISOString().split('T')[0]);
+      const executionCount = await getExecutionCount();
+      const embed = new EmbedBuilder()
+        .setTitle(response.success ? 'Account Stats' : 'Stats Failed')
+        .setDescription(response.success ?
+          `**Key**: ${response.key}\n**Username**: ${response.username}\n**Total Executions**: ${executionCount}\n**Last HWID Reset**: ${resetData.resets.length > 0 ? new Date(resetData.resets[resetData.resets.length - 1].timestamp).toLocaleString() : 'Never'}\n**Total HWID Resets**: ${resetData.count}\n**Expire Date**: <t:${response.endTime}:R>\n**Blacklisted**: Not implemented` :
+          response.error)
+        .setColor(response.success ? '#00FF00' : '#FF0000');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await sendWebhookLog({ url: `${SITE_URL}/bot/v1`, headers: new Headers() }, `Bot: get_stats button by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
+    }
+  }
+}
+
+// Helper: Internal API request handler
+async function handleApiRequest(endpoint, params = {}, method = 'GET', headers = {}, data = null) {
+  try {
+    const url = new URL(`${SITE_URL}${endpoint}`);
+    Object.entries(params).forEach(([key, value]) => url.searchParams.append(key, value));
+    const response = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: data ? JSON.stringify(data) : null,
+    });
+    return await response.json();
+  } catch (error) {
+    console.error(`API request failed: ${error.message}`);
+    return { success: false, error: 'API request failed' };
+  }
+}
+
+// Initialize test data and bot
 manageTestData().catch(error => {
   sendWebhookLog({ url: SITE_URL, headers: new Headers() }, `Test data init failed: ${error.message}`, 'ERROR', { error: error.message });
+});
+client.login(BOT_TOKEN).catch(error => {
+  console.error(`Bot login failed: ${error.message}`);
+  sendWebhookLog({ url: SITE_URL, headers: new Headers() }, `Bot login failed: ${error.message}`, 'ERROR', { error: error.message });
 });
 
 // Middleware function
@@ -277,6 +603,43 @@ export async function middleware(request) {
   const timestamp = formatDate(new Date());
 
   try {
+    // Handle /bot/v1
+    if (pathname.startsWith('/bot/v1')) {
+      await sendWebhookLog(request, `Handling /bot/v1`, 'INFO', {});
+      const body = await request.json();
+      if (body.type === 1) {
+        return NextResponse.json({ type: 1 }); // Ping response
+      }
+      if (body.type === 2 || body.type === 3) {
+        // Simulate interaction for bot commands/buttons
+        const interaction = {
+          isCommand: () => body.type === 2,
+          isButton: () => body.type === 3,
+          commandName: body.data.name,
+          customId: body.data.custom_id,
+          user: { id: body.member.user.id },
+          member: { nickname: body.member.nick || body.member.user.username },
+          options: {
+            getString: (name) => body.data.options?.find(o => o.name === name)?.value,
+            getInteger: (name) => body.data.options?.find(o => o.name === name)?.value,
+          },
+          reply: async (response) => {
+            return NextResponse.json({
+              type: 4,
+              data: {
+                embeds: response.embeds?.map(e => e.toJSON()),
+                components: response.components?.map(c => c.toJSON()),
+                flags: response.ephemeral ? 64 : 0,
+              },
+            });
+          },
+        };
+        await handleBotInteraction(interaction);
+        return;
+      }
+      return NextResponse.json({ error: 'Invalid interaction type' }, { status: 400 });
+    }
+
     // Handle /scripts-list
     if (pathname.startsWith('/scripts-list')) {
       await sendWebhookLog(request, `Handling /scripts-list`, 'INFO', {});
@@ -442,7 +805,7 @@ export async function middleware(request) {
       const authHeader = request.headers.get('authorization');
       const discordId = authHeader?.split(' ')[1];
 
-      if (!authHeader || !discordId || discordId !== '1272720391462457400') {
+      if (!authHeader || !discordId || discordId !== ADMIN_ID) {
         await sendWebhookLog(request, `/manage/v1: Unauthorized - Admin access required`, 'ERROR', { error: 'Unauthorized - Admin access required' });
         return NextResponse.json(createResponse(false, {}, 'Unauthorized - Admin access required'), { status: 403 });
       }
@@ -612,7 +975,7 @@ export async function middleware(request) {
       const today = new Date().toISOString().split('T')[0];
       const resetData = await getResetData(discordId, today);
 
-      if (resetData.count >= 2 && discordId !== '1272720391462457400') {
+      if (resetData.count >= 2 && discordId !== ADMIN_ID) {
         await sendWebhookLog(request, `/reset-hwid/v1: HWID reset limit reached for Discord ID ${discordId}`, 'ERROR', { error: 'HWID reset limit reached (2/day)' });
         return NextResponse.json(createResponse(false, {}, 'HWID reset limit reached (2/day)'), { status: 429 });
       }
@@ -645,5 +1008,6 @@ export const config = {
     '/login/v1(.*)',
     '/users/v1(.*)',
     '/reset-hwid/v1(.*)',
+    '/bot/v1(.*)',
   ],
 };
