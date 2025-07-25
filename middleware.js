@@ -273,6 +273,16 @@ export async function middleware(request) {
   const { pathname, searchParams } = request.nextUrl;
   const timestamp = formatDate(new Date());
 
+  if (
+    pathname === '/' ||
+    pathname.startsWith('/favicon') ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/__next') ||
+    pathname.match(/\.(png|ico|jpg|jpeg|svg|css|js|woff|woff2|ttf|eot|otf)$/)
+  ) {
+    return NextResponse.next();
+  }
+
   try {
     // Handle /scripts-list
     if (pathname.startsWith('/scripts-list')) {
