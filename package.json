@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "bot": "node bot.js"
   },
   "dependencies": {
     "@vercel/blob": "^0.23.4",
