@@ -127,11 +127,13 @@ const getUserByKey = async (key) => {
 
 const getUserByDiscordId = async (discordId) => {
   try {
+    console.log(`Searching for user with Discord ID: ${discordId}, blob prefix: Users/-${discordId}.json`);
     const { blobs } = await list({ prefix: `Users/-${discordId}.json`, token: BLOB_READ_WRITE_TOKEN });
     if (blobs.length === 0) {
       console.log(`No blobs found for Discord ID: Users/-${discordId}.json`);
       return null;
     }
+    console.log(`Found blob: ${blobs[0].url}`);
     const response = await fetch(blobs[0].url);
     if (!response.ok) {
       console.error(`Failed to fetch blob ${blobs[0].url}: ${response.statusText}`);
@@ -426,7 +428,7 @@ export async function middleware(request) {
           console.error(`[${timestamp}] /auth/v1: No script found for gameId ${gameId}`);
           await sendWebhookLog(request, `/auth/v1: No script found for gameId ${gameId}`, 'ERROR', { gameId, ValidGame: false });
         }
-        gamesData = { ValidGame: scriptExists, Code: null }; // Code not retrieved for now
+        gamesData = { ValidGame: scriptExists, Code: null };
       }
 
       const response = createResponse(true, {
@@ -450,9 +452,15 @@ export async function middleware(request) {
       const gameId = searchParams.get('gameId');
 
       if (!discordId) {
-        console.error(`[${timestamp}] /dAuth/v1: Missing Discord ID`);
-        await sendWebhookLog(request, `/dAuth/v1: Missing Discord ID`, 'ERROR', { error: 'Missing Discord ID' });
+        console.error(`[${timestamp}] /dAuth/v1: Missing Discord ID parameter`);
+        await sendWebhookLog(request, `/dAuth/v1: Missing Discord ID parameter`, 'ERROR', { error: 'Missing Discord ID' });
         return NextResponse.json(createResponse(false, {}, 'Missing Discord ID'), { status: 400 });
+      }
+
+      const discordIdHeader = request.headers.get('discordId');
+      if (discordIdHeader) {
+        console.warn(`[${timestamp}] /dAuth/v1: Discord ID found in header (${discordIdHeader}), ignoring in favor of query parameter ID=${discordId}`);
+        await sendWebhookLog(request, `/dAuth/v1: Discord ID in header ignored`, 'WARN', { warning: 'Using query parameter ID instead of header' });
       }
 
       const userData = await getUserByDiscordId(discordId);
@@ -473,12 +481,12 @@ export async function middleware(request) {
         const scriptExists = await checkGameScript(gameId);
         if (scriptExists) {
           console.log(`[${timestamp}] /dAuth/v1: Script exists for gameId ${gameId}`);
-          await sendWebhookLog(request, `/dAuth/v1: Script exists for gameId ${gameId}`, 'SUCCESS', { gameId, ValidGame: true });
+          await sendWebhookLog(request, `/auth/v1: Script exists for gameId ${gameId}`, 'SUCCESS', { gameId, ValidGame: true });
         } else {
           console.error(`[${timestamp}] /dAuth/v1: No script found for gameId ${gameId}`);
-          await sendWebhookLog(request, `/dAuth/v1: No script found for gameId ${gameId}`, 'ERROR', { gameId, ValidGame: false });
+          await sendWebhookLog(request, `/auth/v1: No script found for gameId ${gameId}`, 'ERROR', { gameId, ValidGame: false });
         }
-        gamesData = { ValidGame: scriptExists, Code: null }; // Code not retrieved for now
+        gamesData = { ValidGame: scriptExists, Code: null };
       }
 
       const response = createResponse(true, {
@@ -674,6 +682,12 @@ export async function middleware(request) {
         console.error(`[${timestamp}] /login/v1: Missing Discord ID or username (ID: ${discordId}, username: ${username})`);
         await sendWebhookLog(request, `/login/v1: Missing Discord ID or username`, 'ERROR', { error: 'Missing Discord ID or username' });
         return NextResponse.json(createResponse(false, {}, 'Missing Discord ID or username'), { status: 400 });
+      }
+
+      const discordIdHeader = request.headers.get('discordId');
+      if (discordIdHeader) {
+        console.warn(`[${timestamp}] /login/v1: Discord ID found in header (${discordIdHeader}), ignoring in favor of query parameter ID=${discordId}`);
+        await sendWebhookLog(request, `/login/v1: Discord ID in header ignored`, 'WARN', { warning: 'Using query parameter ID instead of header' });
       }
 
       const userData = await getUserByDiscordId(discordId);
