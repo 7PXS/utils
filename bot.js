@@ -1,319 +1,389 @@
-const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, PermissionsBitField } = require('discord.js');
+const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const fetch = require('node-fetch');
 
-// Bot configuration
-const TOKEN = 'MTM3OTM3NzEwOTkwNjEwMDM0NQ.GXh5UU.W59U5PK4EncMrH8GpjoK1H-rJLoNi4xQ82z5ew'; // Replace with your Discord bot token
+// Configuration
+const BOT_TOKEN = 'MTM3NzM3ODc2MTgxNjg3MDkyMg.Go77Vn.mzi1-8WG89GKA8hDFOlowyv_MNPHi1jDNVwuFE';
+const BASE_URL = 'https://utils32.vercel.app';
+const ADMIN_ID = '1272720391462457400';
+const GUILD_ID = ''; // Set your guild ID
 const WEBHOOK_URL = 'https://discord.com/api/webhooks/1378937855199674508/nHwMtepJ3hKpzKDZErNkMdgIZPWhix80nkqSyMgYlbMMuOrLhHcF0HYsmLcq6CZeJrco';
-const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_utjs6NoOOU3BdeXE_0pNKDMi9ecw5Gh6ls3KB2OSOb2bKxs';
-const ROLE_ID = '1356596190837473320'; // Replace with the role ID to assign on key redemption
-
-// HWID reset tracking
-const hwidResets = new Map(); // Map<userId, {count: number, date: string}>
-const HWID_RESET_LIMIT = 2;
-const HWID_RESET_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
   ],
 });
 
-// Utility to send webhook logs as embeds
-async function sendWebhookLog(title, description, color = 0x00FF00) {
-  const embed = new EmbedBuilder()
-    .setTitle(title)
-    .setDescription(description)
-    .setColor(color)
-    .setTimestamp();
+client.once('ready', () => {
+  console.log(`Bot logged in as ${client.user.tag}`);
+  registerCommands();
+});
 
-  await fetch(WEBHOOK_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ embeds: [embed.toJSON()] }),
-  });
-}
-
-// Check HWID reset limit
-function canResetHwid(userId) {
-  const today = new Date().toISOString().split('T')[0];
-  const userReset = hwidResets.get(userId);
-
-  if (!userReset || userReset.date !== today) {
-    hwidResets.set(userId, { count: 0, date: today });
-    return true;
-  }
-
-  if (userReset.count >= HWID_RESET_LIMIT) {
-    return false;
-  }
-
-  return true;
-}
-
-// Register slash commands
-client.once('ready', async () => {
-  console.log(`Logged in as ${client.user.tag}`);
-
+async function registerCommands() {
   const commands = [
     new SlashCommandBuilder()
-      .setName('sendpanel')
-      .setDescription('Sends the Monty Hub control panel (Admin only)')
-      .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+      .setName('panel')
+      .setDescription('Displays the Nebula control panel'),
     new SlashCommandBuilder()
-      .setName('whitelist')
-      .setDescription('Registers a user for a specified time (Admin only)')
-      .addUserOption(option =>
-        option.setName('user')
-          .setDescription('The user to whitelist')
+      .setName('register')
+      .setDescription('Register a new user')
+      .addStringOption(option =>
+        option.setName('username')
+          .setDescription('Your username (3-20 characters, letters, numbers, underscores)')
           .setRequired(true))
       .addStringOption(option =>
         option.setName('time')
-          .setDescription('Duration (e.g., 100s, 100m, 100h, 100d, 100mo, 100yr)')
-          .setRequired(true))
-      .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+          .setDescription('Subscription duration (e.g., 1d, 1mo)')
+          .setRequired(true)),
     new SlashCommandBuilder()
-      .setName('unwhitelist')
-      .setDescription('Removes a user from the project (Admin only)')
-      .addUserOption(option =>
-        option.setName('user')
-          .setDescription('The user to unwhitelist')
-          .setRequired(true))
-      .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+      .setName('login')
+      .setDescription('Log in to your Nebula account')
+      .addStringOption(option =>
+        option.setName('username')
+          .setDescription('Your username')
+          .setRequired(true)),
+    new SlashCommandBuilder()
+      .setName('reset-hwid')
+      .setDescription('Reset your HWID'),
+    new SlashCommandBuilder()
+      .setName('stats')
+      .setDescription('View your account stats'),
+    new SlashCommandBuilder()
+      .setName('redeem')
+      .setDescription('Redeem a key')
+      .addStringOption(option =>
+        option.setName('key')
+          .setDescription('Your key')
+          .setRequired(true)),
+    new SlashCommandBuilder()
+      .setName('manage')
+      .setDescription('Manage users (Admin only)')
+      .addStringOption(option =>
+        option.setName('action')
+          .setDescription('Action to perform')
+          .setRequired(true)
+          .addChoices(
+            { name: 'List', value: 'list' },
+            { name: 'Update', value: 'update' },
+            { name: 'Delete', value: 'delete' }
+          ))
+      .addStringOption(option =>
+        option.setName('discord_id')
+          .setDescription('User Discord ID')
+          .setRequired(false))
+      .addStringOption(option =>
+        option.setName('username')
+          .setDescription('New username for update')
+          .setRequired(false))
+      .addIntegerOption(option =>
+        option.setName('end_time')
+          .setDescription('New end time (Unix timestamp) for update')
+          .setRequired(false)),
   ];
 
-  await client.application.commands.set(commands);
-  console.log('Slash commands registered.');
-});
+  try {
+    await client.application.commands.set(commands, GUILD_ID);
+    console.log('Slash commands registered');
+  } catch (error) {
+    console.error('Error registering commands:', error);
+  }
+}
 
-// Handle interactions
+async function createPanelEmbed(interaction) {
+  const embed = new EmbedBuilder()
+    .setTitle('Nebula Control Panel')
+    .setDescription('Manage your Nebula account with the buttons below.')
+    .setColor('#00AAFF')
+    .setFooter({ text: 'Nebula Whitelisting Service' })
+    .setTimestamp();
+
+  const row = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('redeem_key')
+        .setLabel('Redeem Key')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('get_script')
+        .setLabel('Get Script')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(true),
+      new ButtonBuilder()
+        .setCustomId('get_role')
+        .setLabel('Get Role')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('reset_hwid')
+        .setLabel('Reset HWID')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('get_stats')
+        .setLabel('Get Stats')
+        .setStyle(ButtonStyle.Primary)
+    );
+
+  await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+}
+
+async function handleApiRequest(endpoint, params = {}, method = 'GET', headers = {}, data = null) {
+  try {
+    const url = new URL(`${BASE_URL}${endpoint}`);
+    Object.entries(params).forEach(([key, value]) => url.searchParams.append(key, value));
+    const response = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: data ? JSON.stringify(data) : null,
+    });
+    return await response.json();
+  } catch (error) {
+    console.error(`API request failed: ${error.message}`);
+    return { success: false, error: 'API request failed' };
+  }
+}
+
+async function getExecutionCount() {
+  try {
+    const response = await handleApiRequest('/manage/v1', { action: 'list' }, 'GET', { Authorization: `Bearer ${ADMIN_ID}` });
+    return response.success ? response.users.length : 0;
+  } catch (error) {
+    console.error('Error fetching execution count:', error);
+    return 0;
+  }
+}
+
+async function getResetData(discordId) {
+  try {
+    const response = await handleApiRequest('/reset-hwid/v1', {}, 'GET', { Authorization: `Bearer ${discordId}` });
+    if (response.success) {
+      const resets = response.resets || [];
+      return {
+        totalResets: resets.length,
+        lastReset: resets.length > 0 ? new Date(resets[resets.length - 1].timestamp).toLocaleString() : 'Never',
+      };
+    }
+    return { totalResets: 0, lastReset: 'Never' };
+  } catch (error) {
+    console.error('Error fetching reset data:', error);
+    return { totalResets: 0, lastReset: 'Never' };
+  }
+}
+
+async function sendWebhookLog(message, level = 'INFO', responseData = {}) {
+  if (!WEBHOOK_URL) return;
+
+  const timestamp = new Date().toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  const embed = {
+    title: `Nebula Bot - ${level}`,
+    description: `\`${timestamp}\` **${message.substring(0, 100)}**`,
+    color: { INFO: 0x00FF00, SUCCESS: 0x00AAFF, ERROR: 0xFF0000 }[level] || 0x00FF00,
+    fields: [
+      {
+        name: 'Response',
+        value: `\`\`\`json\n${JSON.stringify(responseData, null, 2).substring(0, 100)}\n\`\`\``,
+        inline: true,
+      },
+    ],
+    footer: { text: 'Nebula Bot Logs' },
+    timestamp: new Date().toISOString(),
+  };
+
+  try {
+    await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ embeds: [embed] }),
+    });
+  } catch (error) {
+    console.error(`Failed to send webhook log: ${error.message}`);
+  }
+}
+
 client.on('interactionCreate', async interaction => {
   if (!interaction.isCommand() && !interaction.isButton()) return;
 
-  const timestamp = new Date().toISOString();
+  const discordId = interaction.user.id;
+  const username = interaction.member?.nickname || interaction.user.username;
 
-  // Slash Commands
   if (interaction.isCommand()) {
-    const { commandName, options } = interaction;
+    const { commandName } = interaction;
 
-    // /sendpanel
-    if (commandName === 'sendpanel') {
-      await interaction.deferReply();
-
+    if (commandName === 'panel') {
+      await createPanelEmbed(interaction);
+      await sendWebhookLog(`Bot: /panel executed by ${discordId}`, 'SUCCESS', { command: 'panel' });
+    } else if (commandName === 'register') {
+      const inputUsername = interaction.options.getString('username');
+      const time = interaction.options.getString('time');
+      const response = await handleApiRequest(`/register/v1`, { ID: discordId, username: inputUsername, time });
       const embed = new EmbedBuilder()
-        .setTitle('Monty Hub Control Panel')
-        .setDescription("This control panel is for the project: **Monty Hub**\nIf you're a buyer, click on the buttons below to redeem your key, get the script, or get your role.")
-        .setColor(0xFFD700)
-        .setTimestamp()
-        .setFooter({ text: `Sent by ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL() });
-
-      await interaction.editReply({
-        embeds: [embed],
-        components: [
-          {
-            type: 1,
-            components: [
-              { type: 2, style: 3, label: 'Redeem Key', custom_id: 'redeem_key' },
-              { type: 2, style: 1, label: 'Get Script', custom_id: 'get_script' },
-              { type: 2, style: 1, label: 'Get Role', custom_id: 'get_role' },
-              { type: 2, style: 2, label: 'Reset HWID', custom_id: 'reset_hwid' },
-            ],
-          },
-        ],
-      });
-
-      await sendWebhookLog('Panel Sent', `Admin ${interaction.user.tag} sent the Monty Hub control panel.`, 0x00FF00);
-    }
-
-    // /whitelist @user <time>
-    if (commandName === 'whitelist') {
-      await interaction.deferReply();
-
-      const user = options.getUser('user');
-      const time = options.getString('time');
-
-      const response = await fetch(`http://your-middleware-url/register/v1?ID=${user.id}&time=${time}`, {
-        headers: { '2fn839-24fn3-jf83': 'true' },
-      });
-      const data = await response.json();
-
-      if (!data.success) {
-        await interaction.editReply(`Failed to whitelist ${user.tag}: ${data.error}`);
-        await sendWebhookLog('Whitelist Failed', `Failed to whitelist ${user.tag} by ${interaction.user.tag}: ${data.error}`, 0xFF0000);
+        .setTitle(response.success ? 'Registration Successful' : 'Registration Failed')
+        .setDescription(response.success ? `Key: ${response.key}\nUsername: ${response.username}\nExpires: <t:${response.endTime}:R>` : response.error)
+        .setColor(response.success ? '#00FF00' : '#FF0000');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await sendWebhookLog(`Bot: /register by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
+    } else if (commandName === 'login') {
+      const inputUsername = interaction.options.getString('username');
+      const response = await handleApiRequest(`/login/v1`, { ID: discordId, username: inputUsername });
+      const embed = new EmbedBuilder()
+        .setTitle(response.success ? 'Login Successful' : 'Login Failed')
+        .setDescription(response.success ? `Key: ${response.key}\nUsername: ${response.username}\nExpires: <t:${response.endTime}:R>` : response.error)
+        .setColor(response.success ? '#00FF00' : '#FF0000');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await sendWebhookLog(`Bot: /login by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
+    } else if (commandName === 'reset-hwid') {
+      const response = await handleApiRequest(`/reset-hwid/v1`, {}, 'GET', { Authorization: `Bearer ${discordId}` });
+      const embed = new EmbedBuilder()
+        .setTitle(response.success ? 'HWID Reset Successful' : 'HWID Reset Failed')
+        .setDescription(response.success ? 'Your HWID has been reset.' : response.error)
+        .setColor(response.success ? '#00FF00' : '#FF0000');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await sendWebhookLog(`Bot: /reset-hwid by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
+    } else if (commandName === 'stats') {
+      const response = await handleApiRequest(`/login/v1`, { ID: discordId, username });
+      const resetData = await getResetData(discordId);
+      const executionCount = await getExecutionCount();
+      const embed = new EmbedBuilder()
+        .setTitle(response.success ? 'Account Stats' : 'Stats Failed')
+        .setDescription(response.success ?
+          `**Key**: ${response.key}\n**Username**: ${response.username}\n**Total Executions**: ${executionCount}\n**Last HWID Reset**: ${resetData.lastReset}\n**Total HWID Resets**: ${resetData.totalResets}\n**Expire Date**: <t:${response.endTime}:R>\n**Blacklisted**: Not implemented` :
+          response.error)
+        .setColor(response.success ? '#00FF00' : '#FF0000');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await sendWebhookLog(`Bot: /stats by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
+    } else if (commandName === 'redeem') {
+      const key = interaction.options.getString('key');
+      const response = await handleApiRequest(`/auth/v1`, { key, hwid: discordId });
+      const embed = new EmbedBuilder()
+        .setTitle(response.success ? 'Key Redeemed' : 'Redemption Failed')
+        .setDescription(response.success ? `Key: ${response.key}\nUsername: ${response.username}\nExpires: <t:${response.endTime}:R>` : response.error)
+        .setColor(response.success ? '#00FF00' : '#FF0000');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await sendWebhookLog(`Bot: /redeem by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
+    } else if (commandName === 'manage') {
+      if (discordId !== ADMIN_ID) {
+        const embed = new EmbedBuilder()
+          .setTitle('Access Denied')
+          .setDescription('Admin access required.')
+          .setColor('#FF0000');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await sendWebhookLog(`Bot: /manage denied for ${discordId}`, 'ERROR', { error: 'Admin access required' });
         return;
       }
 
-      await user.send(`You have been whitelisted for Monty Hub! Your key is: \`${data.key}\``);
-      await interaction.editReply(`Successfully whitelisted ${user.tag} for ${time}. They have been sent their key.`);
-
-      await sendWebhookLog('User Whitelisted', `${interaction.user.tag} whitelisted ${user.tag} for ${time}. Key: ${data.key}`, 0x00FF00);
-    }
-
-    // /unwhitelist @user
-    if (commandName === 'unwhitelist') {
-      await interaction.deferReply();
-
-      const user = options.getUser('user');
-
-      const response = await fetch(`http://your-middleware-url/dAuth/v1?ID=${user.id}`, {
-        headers: { '2fn839-24fn3-jf83': 'true' },
-      });
-      const data = await response.json();
-
-      if (!data.success) {
-        await interaction.editReply(`${user.tag} is not a registered user.`);
-        await sendWebhookLog('Unwhitelist Failed', `${user.tag} is not a registered user. Attempt by ${interaction.user.tag}.`, 0xFF0000);
-        return;
+      const action = interaction.options.getString('action');
+      if (action === 'list') {
+        const response = await handleApiRequest(`/manage/v1`, { action }, 'GET', { Authorization: `Bearer ${ADMIN_ID}` });
+        const embed = new EmbedBuilder()
+          .setTitle(response.success ? 'User List' : 'List Failed')
+          .setDescription(response.success ? response.users.map(u => `ID: ${u.discordId}, Username: ${u.username}, Expires: <t:${u.endTime}:R>`).join('\n') || 'No users found' : response.error)
+          .setColor(response.success ? '#00FF00' : '#FF0000');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await sendWebhookLog(`Bot: /manage list by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
+      } else if (action === 'update') {
+        const targetDiscordId = interaction.options.getString('discord_id');
+        const newUsername = interaction.options.getString('username');
+        const endTime = interaction.options.getInteger('end_time');
+        const response = await handleApiRequest(`/manage/v1`, { action }, 'POST', { Authorization: `Bearer ${ADMIN_ID}` }, {
+          discordId: targetDiscordId,
+          username: newUsername,
+          endTime,
+        });
+        const embed = new EmbedBuilder()
+          .setTitle(response.success ? 'User Updated' : 'Update Failed')
+          .setDescription(response.success ? `Updated ${response.user.username} (ID: ${response.user.discordId})` : response.error)
+          .setColor(response.success ? '#00FF00' : '#FF0000');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await sendWebhookLog(`Bot: /manage update by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
+      } else if (action === 'delete') {
+        const targetDiscordId = interaction.options.getString('discord_id');
+        const response = await handleApiRequest(`/manage/v1`, { action }, 'POST', { Authorization: `Bearer ${ADMIN_ID}` }, { discordId: targetDiscordId });
+        const embed = new EmbedBuilder()
+          .setTitle(response.success ? 'User Deleted' : 'Deletion Failed')
+          .setDescription(response.success ? `Deleted user ID: ${targetDiscordId}` : response.error)
+          .setColor(response.success ? '#00FF00' : '#FF0000');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await sendWebhookLog(`Bot: /manage delete by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
       }
-
-      // Note: Your middleware doesn't have an endpoint to delete users, so this is a placeholder.
-      // You might need to add a delete endpoint in your middleware.
-      await interaction.editReply(`Unwhitelisted ${user.tag}. (Note: Deletion not implemented in middleware.)`);
-      await sendWebhookLog('User Unwhitelisted', `${interaction.user.tag} unwhitelisted ${user.tag}.`, 0x00FF00);
     }
-  }
-
-  // Button Interactions
-  if (interaction.isButton()) {
-    const { customId, user } = interaction;
-
-    // Redeem Key
+  } else if (interaction.isButton()) {
+    const customId = interaction.customId;
     if (customId === 'redeem_key') {
-      await interaction.deferReply({ ephemeral: true });
-
-      const userDataResponse = await fetch(`http://your-middleware-url/dAuth/v1?ID=${user.id}`, {
-        headers: { '2fn839-24fn3-jf83': 'true' },
-      });
-      const userData = await userDataResponse.json();
-
-      if (!userData.success) {
-        await interaction.editReply({ content: 'You are not a registered user.', ephemeral: true });
-        await sendWebhookLog('Redeem Key Failed', `${user.tag} attempted to redeem a key but is not registered.`, 0xFF0000);
+      const response = await handleApiRequest(`/auth/v1`, { key: discordId, hwid: discordId });
+      const embed = new EmbedBuilder()
+        .setTitle(response.success ? 'Key Redeemed' : 'Redemption Failed')
+        .setDescription(response.success ? `Key: ${response.key}\nUsername: ${response.username}\nExpires: <t:${response.endTime}:R>` : response.error)
+        .setColor(response.success ? '#00FF00' : '#FF0000');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await sendWebhookLog(`Bot: redeem_key button by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
+    } else if (customId === 'get_script') {
+      const embed = new EmbedBuilder()
+        .setTitle('Get Script')
+        .setDescription('This feature is not implemented yet.')
+        .setColor('#FFA500');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await sendWebhookLog(`Bot: get_script button by ${discordId}`, 'INFO', { message: 'Not implemented' });
+    } else if (customId === 'get_role') {
+      const roleId = ''; // Set your role ID here
+      if (!roleId) {
+        const embed = new EmbedBuilder()
+          .setTitle('Role Assignment Failed')
+          .setDescription('Role ID not configured.')
+          .setColor('#FF0000');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await sendWebhookLog(`Bot: get_role button failed for ${discordId}`, 'ERROR', { error: 'Role ID not configured' });
         return;
       }
-
-      const modal = {
-        title: 'Redeem Key',
-        custom_id: 'redeem_key_modal',
-        components: [
-          {
-            type: 1,
-            components: [
-              {
-                type: 4,
-                custom_id: 'key_input',
-                label: 'Enter Your Key',
-                style: 1,
-                min_length: 14,
-                max_length: 14,
-                required: true,
-              },
-            ],
-          },
-        ],
-      };
-
-      await interaction.showModal(modal);
-    }
-
-    // Handle Modal Submission for Redeem Key
-    if (interaction.isModalSubmit() && interaction.customId === 'redeem_key_modal') {
-      await interaction.deferReply({ ephemeral: true });
-
-      const inputKey = interaction.fields.getTextInputValue('key_input');
-      const userDataResponse = await fetch(`http://your-middleware-url/dAuth/v1?ID=${user.id}`, {
-        headers: { '2fn839-24fn3-jf83': 'true' },
-      });
-      const userData = await userDataResponse.json();
-
-      if (!userData.success || userData.key !== inputKey) {
-        await interaction.editReply({ content: 'Invalid key.', ephemeral: true });
-        await sendWebhookLog('Key Redemption Failed', `${user.tag} entered an invalid key: ${inputKey}`, 0xFF0000);
-        return;
+      try {
+        await interaction.member.roles.add(roleId);
+        const embed = new EmbedBuilder()
+          .setTitle('Role Assigned')
+          .setDescription('Role successfully assigned!')
+          .setColor('#00FF00');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await sendWebhookLog(`Bot: get_role button by ${discordId}`, 'SUCCESS', { message: 'Role assigned' });
+      } catch (error) {
+        const embed = new EmbedBuilder()
+          .setTitle('Role Assignment Failed')
+          .setDescription(`Error: ${error.message}`)
+          .setColor('#FF0000');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await sendWebhookLog(`Bot: get_role button failed for ${discordId}`, 'ERROR', { error: error.message });
       }
-
-      const member = await interaction.guild.members.fetch(user.id);
-      await member.roles.add(ROLE_ID);
-      await interaction.editReply({ content: 'Key redeemed successfully! You have been given the role.', ephemeral: true });
-
-      await sendWebhookLog('Key Redeemed', `${user.tag} redeemed their key: ${inputKey} and received the role.`, 0x00FF00);
-    }
-
-    // Get Script
-    if (customId === 'get_script') {
-      await interaction.reply({ content: 'Placehold Text', ephemeral: true });
-      await sendWebhookLog('Script Requested', `${user.tag} requested the script.`, 0x00FF00);
-    }
-
-    // Get Role
-    if (customId === 'get_role') {
-      await interaction.deferReply({ ephemeral: true });
-
-      const userDataResponse = await fetch(`http://your-middleware-url/dAuth/v1?ID=${user.id}`, {
-        headers: { '2fn839-24fn3-jf83': 'true' },
-      });
-      const userData = await userDataResponse.json();
-
-      if (!userData.success) {
-        await interaction.editReply({ content: 'You are not a registered user.', ephemeral: true });
-        await sendWebhookLog('Get Role Failed', `${user.tag} attempted to get a role but is not registered.`, 0xFF0000);
-        return;
-      }
-
-      const member = await interaction.guild.members.fetch(user.id);
-      if (member.roles.cache.has(ROLE_ID)) {
-        await interaction.editReply({ content: 'You already have the role!', ephemeral: true });
-        return;
-      }
-
-      await member.roles.add(ROLE_ID);
-      await interaction.editReply({ content: 'Role assigned successfully!', ephemeral: true });
-
-      await sendWebhookLog('Role Assigned', `${user.tag} received the role.`, 0x00FF00);
-    }
-
-    // Reset HWID
-    if (customId === 'reset_hwid') {
-      await interaction.deferReply({ ephemeral: true });
-
-      const userDataResponse = await fetch(`http://your-middleware-url/dAuth/v1?ID=${user.id}`, {
-        headers: { '2fn839-24fn3-jf83': 'true' },
-      });
-      const userData = await userDataResponse.json();
-
-      if (!userData.success) {
-        await interaction.editReply({ content: 'You are not a registered user.', ephemeral: true });
-        await sendWebhookLog('HWID Reset Failed', `${user.tag} attempted to reset HWID but is not registered.`, 0xFF0000);
-        return;
-      }
-
-      if (!canResetHwid(user.id)) {
-        await interaction.editReply({ content: `You have reached the HWID reset limit (${HWID_RESET_LIMIT} per day). Try again tomorrow.`, ephemeral: true });
-        await sendWebhookLog('HWID Reset Limit Reached', `${user.tag} attempted to reset HWID but reached the daily limit.`, 0xFF0000);
-        return;
-      }
-
-      const newHwid = ''; // Reset to empty as per your middleware logic
-      const response = await fetch(`http://your-middleware-url/manage/v1?ID=${user.id}&action=resetHwid&value=${newHwid}`, {
-        headers: { '2fn839-24fn3-jf83': 'true' },
-      });
-      const data = await response.json();
-
-      if (!data.success) {
-        await interaction.editReply({ content: 'Failed to reset HWID: ' + data.error, ephemeral: true });
-        await sendWebhookLog('HWID Reset Failed', `Failed to reset HWID for ${user.tag}: ${data.error}`, 0xFF0000);
-        return;
-      }
-
-      const userReset = hwidResets.get(user.id);
-      userReset.count += 1;
-      hwidResets.set(user.id, userReset);
-
-      await interaction.editReply({ content: 'HWID reset successfully!', ephemeral: true });
-      await sendWebhookLog('HWID Reset', `${user.tag} reset their HWID. Resets today: ${userReset.count}/${HWID_RESET_LIMIT}`, 0x00FF00);
+    } else if (customId === 'reset_hwid') {
+      const response = await handleApiRequest(`/reset-hwid/v1`, {}, 'GET', { Authorization: `Bearer ${discordId}` });
+      const embed = new EmbedBuilder()
+        .setTitle(response.success ? 'HWID Reset Successful' : 'HWID Reset Failed')
+        .setDescription(response.success ? 'Your HWID has been reset.' : response.error)
+        .setColor(response.success ? '#00FF00' : '#FF0000');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await sendWebhookLog(`Bot: reset_hwid button by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
+    } else if (customId === 'get_stats') {
+      const response = await handleApiRequest(`/login/v1`, { ID: discordId, username });
+      const resetData = await getResetData(discordId);
+      const executionCount = await getExecutionCount();
+      const embed = new EmbedBuilder()
+        .setTitle(response.success ? 'Account Stats' : 'Stats Failed')
+        .setDescription(response.success ?
+          `**Key**: ${response.key}\n**Username**: ${response.username}\n**Total Executions**: ${executionCount}\n**Last HWID Reset**: ${resetData.lastReset}\n**Total HWID Resets**: ${resetData.totalResets}\n**Expire Date**: <t:${response.endTime}:R>\n**Blacklisted**: Not implemented` :
+          response.error)
+        .setColor(response.success ? '#00FF00' : '#FF0000');
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await sendWebhookLog(`Bot: get_stats button by ${discordId}`, response.success ? 'SUCCESS' : 'ERROR', response);
     }
   }
 });
 
-client.login(TOKEN);
+client.login(BOT_TOKEN).catch(error => {
+  console.error(`Bot login failed: ${error.message}`);
+  sendWebhookLog(`Bot login failed: ${error.message}`, 'ERROR', { error: error.message });
+});
