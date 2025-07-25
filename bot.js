@@ -5,7 +5,7 @@ const fetch = require('node-fetch');
 const BOT_TOKEN = 'MTM3NzM3ODc2MTgxNjg3MDkyMg.Go77Vn.mzi1-8WG89GKA8hDFOlowyv_MNPHi1jDNVwuFE';
 const BASE_URL = 'https://utils32.vercel.app';
 const ADMIN_ID = '1272720391462457400';
-const GUILD_ID = ''; // Set your guild ID
+const GUILD_ID = ''; // Set your guild Id
 const WEBHOOK_URL = 'https://discord.com/api/webhooks/1378937855199674508/nHwMtepJ3hKpzKDZErNkMdgIZPWhix80nkqSyMgYlbMMuOrLhHcF0HYsmLcq6CZeJrco';
 
 const client = new Client({
