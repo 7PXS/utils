@@ -103,18 +103,15 @@ const getUserByKey = async (key) => {
 
 const getUserByDiscordId = async (discordId) => {
   try {
-    console.log(`Searching blob: Users/-${discordId}.json`);
-    const { blobs } = await list({ prefix: `Users/-${discordId}.json`, token: BLOB_READ_WRITE_TOKEN });
-    if (blobs.length === 0) {
-      console.log(`No user found for Discord ID ${discordId}`);
-      return null;
+    const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
+    for (const blob of blobs) {
+      if (blob.pathname.endsWith(`-${discordId}.json`)) {
+        const response = await fetch(blob.url);
+        if (!response.ok) throw new Error(`Failed to fetch blob: ${response.statusText}`);
+        return await response.json();
+      }
     }
-    console.log(`Found blob: ${blobs[0].url}`);
-    const response = await fetch(blobs[0].url);
-    if (!response.ok) throw new Error(`Failed to fetch blob: ${response.statusText}`);
-    const data = await response.json();
-    console.log(`Retrieved user for Discord ID ${discordId}:`, JSON.stringify(data, null, 2));
-    return data;
+    return null;
   } catch (error) {
     console.error(`Error in getUserByDiscordId for ${discordId}: ${error.message}`);
     return null;
@@ -611,7 +608,7 @@ export async function middleware(request) {
         return NextResponse.json(createResponse(false, {}, 'User not found'), { status: 404 });
       }
 
-      const today = formatDate(new Date()).split(' ')[0];
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
       const resetData = await getResetData(discordId, today);
       if (resetData.count >= 3) {
         await sendWebhookLog(request, `/reset-hwid/v1: HWID reset limit reached for ${discordId}`, 'ERROR', { error: 'HWID reset limit reached' });
