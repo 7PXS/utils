@@ -1,20 +1,26 @@
-import { GeistSans } from '@vercel/fonts/sans';
-import { GeistMono } from '@vercel/fonts/mono';
-import './globals.css';
+import localFont from "next/font/local";
+import "./globals.css";
 
-const geistSans = GeistSans({
-  variable: '--font-geist-sans',
+// Load Geist Sans
+const geistSans = localFont({
+  src: "./fonts/GeistVF.woff2",
+  variable: "--font-geist-sans",
+  weight: "100 900", // variable font weight range
 });
 
-const geistMono = GeistMono({
-  variable: '--font-geist-mono',
+// Load Geist Mono
+const geistMono = localFont({
+  src: "./fonts/GeistMonoVF.woff2",
+  variable: "--font-geist-mono",
+  weight: "100 900",
 });
 
 export const metadata = {
-  title: 'Surge.lol by unvhook',
-  description: 'Stop losing. Start winning with Surge.lol, the best legit and rage cw cheat. Free and shitsploit friendly!',
+  title: "Surge.lol by unvhook",
+  description:
+    "Stop losing. Start winning with Surge.lol, the best legit and rage cw cheat. Free and shitsploit friendly!",
   icons: {
-    icon: '/favicon.ico',
+    icon: "/favicon.ico",
   },
 };
 
