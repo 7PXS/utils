@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Topbar from './components/Topbar';
-import Particles from './components/Particles';
+import Topbar from '../components/Topbar';
+import Particles from '../components/Particles';
 
 export default function Docs() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
