@@ -13,6 +13,7 @@
     "@vercel/blob": "^0.23.4",
     "@vercel/edge-config": "^1.2.0",
     "discord.js": "^14.16.3",
+    "framer-motion": "^11.0.8", // Added to resolve Module not found: Can't resolve 'framer-motion'
     "next": "15.3.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
