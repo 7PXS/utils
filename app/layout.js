@@ -1,12 +1,12 @@
-import { GeistSans, GeistMono } from 'next/font/google';
+import { Geist_Sans, Geist_Mono } from '@next/font/google'; // Corrected import
 import './globals.css';
 
-const geistSans = GeistSans({
+const geistSans = Geist_Sans({
   variable: '--font-geist-sans',
   subsets: ['latin'],
 });
 
-const geistMono = GeistMono({
+const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
 });
