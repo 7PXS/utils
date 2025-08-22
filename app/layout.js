@@ -1,4 +1,11 @@
+import { Inter } from "next/font/google";
 import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
 
 export const metadata = {
   title: "Surge.lol by unvhook",
@@ -11,12 +18,10 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-      </head>
-      <body className="antialiased min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 text-slate-100">
+    <html lang="en" className="dark">
+      <body
+        className={`${inter.variable} antialiased min-h-screen bg-background text-foreground overflow-hidden font-inter`}
+      >
         {children}
       </body>
     </html>
