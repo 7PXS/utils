@@ -1,19 +1,4 @@
-import localFont from "next/font/local";
 import "./globals.css";
-
-// Load Geist Sans
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff2",
-  variable: "--font-geist-sans",
-  weight: "100 900", // variable font weight range
-});
-
-// Load Geist Mono
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff2",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
 
 export const metadata = {
   title: "Surge.lol by unvhook",
@@ -27,9 +12,11 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-gray-900 text-white overflow-hidden`}
-      >
+      <head>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </head>
+      <body className="antialiased min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 text-slate-100">
         {children}
       </body>
     </html>
