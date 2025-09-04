@@ -87,49 +87,88 @@ const sendWebhookLog = async (request, message, level = 'INFO', responseData = {
   }
 };
 
-// Database helpers
+// FIXED: Database helpers with correct blob path handling
 const getUserByKey = async (key) => {
   try {
-    const { blobs } = await list({ prefix: `Users/${key}-`, token: BLOB_READ_WRITE_TOKEN });
-    if (blobs.length === 0) return null;
-    const response = await fetch(blobs[0].url);
-    if (!response.ok) throw new Error(`Failed to fetch blob: ${response.statusText}`);
-    return await response.json();
+    console.log(`Looking for user with key: ${key}`);
+    const { blobs } = await list({ prefix: `Users/`, token: BLOB_READ_WRITE_TOKEN });
+    console.log(`Found ${blobs.length} user blobs`);
+    
+    for (const blob of blobs) {
+      console.log(`Checking blob: ${blob.pathname}`);
+      // Check if this blob's pathname contains the key we're looking for
+      if (blob.pathname.includes(`${key}-`)) {
+        const response = await fetch(blob.url);
+        if (!response.ok) {
+          console.error(`Failed to fetch blob: ${response.statusText}`);
+          continue;
+        }
+        const userData = await response.json();
+        console.log(`Found user data for key ${key}:`, userData);
+        return userData;
+      }
+    }
+    
+    console.log(`No user found with key: ${key}`);
+    return null;
   } catch (error) {
-    console.error(`Error in getUserByKey for key ${key}: ${error.message}`);
+    console.error(`Error in getUserByKey for key ${key}:`, error);
     return null;
   }
 };
 
 const getUserByDiscordId = async (discordId) => {
   try {
+    console.log(`Looking for user with Discord ID: ${discordId}`);
     const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
+    console.log(`Found ${blobs.length} user blobs`);
+    
     for (const blob of blobs) {
+      console.log(`Checking blob: ${blob.pathname}`);
       if (blob.pathname.endsWith(`-${discordId}.json`)) {
         const response = await fetch(blob.url);
-        if (!response.ok) throw new Error(`Failed to fetch blob: ${response.statusText}`);
-        return await response.json();
+        if (!response.ok) {
+          console.error(`Failed to fetch blob: ${response.statusText}`);
+          continue;
+        }
+        const userData = await response.json();
+        console.log(`Found user data for Discord ID ${discordId}:`, userData);
+        return userData;
       }
     }
+    
+    console.log(`No user found with Discord ID: ${discordId}`);
     return null;
   } catch (error) {
-    console.error(`Error in getUserByDiscordId for ${discordId}: ${error.message}`);
+    console.error(`Error in getUserByDiscordId for ${discordId}:`, error);
     return null;
   }
 };
 
 const getUserByHwid = async (hwid) => {
   try {
+    console.log(`Looking for user with HWID: ${hwid}`);
     const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
+    
     for (const blob of blobs) {
-      const response = await fetch(blob.url);
-      if (!response.ok) continue;
-      const userData = await response.json();
-      if (userData.hwid === hwid) return userData;
+      try {
+        const response = await fetch(blob.url);
+        if (!response.ok) continue;
+        const userData = await response.json();
+        if (userData.hwid === hwid) {
+          console.log(`Found user data for HWID ${hwid}:`, userData);
+          return userData;
+        }
+      } catch (error) {
+        console.error(`Error processing blob ${blob.pathname}:`, error);
+        continue;
+      }
     }
+    
+    console.log(`No user found with HWID: ${hwid}`);
     return null;
   } catch (error) {
-    console.error(`Error in getUserByHwid for ${hwid}: ${error.message}`);
+    console.error(`Error in getUserByHwid for ${hwid}:`, error);
     return null;
   }
 };
@@ -139,12 +178,20 @@ const getAllUsers = async () => {
     const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
     const users = [];
     for (const blob of blobs) {
-      const response = await fetch(blob.url);
-      if (response.ok) users.push(await response.json());
+      try {
+        const response = await fetch(blob.url);
+        if (response.ok) {
+          const userData = await response.json();
+          users.push(userData);
+        }
+      } catch (error) {
+        console.error(`Error processing blob ${blob.pathname}:`, error);
+        continue;
+      }
     }
     return users;
   } catch (error) {
-    console.error(`Error in getAllUsers: ${error.message}`);
+    console.error(`Error in getAllUsers:`, error);
     return [];
   }
 };
@@ -152,25 +199,37 @@ const getAllUsers = async () => {
 const updateUser = async (key, discordId, data) => {
   try {
     const blobPath = `Users/${key}-${discordId}.json`;
+    console.log(`Updating user at path: ${blobPath}`, data);
+    
     await put(blobPath, JSON.stringify(data), {
       access: 'public',
       token: BLOB_READ_WRITE_TOKEN,
       addRandomSuffix: false,
     });
+    
+    console.log(`Successfully updated user ${discordId}`);
   } catch (error) {
-    console.error(`Error updating user ${discordId}: ${error.message}`);
+    console.error(`Error updating user ${discordId}:`, error);
     throw error;
   }
 };
 
 const deleteUser = async (discordId) => {
   try {
-    const { blobs } = await list({ prefix: `Users/-${discordId}.json`, token: BLOB_READ_WRITE_TOKEN });
-    if (blobs.length === 0) return false;
-    await del(blobs[0].url, { token: BLOB_READ_WRITE_TOKEN });
+    // First find the user blob with the correct naming pattern
+    const { blobs } = await list({ prefix: 'Users/', token: BLOB_READ_WRITE_TOKEN });
+    const userBlob = blobs.find(blob => blob.pathname.endsWith(`-${discordId}.json`));
+    
+    if (!userBlob) {
+      console.log(`No user blob found for Discord ID: ${discordId}`);
+      return false;
+    }
+    
+    await del(userBlob.url, { token: BLOB_READ_WRITE_TOKEN });
+    console.log(`Successfully deleted user ${discordId}`);
     return true;
   } catch (error) {
-    console.error(`Error deleting user ${discordId}: ${error.message}`);
+    console.error(`Error deleting user ${discordId}:`, error);
     return false;
   }
 };
@@ -184,7 +243,7 @@ const getResetData = async (discordId, today) => {
     if (!response.ok) throw new Error(`Failed to fetch reset blob: ${response.statusText}`);
     return await response.json();
   } catch (error) {
-    console.error(`Error in getResetData for ${discordId}: ${error.message}`);
+    console.error(`Error in getResetData for ${discordId}:`, error);
     return { count: 0, resets: [] };
   }
 };
@@ -198,7 +257,7 @@ const updateResetData = async (discordId, today, data) => {
       addRandomSuffix: false,
     });
   } catch (error) {
-    console.error(`Error updating reset data for ${discordId}: ${error.message}`);
+    console.error(`Error updating reset data for ${discordId}:`, error);
     throw error;
   }
 };
@@ -225,11 +284,12 @@ const parseTimeToSeconds = (timeStr) => {
 // Helper: Check if script exists for gameId
 const checkGameScript = async (gameId) => {
   try {
-    const scriptPath = `Scripts/${gameId}.json`;
-    const { blobs } = await list({ prefix: scriptPath, token: BLOB_READ_WRITE_TOKEN });
-    return blobs.length > 0;
+    const scripts = await get('scripts');
+    return scripts && typeof scripts === 'object' && Object.keys(scripts).some(key => 
+      key.toLowerCase() === gameId.toLowerCase()
+    );
   } catch (error) {
-    console.error(`Error checking script for gameId ${gameId}: ${error.message}`);
+    console.error(`Error checking script for gameId ${gameId}:`, error);
     return false;
   }
 };
@@ -241,22 +301,28 @@ const manageTestData = async () => {
   const testKey = 'test-key-123456';
   const now = Math.floor(Date.now() / 1000);
 
-  const existingUser = await getUserByDiscordId(testDiscordId);
-  if (!production && !existingUser) {
-    await updateUser(testKey, testDiscordId, {
-      key: testKey,
-      hwid: '',
-      discordId: testDiscordId,
-      username: testUsername,
-      createTime: now,
-      endTime: now + 86400
-    });
-    await sendWebhookLog({ url: SITE_URL, headers: new Headers() }, `Test user ${testUsername} added`, 'SUCCESS', { message: `Test user ${testUsername} added` });
-  } else if (production && existingUser) {
-    const deleted = await deleteUser(testDiscordId);
-    if (deleted) {
-      await sendWebhookLog({ url: SITE_URL, headers: new Headers() }, `Test user ${testUsername} removed`, 'SUCCESS', { message: `Test user ${testUsername} removed` });
+  try {
+    const existingUser = await getUserByDiscordId(testDiscordId);
+    if (!production && !existingUser) {
+      await updateUser(testKey, testDiscordId, {
+        key: testKey,
+        hwid: '',
+        discordId: testDiscordId,
+        username: testUsername,
+        createTime: now,
+        endTime: now + 86400
+      });
+      console.log(`Test user ${testUsername} added`);
+      await sendWebhookLog({ url: SITE_URL, headers: new Headers() }, `Test user ${testUsername} added`, 'SUCCESS', { message: `Test user ${testUsername} added` });
+    } else if (production && existingUser) {
+      const deleted = await deleteUser(testDiscordId);
+      if (deleted) {
+        console.log(`Test user ${testUsername} removed`);
+        await sendWebhookLog({ url: SITE_URL, headers: new Headers() }, `Test user ${testUsername} removed`, 'SUCCESS', { message: `Test user ${testUsername} removed` });
+      }
     }
+  } catch (error) {
+    console.error('Error managing test data:', error);
   }
 };
 
@@ -289,8 +355,8 @@ export async function middleware(request) {
         return NextResponse.json(createResponse(false, {}, 'Unauthorized'), { status: 401 });
       }
       const scripts = await get('scripts');
-      await sendWebhookLog(request, `/scripts-list: Retrieved ${Object.keys(scripts).length} scripts`, 'SUCCESS', { scripts: Object.keys(scripts) });
-      return NextResponse.json(createResponse(true, { scripts: Object.keys(scripts) }));
+      await sendWebhookLog(request, `/scripts-list: Retrieved ${Object.keys(scripts || {}).length} scripts`, 'SUCCESS', { scripts: Object.keys(scripts || {}) });
+      return NextResponse.json(createResponse(true, { scripts: Object.keys(scripts || {}) }));
     }
 
     // Handle /auth/v1
@@ -300,11 +366,14 @@ export async function middleware(request) {
       const hwid = searchParams.get('hwid');
       const gameId = searchParams.get('gameId');
 
+      console.log(`Auth request - key: ${key}, hwid: ${hwid}, gameId: ${gameId}`);
+
       if (!hwid) {
         await sendWebhookLog(request, `/auth/v1: Missing hwid`, 'ERROR', { error: 'Missing hwid' });
         return NextResponse.json(createResponse(false, {}, 'Missing hwid'), { status: 400 });
       }
 
+      // If no key provided but hwid is, try to find user by hwid
       if (!key && hwid) {
         const userData = await getUserByHwid(hwid);
         if (!userData) {
@@ -330,15 +399,19 @@ export async function middleware(request) {
         return NextResponse.json(createResponse(false, {}, 'Invalid key'), { status: 401 });
       }
 
+      console.log(`Found user data:`, userData);
+
+      // Update HWID if it's empty
       if (userData.hwid === '' && hwid) {
         userData.hwid = hwid;
         await updateUser(key, userData.discordId, userData);
         await sendWebhookLog(request, `/auth/v1: Updated HWID for key ${key}`, 'SUCCESS', { key, hwid });
       } else if (userData.hwid !== hwid) {
-        await sendWebhookLog(request, `/auth/v1: Invalid HWID for key ${key}`, 'ERROR', { error: 'Invalid HWID' });
+        await sendWebhookLog(request, `/auth/v1: Invalid HWID for key ${key}. Expected: ${userData.hwid}, Got: ${hwid}`, 'ERROR', { error: 'Invalid HWID' });
         return NextResponse.json(createResponse(false, {}, 'Invalid HWID'), { status: 401 });
       }
 
+      // Check if key is expired
       if (userData.endTime < Math.floor(Date.now() / 1000)) {
         await sendWebhookLog(request, `/auth/v1: Key expired for key ${key}`, 'ERROR', { error: 'Key expired' });
         return NextResponse.json(createResponse(false, {}, 'Key expired'), { status: 401 });
@@ -429,7 +502,7 @@ export async function middleware(request) {
       }
 
       const scripts = await get('scripts');
-      const script = Object.keys(scripts).find(key => key.toLowerCase() === fileName);
+      const script = Object.keys(scripts || {}).find(key => key.toLowerCase() === fileName);
       if (!script) {
         await sendWebhookLog(request, `/files/v1: File not found: ${fileName}`, 'ERROR', { error: 'File not found' });
         return NextResponse.json(createResponse(false, {}, 'File not found'), { status: 404 });
@@ -535,103 +608,3 @@ export async function middleware(request) {
         await sendWebhookLog(request, `/register/v1: Username ${username} already taken`, 'ERROR', { error: 'Username already taken' });
         return NextResponse.json(createResponse(false, {}, 'Username already taken'), { status: 400 });
       }
-
-      const newKey = generateKey();
-      const now = Math.floor(Date.now() / 1000);
-      const user = {
-        key: newKey,
-        hwid: '',
-        discordId,
-        username,
-        createTime: now,
-        endTime: now + durationSeconds
-      };
-
-      await updateUser(newKey, discordId, user);
-      await sendWebhookLog(request, `/register/v1: Registered user ${username} with key ${newKey}`, 'SUCCESS', { user });
-      return NextResponse.json(createResponse(true, user));
-    }
-
-    // Handle /login/v1
-    if (pathname.startsWith('/login/v1')) {
-      await sendWebhookLog(request, `Handling /login/v1`, 'INFO', {});
-      const discordId = searchParams.get('ID');
-      const username = searchParams.get('username');
-
-      if (!discordId || !username) {
-        await sendWebhookLog(request, `/login/v1: Missing Discord ID or username`, 'ERROR', { error: 'Missing Discord ID or username' });
-        return NextResponse.json(createResponse(false, {}, 'Missing Discord ID or username'), { status: 400 });
-      }
-
-      const userData = await getUserByDiscordId(discordId);
-      if (!userData) {
-        await sendWebhookLog(request, `/login/v1: No user found with Discord ID ${discordId}`, 'ERROR', { error: 'No user found with this Discord ID' });
-        return NextResponse.json(createResponse(false, {}, 'No user found with this Discord ID'), { status: 404 });
-      }
-
-      if (userData.username !== username) {
-        await sendWebhookLog(request, `/login/v1: Invalid username for Discord ID ${discordId}`, 'ERROR', { error: 'Invalid username' });
-        return NextResponse.json(createResponse(false, {}, 'Invalid username'), { status: 401 });
-      }
-
-      if (userData.endTime < Math.floor(Date.now() / 1000)) {
-        await sendWebhookLog(request, `/login/v1: Key expired for Discord ID ${discordId}`, 'ERROR', { error: 'Key expired' });
-        return NextResponse.json(createResponse(false, {}, 'Key expired'), { status: 401 });
-      }
-
-      await sendWebhookLog(request, `/login/v1: Login successful for Discord ID ${discordId}`, 'SUCCESS', { user: userData });
-      return NextResponse.json(createResponse(true, userData));
-    }
-
-    // Handle /users/v1
-    if (pathname.startsWith('/users/v1')) {
-      await sendWebhookLog(request, `Handling /users/v1`, 'INFO', {});
-      const users = await getAllUsers();
-      await sendWebhookLog(request, `/users/v1: Retrieved ${users.length} users`, 'SUCCESS', { users: users.length });
-      return NextResponse.json(createResponse(true, { users }));
-    }
-
-    // Handle /reset-hwid/v1
-    if (pathname.startsWith('/reset-hwid/v1')) {
-      await sendWebhookLog(request, `Handling /reset-hwid/v1`, 'INFO', {});
-      const authHeader = request.headers.get('authorization');
-      const discordId = authHeader?.split(' ')[1];
-
-      if (!discordId) {
-        await sendWebhookLog(request, `/reset-hwid/v1: Missing Discord ID`, 'ERROR', { error: 'Missing Discord ID' });
-        return NextResponse.json(createResponse(false, {}, 'Missing Discord ID'), { status: 400 });
-      }
-
-      const userData = await getUserByDiscordId(discordId);
-      if (!userData) {
-        await sendWebhookLog(request, `/reset-hwid/v1: User not found with Discord ID ${discordId}`, 'ERROR', { error: 'User not found' });
-        return NextResponse.json(createResponse(false, {}, 'User not found'), { status: 404 });
-      }
-
-      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-      const resetData = await getResetData(discordId, today);
-      if (resetData.count >= 3) {
-        await sendWebhookLog(request, `/reset-hwid/v1: HWID reset limit reached for ${discordId}`, 'ERROR', { error: 'HWID reset limit reached' });
-        return NextResponse.json(createResponse(false, {}, 'HWID reset limit reached'), { status: 429 });
-      }
-
-      userData.hwid = '';
-      await updateUser(userData.key, discordId, userData);
-
-      resetData.count += 1;
-      resetData.resets.push({ timestamp: Math.floor(Date.now() / 1000) });
-      await updateResetData(discordId, today, resetData);
-
-      await sendWebhookLog(request, `/reset-hwid/v1: HWID reset successful for ${discordId}`, 'SUCCESS', { user: userData });
-      return NextResponse.json(createResponse(true, { message: 'HWID reset successful' }));
-    }
-
-    // Handle unknown routes
-    await sendWebhookLog(request, `Unknown route: ${pathname}`, 'ERROR', { error: 'Route not found' });
-    return NextResponse.json(createResponse(false, {}, 'Route not found'), { status: 404 });
-
-  } catch (error) {
-    await sendWebhookLog(request, `Error handling ${pathname}: ${error.message}`, 'ERROR', { error: error.message });
-    return NextResponse.json(createResponse(false, {}, `Internal server error: ${error.message}`), { status: 500 });
-  }
-}
