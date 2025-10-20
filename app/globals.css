@@ -1,4 +1,6 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --primary: #a100ff;
@@ -12,13 +14,6 @@
   --transition: all 0.3s ease;
   --background: #ffffff;
   --foreground: #171717;
-  --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -30,7 +25,7 @@
 
 body {
   background-color: #1a1a1a;
-  font-family: var(--font-inter);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   margin: 0;
   padding: 0;
 }
@@ -215,7 +210,7 @@ body {
   text-align: center;
   border: 1px solid rgba(161, 0, 255, 0.3);
   box-shadow: var(--shadow);
-  margin: auto; /* Ensures centering if flexbox fails */
+  margin: auto;
 }
 
 .modal-input {
@@ -693,7 +688,7 @@ body {
 .endpoint {
   color: var(--text-light);
   font-size: 14px;
-  font-family: var(--font-mono);
+  font-family: monospace;
   word-break: break-all;
 }
 
@@ -729,21 +724,15 @@ body {
 
 .language-json {
   margin: 0;
-  font-family: var(--font-mono);
+  font-family: monospace;
   font-size: 14px;
   color: var(--text-light);
   white-space: pre-wrap;
 }
 
-.language-json .string { color: #a1e8af; }
-.language-json .number { color: #d4aaff; }
-.language-json .boolean { color: #ff6b6b; }
-.language-json .null { color: #ffcc00; }
-.language-json .key { color: #a1c4fd; }
-
 .content-wrapper {
   display: flex;
-  margin-top: 60px; /* Adjust based on topbar height */
+  margin-top: 60px;
 }
 
 .sidebar {
@@ -782,19 +771,9 @@ body {
 }
 
 .main-content {
-  margin-left: 250px; /* Match sidebar width */
+  margin-left: 250px;
   width: calc(100% - 250px);
   padding: 20px;
-}
-
-/* Ensure existing styles work with new layout */
-.docs-section {
-  padding: 40px 20px;
-  background: rgba(30, 30, 30, 0.9);
-  border-radius: 16px;
-  border: 1px solid rgba(161, 0, 255, 0.3);
-  box-shadow: var(--shadow);
-  margin-bottom: 20px;
 }
 
 .params-table {
@@ -819,7 +798,7 @@ body {
 }
 
 .params-header span:nth-child(2) {
-  text-align: center; /* Center the "Type" header */
+  text-align: center;
 }
 
 .params-row {
@@ -836,7 +815,7 @@ body {
 }
 
 .params-row span:nth-child(2) {
-  text-align: center; /* Center the "Type" column content (e.g., "String") */
+  text-align: center;
 }
 
 .params-row span:first-child {
@@ -874,7 +853,6 @@ body {
   background: rgba(161, 0, 255, 0.8);
 }
 
-/* For Firefox */
 .sidebar,
 .main-content {
   scrollbar-width: thin;
