@@ -3,7 +3,7 @@ import { put, list, del } from '@vercel/blob';
 import { get } from '@vercel/edge-config';
 
 // Environment variables - NEVER hardcode sensitive data
-const config = {
+const envConfig = {
   BLOB_READ_WRITE_TOKEN: process.env.VERCEL_BLOB_RW_TOKEN,
   WEBHOOK_URL: process.env.DISCORD_WEBHOOK_URL,
   SITE_URL: process.env.SITE_URL || 'https://utils32.vercel.app',
@@ -73,7 +73,7 @@ const parseTimeToSeconds = (timeStr) => {
 
 // Enhanced logging with webhook
 const sendWebhookLog = async (request, message, level = 'INFO', responseData = {}) => {
-  if (!config.WEBHOOK_URL) return;
+  if (!envConfig.WEBHOOK_URL) return;
 
   const timestamp = formatDate(new Date());
   const url = request ? new URL(request.url) : null;
@@ -100,7 +100,7 @@ const sendWebhookLog = async (request, message, level = 'INFO', responseData = {
   };
 
   try {
-    await fetch(config.WEBHOOK_URL, {
+    await fetch(envConfig.WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ embeds: [embed] })
@@ -115,7 +115,7 @@ const getUserByKey = async (key) => {
   try {
     const { blobs } = await list({ 
       prefix: `users/`, 
-      token: config.BLOB_READ_WRITE_TOKEN 
+      token: envConfig.BLOB_READ_WRITE_TOKEN 
     });
     
     for (const blob of blobs) {
@@ -142,7 +142,7 @@ const getUserByDiscordId = async (discordId) => {
   try {
     const { blobs } = await list({ 
       prefix: `users/`, 
-      token: config.BLOB_READ_WRITE_TOKEN 
+      token: envConfig.BLOB_READ_WRITE_TOKEN 
     });
     
     for (const blob of blobs) {
@@ -169,7 +169,7 @@ const getUserByHwid = async (hwid) => {
   try {
     const { blobs } = await list({ 
       prefix: `users/`, 
-      token: config.BLOB_READ_WRITE_TOKEN 
+      token: envConfig.BLOB_READ_WRITE_TOKEN 
     });
     
     for (const blob of blobs) {
@@ -196,7 +196,7 @@ const getAllUsers = async () => {
   try {
     const { blobs } = await list({ 
       prefix: `users/`, 
-      token: config.BLOB_READ_WRITE_TOKEN 
+      token: envConfig.BLOB_READ_WRITE_TOKEN 
     });
     
     const users = [];
@@ -223,7 +223,7 @@ const saveUser = async (userData) => {
     const blobPath = `users/${userData.discordId}.json`;
     await put(blobPath, JSON.stringify(userData), {
       access: 'public',
-      token: config.BLOB_READ_WRITE_TOKEN,
+      token: envConfig.BLOB_READ_WRITE_TOKEN,
       addRandomSuffix: false,
     });
     return true;
@@ -238,11 +238,11 @@ const deleteUser = async (discordId) => {
     const blobPath = `users/${discordId}.json`;
     const { blobs } = await list({ 
       prefix: blobPath, 
-      token: config.BLOB_READ_WRITE_TOKEN 
+      token: envConfig.BLOB_READ_WRITE_TOKEN 
     });
     
     if (blobs.length > 0) {
-      await del(blobs[0].url, { token: config.BLOB_READ_WRITE_TOKEN });
+      await del(blobs[0].url, { token: envConfig.BLOB_READ_WRITE_TOKEN });
       return true;
     }
     return false;
@@ -259,7 +259,7 @@ const getResetData = async (discordId) => {
     const resetPath = `resets/${discordId}_${today}.json`;
     const { blobs } = await list({ 
       prefix: resetPath, 
-      token: config.BLOB_READ_WRITE_TOKEN 
+      token: envConfig.BLOB_READ_WRITE_TOKEN 
     });
     
     if (blobs.length === 0) {
@@ -281,7 +281,7 @@ const saveResetData = async (discordId, resetData) => {
     const resetPath = `resets/${discordId}_${today}.json`;
     await put(resetPath, JSON.stringify(resetData), {
       access: 'public',
-      token: config.BLOB_READ_WRITE_TOKEN,
+      token: envConfig.BLOB_READ_WRITE_TOKEN,
       addRandomSuffix: false,
     });
     return true;
