@@ -1,13 +1,8 @@
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import './globals.css';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
+const inter = Inter({
+  variable: '--font-inter',
   subsets: ['latin'],
 });
 
@@ -22,7 +17,7 @@ export default function RootLayout({ children }) {
       <head>
         <link rel="icon" href="https://cdn.discordapp.com/avatars/155149108183695360/b4fdfc64edff74c37e1574d34fad66c2.webp?size=1024" />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} >
+      <body className={`${inter.variable} antialiased`} >
         {children}
       </body>
     </html>
