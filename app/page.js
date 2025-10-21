@@ -2,139 +2,103 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { Home, FileText, Users as UsersIcon, Shield, Moon, Sun } from 'lucide-react';
 
-function Topbar({ username, onSignOut }) {
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
+function Topbar({ username, onSignOut, isAdmin }) {
   const [signOutModalOpen, setSignOutModalOpen] = useState(false);
-  const [profileName, setProfileName] = useState(username || 'User');
-  const [brandName, setBrandName] = useState('Nebula');
-  const [activeNav, setActiveNav] = useState('Home');
-
-  const setActive = (section) => {
-    setActiveNav(section);
-  };
-
-  const openProfileModal = () => {
-    setProfileModalOpen(true);
-  };
-
-  const openSignOutModal = () => {
-    setSignOutModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setProfileModalOpen(false);
-    setSignOutModalOpen(false);
-  };
-
-  const saveProfile = () => {
-    setProfileName(profileName);
-    setBrandName(brandName);
-    closeModal();
-  };
+  const [darkMode, setDarkMode] = useState(true);
 
   const handleSignOut = () => {
     onSignOut();
-    closeModal();
+    setSignOutModalOpen(false);
   };
 
   return (
-    <nav className="topbar">
-      <div className="topbar-container">
-        <div className="brand">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="12" fill="#a100ff"/>
-          </svg>
-          <div className="brand-text">
-            <div className="brand-letter">N</div>
-            <div className="brand-name">{brandName}</div>
-          </div>
-        </div>
-        <div className="nav-menu">
-          <div
-            className={`nav-item ${activeNav === 'Home' ? 'active' : ''}`}
-            onClick={() => setActive('Home')}
-          >
-            <svg width="21" height="20" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M8.01666 2.3667L3.525 5.8667C2.775 6.45003 2.16666 7.6917 2.16666 8.63337V14.8084C2.16666 16.7417 3.7416 18.325 6.83333 18.325H14.1667C17.2583 18.325 18.8333 16.7417 18.8333 14.8667V8.75003C18.8333 7.7417 18.1583 6.45003 17.3333 5.87503L12.1833 2.2667C11.0167 1.45003 9.14166 1.4917 8.01666 2.3667Z" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M10.5 14.9916V12.4916" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+    <>
+      <nav className={`topbar sticky top-0 z-50 backdrop-blur-xl border-b ${darkMode ? 'bg-[#0a0a0f]/80 border-purple-500/10' : 'bg-white/80 border-gray-200'}`}>
+        <div className="topbar-container">
+          <div className="brand">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="12" fill="#a100ff"/>
             </svg>
-            <div className={`nav-text ${activeNav === 'Home' ? 'active' : ''}`}>Home</div>
+            <div className="brand-text">
+              <div className="brand-letter">N</div>
+              <div className="brand-name">Nebula</div>
+            </div>
           </div>
-          <Link href="/docs" legacyBehavior>
-            <a
-              className={`nav-item ${activeNav === 'Docs' ? 'active' : ''}`}
-              onClick={() => setActive('Docs')}
-            >
-              <svg width="21" height="20" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3.1416 6.19995L10.4999 10.4583L17.8083 6.22495" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M10.5 18.0083V10.45" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M8.77491 2.0667L4.32491 4.53336C3.31658 5.0917 2.49158 6.4917 2.49158 7.6417V12.35C2.49158 13.5 3.31658 14.9 4.32491 15.4583L8.77491 17.9334C9.72491 18.4584 11.2832 18.4584 12.2332 17.9334L16.6832 15.4583C17.6916 14.9 18.5166 13.5 18.5166 12.35V7.6417C18.5166 6.4917 17.6916 5.0917 16.6832 4.53336L12.2332 2.05836C11.2749 1.53336 9.72491 1.53336 8.77491 2.0667Z" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <div className={`nav-text ${activeNav === 'Docs' ? 'active' : ''}`}>Docs</div>
-            </a>
-          </Link>
-        </div>
-        <div className="right-menu">
-          <div className="icon" onClick={() => document.body.classList.toggle('dark')}>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M9.99998 15.4166C12.9915 15.4166 15.4166 12.9915 15.4166 9.99998C15.4166 7.00844 12.9915 4.58331 9.99998 4.58331C7.00844 4.58331 4.58331 7.00844 4.58331 9.99998C4.58331 12.9915 7.00844 15.4166 9.99998 15.4166Z" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M15.95 15.95L15.8417 15.8417M15.8417 4.15835L15.95 4.05002L15.8417 4.15835ZM4.05002 15.95L4.15835 15.8417L4.05002 15.95ZM10 1.73335V1.66669V1.73335ZM10 18.3334V18.2667V18.3334ZM1.73335 10H1.66669H1.73335ZM18.3334 10H18.2667H18.3334ZM4.15835 4.15835L4.05002 4.05002L4.15835 4.15835Z" stroke="#CFD1D4" strokeWidth="1.66667" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+          
+          <div className="nav-menu hidden md:flex space-x-1">
+            <div className="nav-item active">
+              <Home className="w-4 h-4" />
+              <div className="nav-text active">Home</div>
+            </div>
+            
+            <Link href="/users" legacyBehavior>
+              <a className="nav-item">
+                <UsersIcon className="w-4 h-4" />
+                <div className="nav-text">Users</div>
+              </a>
+            </Link>
+            
+            {isAdmin && (
+              <Link href="/admin" legacyBehavior>
+                <a className="nav-item">
+                  <Shield className="w-4 h-4" />
+                  <div className="nav-text">Admin</div>
+                </a>
+              </Link>
+            )}
+            
+            <Link href="/docs" legacyBehavior>
+              <a className="nav-item">
+                <FileText className="w-4 h-4" />
+                <div className="nav-text">Docs</div>
+              </a>
+            </Link>
           </div>
-          <div className="icon" onClick={openSignOutModal}>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M7.5 17.5H4.16667C3.24619 17.5 2.5 16.7538 2.5 15.8333V4.16667C2.5 3.24619 3.24619 2.5 4.16667 2.5H7.5" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M13.3333 14.1667L17.5 10L13.3333 5.83334" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M17.5 10H7.5" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-          <Link href="/profile?from=dashboard">
-            <div className="icon">
-              <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="20" cy="20" r="20" fill="#a100ff"/>
-                <text x="50%" y="50%" textAnchor="middle" dy=".3em" fill="white" fontSize="20" fontFamily="'Inter', sans-serif">{profileName[0].toUpperCase()}</text>
+          
+          <div className="right-menu">
+            <div className="icon" onClick={() => {
+              setDarkMode(!darkMode);
+              document.body.classList.toggle('dark');
+            }}>
+              {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </div>
+            
+            <div className="icon" onClick={() => setSignOutModalOpen(true)}>
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M7.5 17.5H4.16667C3.24619 17.5 2.5 16.7538 2.5 15.8333V4.16667C2.5 3.24619 3.24619 2.5 4.16667 2.5H7.5" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M13.3333 14.1667L17.5 10L13.3333 5.83334" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M17.5 10H7.5" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-          </Link>
-        </div>
-      </div>
-      {profileModalOpen && (
-        <div className="modal">
-          <div className="modal-content">
-            <span className="close" onClick={closeModal}>×</span>
-            <h2>Profile</h2>
-            <input
-              type="text"
-              value={profileName}
-              onChange={(e) => setProfileName(e.target.value)}
-              placeholder="Your Name"
-              className="modal-input"
-            />
-            <input
-              type="text"
-              value={brandName}
-              onChange={(e) => setBrandName(e.target.value)}
-              placeholder="Your Brand"
-              className="modal-input"
-            />
-            <button onClick={saveProfile} className="modal-button">Save</button>
-            <button onClick={closeModal} className="modal-button">Cancel</button>
+            
+            <Link href="/profile?from=dashboard">
+              <div className="icon">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="20" cy="20" r="20" fill="#a100ff"/>
+                  <text x="50%" y="50%" textAnchor="middle" dy=".3em" fill="white" fontSize="20" fontFamily="'Inter', sans-serif">
+                    {username?.[0]?.toUpperCase() || 'U'}
+                  </text>
+                </svg>
+              </div>
+            </Link>
           </div>
         </div>
-      )}
+      </nav>
+
       {signOutModalOpen && (
         <div className="modal">
           <div className="modal-content">
-            <span className="close" onClick={closeModal}>×</span>
+            <span className="close" onClick={() => setSignOutModalOpen(false)}>×</span>
             <h2>Sign Out</h2>
             <p>Are you sure you want to sign out?</p>
             <button onClick={handleSignOut} className="modal-button">Confirm</button>
-            <button onClick={closeModal} className="modal-button">Cancel</button>
+            <button onClick={() => setSignOutModalOpen(false)} className="modal-button">Cancel</button>
           </div>
         </div>
       )}
-    </nav>
+    </>
   );
 }
 
@@ -143,24 +107,21 @@ export default function LandingPage() {
   const [discordId, setDiscordId] = useState('');
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const checkAuth = async () => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
-      console.log('No user found in localStorage');
       setIsAuthenticated(false);
       return false;
     }
 
     try {
       const user = JSON.parse(storedUser);
-      console.log(`Checking auth for Discord ID: ${user.discordId}, Username: ${user.username}`);
       const response = await fetch(`/login/v1?ID=${encodeURIComponent(user.discordId)}&username=${encodeURIComponent(user.username)}`);
       const data = await response.json();
-      console.log('Login response:', data);
 
       if (!response.ok || !data.success) {
-        console.error(`Authentication failed: ${data.error || 'Unknown error'}`);
         localStorage.removeItem('user');
         setIsAuthenticated(false);
         setError(data.error || 'Authentication failed');
@@ -169,10 +130,10 @@ export default function LandingPage() {
 
       setUsername(user.username);
       setDiscordId(user.discordId);
+      setIsAdmin(user.discordId === '1272720391462457400');
       setIsAuthenticated(true);
       return true;
     } catch (error) {
-      console.error('Error checking authentication:', error.message);
       setError('Error checking authentication');
       setIsAuthenticated(false);
       return false;
@@ -182,23 +143,20 @@ export default function LandingPage() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
-    console.log(`Attempting login with Discord ID: ${discordId}, Username: ${username}`);
 
     try {
       const response = await fetch(`/login/v1?ID=${encodeURIComponent(discordId)}&username=${encodeURIComponent(username)}`);
       const data = await response.json();
-      console.log('Login response:', data);
 
       if (!response.ok || !data.success) {
-        console.error(`Login failed: ${data.error || 'Unknown error'}`);
         setError(data.error || 'Login failed');
         return;
       }
 
       localStorage.setItem('user', JSON.stringify({ discordId, username }));
       setIsAuthenticated(true);
+      setIsAdmin(discordId === '1272720391462457400');
     } catch (error) {
-      console.error('Login error:', error.message);
       setError('An error occurred during login');
     }
   };
@@ -206,7 +164,6 @@ export default function LandingPage() {
   const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
-    console.log(`Attempting registration with Discord ID: ${discordId}, Username: ${username}`);
 
     try {
       const response = await fetch(`/register/v1?ID=${encodeURIComponent(discordId)}&time=30d&username=${encodeURIComponent(username)}`, {
@@ -215,28 +172,26 @@ export default function LandingPage() {
         }
       });
       const data = await response.json();
-      console.log('Register response:', data);
 
       if (!response.ok || !data.success) {
-        console.error(`Registration failed: ${data.error || 'Unknown error'}`);
         setError(data.error || 'Registration failed');
         return;
       }
 
       localStorage.setItem('user', JSON.stringify({ discordId, username }));
       setIsAuthenticated(true);
+      setIsAdmin(discordId === '1272720391462457400');
     } catch (error) {
-      console.error('Registration error:', error.message);
       setError('An error occurred during registration');
     }
   };
 
   const handleSignOut = () => {
-    console.log('Signing out user');
     localStorage.removeItem('user');
     setIsAuthenticated(false);
     setUsername('');
     setDiscordId('');
+    setIsAdmin(false);
   };
 
   useEffect(() => {
@@ -377,7 +332,7 @@ export default function LandingPage() {
 
   return (
     <div className="landing-page">
-      <Topbar username={username} onSignOut={handleSignOut} />
+      <Topbar username={username} onSignOut={handleSignOut} isAdmin={isAdmin} />
       {[...Array(20)].map((_, i) => (
         <div
           key={i}
@@ -392,22 +347,13 @@ export default function LandingPage() {
         <section className="hero-section">
           <h1 className="hero-title">Welcome to Nebula</h1>
           <p className="hero-description">Your premier whitelisting service for secure and seamless access.</p>
-          <button
-            className="ripple-button hero-button"
-            onClick={(e) => {
-              const button = e.currentTarget;
-              const rect = button.getBoundingClientRect();
-              const ripple = document.createElement('span');
-              ripple.className = 'ripple';
-              ripple.style.left = `${e.clientX - rect.left}px`;
-              ripple.style.top = `${e.clientY - rect.top}px`;
-              button.appendChild(ripple);
-              setTimeout(() => ripple.remove(), 600);
-            }}
-          >
-            Get Started
-          </button>
+          <Link href="/docs">
+            <button className="ripple-button hero-button">
+              Get Started
+            </button>
+          </Link>
         </section>
+        
         <section className="features-section">
           <h2 className="features-title">Why Choose Nebula?</h2>
           <div className="features-grid">
@@ -425,18 +371,31 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
+        
         <section className="docs-section">
-          <h2 className="docs-title">Documentation</h2>
-          <p className="docs-description">Explore our comprehensive guides to get started with Nebula.</p>
+          <h2 className="docs-title">Quick Links</h2>
+          <p className="docs-description">Explore our platform and community</p>
           <div className="docs-placeholder">
-            <div className="docs-card">
-              <h3 className="docs-card-title">Getting Started</h3>
-              <p className="docs-card-description">Learn how to set up Nebula in a few simple steps.</p>
-            </div>
-            <div className="docs-card">
-              <h3 className="docs-card-title">API Reference</h3>
-              <p className="docs-card-description">Detailed documentation for integrating with our API.</p>
-            </div>
+            <Link href="/docs">
+              <div className="docs-card cursor-pointer hover:scale-105 transition-transform">
+                <h3 className="docs-card-title">API Documentation</h3>
+                <p className="docs-card-description">Detailed guides on integrating with our API.</p>
+              </div>
+            </Link>
+            <Link href="/users">
+              <div className="docs-card cursor-pointer hover:scale-105 transition-transform">
+                <h3 className="docs-card-title">User Directory</h3>
+                <p className="docs-card-description">Browse all members of the Nebula community.</p>
+              </div>
+            </Link>
+            {isAdmin && (
+              <Link href="/admin">
+                <div className="docs-card cursor-pointer hover:scale-105 transition-transform">
+                  <h3 className="docs-card-title">Admin Dashboard</h3>
+                  <p className="docs-card-description">Manage users and view system statistics.</p>
+                </div>
+              </Link>
+            )}
           </div>
         </section>
       </div>
