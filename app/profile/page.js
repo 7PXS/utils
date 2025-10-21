@@ -23,7 +23,7 @@ export default function UserProfile() {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
       setError('No user found. Please log in.');
-      window.location.href = '/';
+      setLoading(false);
       return;
     }
 
@@ -32,12 +32,15 @@ export default function UserProfile() {
       setUsername(user.username);
       setDiscordId(user.discordId);
       setIsAdmin(user.discordId === '1272720391462457400');
+      setIsAuthenticated(true); // Set authenticated immediately
 
       const response = await fetch(`/dAuth/v1?ID=${encodeURIComponent(user.discordId)}`);
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to fetch user data');
+        // Even if API fails, keep them logged in with basic info
+        setLoading(false);
+        return;
       }
 
       setHwid(data.hwid || 'Not set');
@@ -58,8 +61,6 @@ export default function UserProfile() {
         minute: 'numeric',
         hour12: true,
       }));
-      
-      setIsAuthenticated(true);
     } catch (error) {
       setError(error.message);
     } finally {
