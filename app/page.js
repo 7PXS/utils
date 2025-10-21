@@ -16,10 +16,14 @@ export default function LandingPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      setLoading(false);
-    } else {
+    checkAuth();
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
       fetchStats();
+    } else {
+      setLoading(false);
     }
   }, [isAuthenticated]);
 
@@ -41,6 +45,7 @@ export default function LandingPage() {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
       setIsAuthenticated(false);
+      setLoading(false);
       return false;
     }
 
@@ -53,6 +58,7 @@ export default function LandingPage() {
         localStorage.removeItem('user');
         setIsAuthenticated(false);
         setError(data.error || 'Authentication failed');
+        setLoading(false);
         return false;
       }
 
@@ -65,6 +71,7 @@ export default function LandingPage() {
     } catch (error) {
       setError('Error checking authentication');
       setIsAuthenticated(false);
+      setLoading(false);
       return false;
     }
   };
@@ -87,8 +94,43 @@ export default function LandingPage() {
       setIsAuthenticated(true);
       setIsAdmin(discordId === '1272720391462457400');
     } catch (error) {
+      setError('An error occurred during login');
+    }
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    try {
+      const response = await fetch(`/register/v1?ID=${encodeURIComponent(discordId)}&time=30d&username=${encodeURIComponent(username)}`, {
+        headers: {
+          'User-Agent': 'Roblox/WinInet'
+        }
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setError(data.error || 'Registration failed');
+        return;
+      }
+
+      localStorage.setItem('user', JSON.stringify({ discordId, username }));
+      setCurrentUser({ discordId, username });
+      setIsAuthenticated(true);
+      setIsAdmin(discordId === '1272720391462457400');
+    } catch (error) {
       setError('An error occurred during registration');
     }
+  };
+
+  const handleSignOut = () => {
+    localStorage.removeItem('user');
+    setIsAuthenticated(false);
+    setUsername('');
+    setDiscordId('');
+    setIsAdmin(false);
+    setCurrentUser(null);
   };
 
   if (!isAuthenticated) {
@@ -441,29 +483,3 @@ export default function LandingPage() {
     </div>
   );
 }
-    } catch (error) {
-      setError('An error occurred during login');
-    }
-  };
-
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    try {
-      const response = await fetch(`/register/v1?ID=${encodeURIComponent(discordId)}&time=30d&username=${encodeURIComponent(username)}`, {
-        headers: {
-          'User-Agent': 'Roblox/WinInet'
-        }
-      });
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        setError(data.error || 'Registration failed');
-        return;
-      }
-
-      localStorage.setItem('user', JSON.stringify({ discordId, username }));
-      setCurrentUser({ discordId, username });
-      setIsAuthenticated(true);
-      setIsAdmin(discordId === '1272720391462457400');
