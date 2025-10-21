@@ -302,6 +302,34 @@ const validateGameScript = async (gameId) => {
   }
 };
 
+// NEW: Stats endpoint handler
+const handleStats = async (request, searchParams) => {
+  try {
+    const users = await getAllUsers();
+    const now = Math.floor(Date.now() / 1000);
+    const day24hAgo = now - (24 * 60 * 60);
+    const day7Ago = now - (7 * 24 * 60 * 60);
+    
+    const stats = {
+      total: users.length,
+      active: users.filter(u => u.endTime > now).length,
+      expired: users.filter(u => u.endTime <= now).length,
+      joined24h: users.filter(u => u.createTime > day24hAgo).length,
+      joined7d: users.filter(u => u.createTime > day7Ago).length,
+      expiring7d: users.filter(u => {
+        const daysUntilExpiry = (u.endTime - now) / (24 * 60 * 60);
+        return daysUntilExpiry > 0 && daysUntilExpiry <= 7;
+      }).length,
+      withHwid: users.filter(u => u.hwid && u.hwid.length > 0).length,
+    };
+    
+    await sendWebhookLog(request, 'Stats requested', 'INFO');
+    return createResponse(true, { success: true, stats });
+  } catch (error) {
+    return createResponse(false, {}, 'Failed to fetch stats', 500);
+  }
+};
+
 // API Handlers
 const handleAuth = async (request, searchParams) => {
   const key = sanitizeInput(searchParams.get('key'));
@@ -628,6 +656,10 @@ export async function middleware(request) {
 
     if (pathname.startsWith('/auth/admin')) {
       return await handleAdminAddTime(request, searchParams);
+    }
+
+    if (pathname.startsWith('/stats/v1')) {
+      return await handleStats(request, searchParams);
     }
 
     if (pathname.startsWith('/status')) {
