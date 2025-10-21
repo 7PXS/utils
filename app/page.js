@@ -2,112 +2,40 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Home, FileText, Users as UsersIcon, Shield, Moon, Sun } from 'lucide-react';
-
-function Topbar({ username, onSignOut, isAdmin }) {
-  const [signOutModalOpen, setSignOutModalOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
-
-  const handleSignOut = () => {
-    onSignOut();
-    setSignOutModalOpen(false);
-  };
-
-  return (
-    <>
-      <nav className={`topbar sticky top-0 z-50 backdrop-blur-xl border-b ${darkMode ? 'bg-[#0a0a0f]/80 border-purple-500/10' : 'bg-white/80 border-gray-200'}`}>
-        <div className="topbar-container">
-          <div className="brand">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="12" fill="#a100ff"/>
-            </svg>
-            <div className="brand-text">
-              <div className="brand-letter">N</div>
-              <div className="brand-name">Nebula</div>
-            </div>
-          </div>
-          
-          <div className="nav-menu hidden md:flex space-x-1">
-            <div className="nav-item active">
-              <Home className="w-4 h-4" />
-              <div className="nav-text active">Home</div>
-            </div>
-            
-            <Link href="/users" legacyBehavior>
-              <a className="nav-item">
-                <UsersIcon className="w-4 h-4" />
-                <div className="nav-text">Users</div>
-              </a>
-            </Link>
-            
-            {isAdmin && (
-              <Link href="/admin" legacyBehavior>
-                <a className="nav-item">
-                  <Shield className="w-4 h-4" />
-                  <div className="nav-text">Admin</div>
-                </a>
-              </Link>
-            )}
-            
-            <Link href="/docs" legacyBehavior>
-              <a className="nav-item">
-                <FileText className="w-4 h-4" />
-                <div className="nav-text">Docs</div>
-              </a>
-            </Link>
-          </div>
-          
-          <div className="right-menu">
-            <div className="icon" onClick={() => {
-              setDarkMode(!darkMode);
-              document.body.classList.toggle('dark');
-            }}>
-              {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </div>
-            
-            <div className="icon" onClick={() => setSignOutModalOpen(true)}>
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M7.5 17.5H4.16667C3.24619 17.5 2.5 16.7538 2.5 15.8333V4.16667C2.5 3.24619 3.24619 2.5 4.16667 2.5H7.5" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M13.3333 14.1667L17.5 10L13.3333 5.83334" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M17.5 10H7.5" stroke="#CFD1D4" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-            
-            <Link href="/profile?from=dashboard">
-              <div className="icon">
-                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="20" cy="20" r="20" fill="#a100ff"/>
-                  <text x="50%" y="50%" textAnchor="middle" dy=".3em" fill="white" fontSize="20" fontFamily="'Inter', sans-serif">
-                    {username?.[0]?.toUpperCase() || 'U'}
-                  </text>
-                </svg>
-              </div>
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      {signOutModalOpen && (
-        <div className="modal">
-          <div className="modal-content">
-            <span className="close" onClick={() => setSignOutModalOpen(false)}>×</span>
-            <h2>Sign Out</h2>
-            <p>Are you sure you want to sign out?</p>
-            <button onClick={handleSignOut} className="modal-button">Confirm</button>
-            <button onClick={() => setSignOutModalOpen(false)} className="modal-button">Cancel</button>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
+import { Home, FileText, Users as UsersIcon, Shield, Moon, Sun, Key, Clock, TrendingUp, Lock, Zap, CheckCircle } from 'lucide-react';
 
 export default function LandingPage() {
+  const [darkMode, setDarkMode] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [discordId, setDiscordId] = useState('');
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [stats, setStats] = useState({ total: 0, active: 0, joined24h: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setLoading(false);
+    } else {
+      fetchStats();
+    }
+  }, [isAuthenticated]);
+
+  const fetchStats = async () => {
+    try {
+      const response = await fetch('/stats/v1');
+      const data = await response.json();
+      if (data.success) {
+        setStats(data.stats);
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const checkAuth = async () => {
     const storedUser = localStorage.getItem('user');
@@ -130,6 +58,7 @@ export default function LandingPage() {
 
       setUsername(user.username);
       setDiscordId(user.discordId);
+      setCurrentUser(user);
       setIsAdmin(user.discordId === '1272720391462457400');
       setIsAuthenticated(true);
       return true;
@@ -154,8 +83,364 @@ export default function LandingPage() {
       }
 
       localStorage.setItem('user', JSON.stringify({ discordId, username }));
+      setCurrentUser({ discordId, username });
       setIsAuthenticated(true);
       setIsAdmin(discordId === '1272720391462457400');
+    } catch (error) {
+      setError('An error occurred during registration');
+    }
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-[#0a0a0f] text-white' : 'bg-gray-50 text-gray-900'}`}>
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {[...Array(30)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-1 h-1 bg-purple-500 rounded-full opacity-30 animate-pulse"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 3}s`,
+                animationDuration: `${2 + Math.random() * 3}s`
+              }}
+            />
+          ))}
+        </div>
+
+        <div className="relative min-h-screen flex items-center justify-center p-4">
+          <div className={`max-w-5xl w-full rounded-3xl overflow-hidden shadow-2xl ${
+            darkMode ? 'bg-[#0f0f1a] border border-purple-500/20' : 'bg-white border border-gray-200'
+          }`}>
+            <div className="grid md:grid-cols-2">
+              <div className="relative p-12 bg-gradient-to-br from-purple-500 to-purple-700 text-white overflow-hidden">
+                <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10"></div>
+                <div className="relative z-10">
+                  <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-6">
+                    <Shield className="w-8 h-8" />
+                  </div>
+                  <h1 className="text-4xl font-bold mb-4">Nebula</h1>
+                  <p className="text-purple-100 text-lg mb-8">
+                    Premier whitelisting service for secure and seamless access management
+                  </p>
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                        <Lock className="w-4 h-4" />
+                      </div>
+                      <span>Secure Authentication</span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                        <Zap className="w-4 h-4" />
+                      </div>
+                      <span>Lightning Fast</span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                        <CheckCircle className="w-4 h-4" />
+                      </div>
+                      <span>24/7 Support</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-12">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h2 className="text-2xl font-bold mb-2">Welcome Back!</h2>
+                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Sign in to continue
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setDarkMode(!darkMode)}
+                    className={`p-2 rounded-xl transition-all duration-200 ${
+                      darkMode 
+                        ? 'hover:bg-purple-500/10 text-gray-400 hover:text-purple-400' 
+                        : 'hover:bg-gray-100 text-gray-600 hover:text-purple-600'
+                    }`}
+                  >
+                    {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                  </button>
+                </div>
+
+                {error && (
+                  <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500">
+                    {error}
+                  </div>
+                )}
+
+                <form className="space-y-6">
+                  <div>
+                    <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      Username
+                    </label>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className={`w-full px-4 py-3 rounded-xl border outline-none transition-all ${
+                        darkMode 
+                          ? 'bg-[#1a1a2e] border-purple-500/20 focus:border-purple-500/50 text-white' 
+                          : 'bg-white border-gray-200 focus:border-purple-500 text-gray-900'
+                      }`}
+                      placeholder="Enter your username"
+                    />
+                  </div>
+
+                  <div>
+                    <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      Discord ID
+                    </label>
+                    <input
+                      type="text"
+                      value={discordId}
+                      onChange={(e) => setDiscordId(e.target.value)}
+                      className={`w-full px-4 py-3 rounded-xl border outline-none transition-all ${
+                        darkMode 
+                          ? 'bg-[#1a1a2e] border-purple-500/20 focus:border-purple-500/50 text-white' 
+                          : 'bg-white border-gray-200 focus:border-purple-500 text-gray-900'
+                      }`}
+                      placeholder="Enter your Discord ID"
+                    />
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={handleLogin}
+                      className="flex-1 py-3 px-6 rounded-xl bg-gradient-to-r from-purple-500 to-purple-700 text-white font-medium hover:scale-105 transition-transform"
+                    >
+                      Login
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRegister}
+                      className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all ${
+                        darkMode
+                          ? 'bg-purple-500/10 text-purple-400 hover:bg-purple-500/20'
+                          : 'bg-purple-50 text-purple-600 hover:bg-purple-100'
+                      }`}
+                    >
+                      Register
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-[#0a0a0f] text-white' : 'bg-gray-50 text-gray-900'}`}>
+      <header className={`sticky top-0 z-50 backdrop-blur-xl border-b ${darkMode ? 'bg-[#0a0a0f]/80 border-purple-500/10' : 'bg-white/80 border-gray-200'}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-8">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center shadow-lg shadow-purple-500/50">
+                  <span className="text-white font-bold text-xl">N</span>
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">
+                    Nebula
+                  </h1>
+                  <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                    Whitelisting Service
+                  </p>
+                </div>
+              </div>
+
+              <nav className="hidden md:flex space-x-1">
+                <button className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors bg-purple-500/10 text-purple-400`}>
+                  <Home className="w-4 h-4" />
+                  <span>Home</span>
+                </button>
+                
+                <Link href="/users">
+                  <button className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                    darkMode ? 'hover:bg-purple-500/10 text-gray-400 hover:text-purple-400' : 'hover:bg-gray-100'
+                  }`}>
+                    <UsersIcon className="w-4 h-4" />
+                    <span>Users</span>
+                  </button>
+                </Link>
+                
+                {isAdmin && (
+                  <Link href="/admin">
+                    <button className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                      darkMode ? 'hover:bg-purple-500/10 text-gray-400 hover:text-purple-400' : 'hover:bg-gray-100'
+                    }`}>
+                      <Shield className="w-4 h-4" />
+                      <span>Admin</span>
+                    </button>
+                  </Link>
+                )}
+                
+                <Link href="/docs">
+                  <button className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                    darkMode ? 'hover:bg-purple-500/10 text-gray-400 hover:text-purple-400' : 'hover:bg-gray-100'
+                  }`}>
+                    <FileText className="w-4 h-4" />
+                    <span>Docs</span>
+                  </button>
+                </Link>
+              </nav>
+            </div>
+
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className={`p-2 rounded-xl transition-all duration-200 ${
+                  darkMode 
+                    ? 'hover:bg-purple-500/10 text-gray-400 hover:text-purple-400' 
+                    : 'hover:bg-gray-100 text-gray-600 hover:text-purple-600'
+                }`}
+              >
+                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
+
+              <Link href="/profile">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white font-semibold cursor-pointer hover:scale-110 transition-transform">
+                  {currentUser?.username?.[0]?.toUpperCase() || 'U'}
+                </div>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className={`p-6 rounded-2xl border backdrop-blur-sm ${
+            darkMode 
+              ? 'bg-gradient-to-br from-purple-500/10 to-purple-600/10 border-purple-500/20' 
+              : 'bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Users</p>
+                <p className="text-3xl font-bold mt-1">{loading ? '...' : stats.total}</p>
+              </div>
+              <div className="p-3 rounded-xl bg-purple-500/20">
+                <UsersIcon className="w-6 h-6 text-purple-400" />
+              </div>
+            </div>
+          </div>
+
+          <div className={`p-6 rounded-2xl border backdrop-blur-sm ${
+            darkMode 
+              ? 'bg-gradient-to-br from-green-500/10 to-green-600/10 border-green-500/20' 
+              : 'bg-gradient-to-br from-green-50 to-green-100 border-green-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Active Keys</p>
+                <p className="text-3xl font-bold mt-1">{loading ? '...' : stats.active}</p>
+              </div>
+              <div className="p-3 rounded-xl bg-green-500/20">
+                <Key className="w-6 h-6 text-green-400" />
+              </div>
+            </div>
+          </div>
+
+          <div className={`p-6 rounded-2xl border backdrop-blur-sm ${
+            darkMode 
+              ? 'bg-gradient-to-br from-blue-500/10 to-blue-600/10 border-blue-500/20' 
+              : 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>New (24h)</p>
+                <p className="text-3xl font-bold mt-1">{loading ? '...' : stats.joined24h}</p>
+              </div>
+              <div className="p-3 rounded-xl bg-blue-500/20">
+                <Clock className="w-6 h-6 text-blue-400" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className={`rounded-2xl border overflow-hidden mb-8 ${
+          darkMode ? 'bg-[#0f0f1a] border-purple-500/20' : 'bg-white border-gray-200'
+        }`}>
+          <div className="p-8 text-center">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center mx-auto mb-6 shadow-lg shadow-purple-500/50">
+              <Shield className="w-10 h-10 text-white" />
+            </div>
+            <h2 className="text-3xl font-bold mb-4">Welcome to Nebula</h2>
+            <p className={`text-lg mb-8 max-w-2xl mx-auto ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              Your premier whitelisting service for secure and seamless access management. Get started by exploring our features below.
+            </p>
+            <Link href="/docs">
+              <button className="px-8 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-purple-700 text-white font-medium hover:scale-105 transition-transform shadow-lg shadow-purple-500/50">
+                View Documentation
+              </button>
+            </Link>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Link href="/users">
+            <div className={`p-6 rounded-2xl border backdrop-blur-sm cursor-pointer hover:scale-105 transition-all ${
+              darkMode 
+                ? 'bg-[#0f0f1a] border-purple-500/20 hover:border-purple-500/40 hover:shadow-lg hover:shadow-purple-500/20' 
+                : 'bg-white border-gray-200 hover:border-purple-300 hover:shadow-lg'
+            }`}>
+              <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center mb-4">
+                <UsersIcon className="w-6 h-6 text-purple-400" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">User Directory</h3>
+              <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+                Browse all members of the Nebula community
+              </p>
+            </div>
+          </Link>
+
+          <Link href="/docs">
+            <div className={`p-6 rounded-2xl border backdrop-blur-sm cursor-pointer hover:scale-105 transition-all ${
+              darkMode 
+                ? 'bg-[#0f0f1a] border-purple-500/20 hover:border-purple-500/40 hover:shadow-lg hover:shadow-purple-500/20' 
+                : 'bg-white border-gray-200 hover:border-purple-300 hover:shadow-lg'
+            }`}>
+              <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center mb-4">
+                <FileText className="w-6 h-6 text-blue-400" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">API Documentation</h3>
+              <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+                Detailed guides on integrating with our API
+              </p>
+            </div>
+          </Link>
+
+          {isAdmin && (
+            <Link href="/admin">
+              <div className={`p-6 rounded-2xl border backdrop-blur-sm cursor-pointer hover:scale-105 transition-all ${
+                darkMode 
+                  ? 'bg-[#0f0f1a] border-purple-500/20 hover:border-purple-500/40 hover:shadow-lg hover:shadow-purple-500/20' 
+                  : 'bg-white border-gray-200 hover:border-purple-300 hover:shadow-lg'
+              }`}>
+                <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center mb-4">
+                  <Shield className="w-6 h-6 text-green-400" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">Admin Dashboard</h3>
+                <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+                  Manage users and view system statistics
+                </p>
+              </div>
+            </Link>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
     } catch (error) {
       setError('An error occurred during login');
     }
@@ -179,226 +464,6 @@ export default function LandingPage() {
       }
 
       localStorage.setItem('user', JSON.stringify({ discordId, username }));
+      setCurrentUser({ discordId, username });
       setIsAuthenticated(true);
       setIsAdmin(discordId === '1272720391462457400');
-    } catch (error) {
-      setError('An error occurred during registration');
-    }
-  };
-
-  const handleSignOut = () => {
-    localStorage.removeItem('user');
-    setIsAuthenticated(false);
-    setUsername('');
-    setDiscordId('');
-    setIsAdmin(false);
-  };
-
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  if (!isAuthenticated) {
-    return (
-      <div className="login-page">
-        {[...Array(20)].map((_, i) => (
-          <div
-            key={i}
-            className="particle"
-            style={{
-              left: `${Math.random() * 100}vw`,
-              animationDelay: `${Math.random() * 5}s`,
-            }}
-          />
-        ))}
-        <div className="login-container">
-          <div className="login-left">
-            <div className="glow-circle glow-circle-1"></div>
-            <div className="glow-circle glow-circle-2"></div>
-            <div className="login-left-content">
-              <h1 className="login-title">Nebula</h1>
-              <p className="login-description">Premier whitelisting service for secure access</p>
-              <a
-                href="#"
-                className="ripple-button login-read-more"
-                onClick={(e) => {
-                  const button = e.currentTarget;
-                  const rect = button.getBoundingClientRect();
-                  const ripple = document.createElement('span');
-                  ripple.className = 'ripple';
-                  ripple.style.left = `${e.clientX - rect.left}px`;
-                  ripple.style.top = `${e.clientY - rect.top}px`;
-                  button.appendChild(ripple);
-                  setTimeout(() => ripple.remove(), 600);
-                }}
-              >
-                Read More
-              </a>
-            </div>
-          </div>
-          <div className="login-right">
-            <h2 className="login-subtitle">Hello Again!</h2>
-            <p className="login-welcome">Welcome Back</p>
-            {error && (
-              <p className="login-error">{error}</p>
-            )}
-            <div className="input-group">
-              <input
-                type="text"
-                id="username"
-                className="input-field"
-                placeholder=" "
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
-              <div className="input-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <g opacity="0.7">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M5.121 17.804A7 7 0 1112 5a7 7 0 016.879 5.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm-3 7a3 3 0 00-3 3h6a3 3 0 00-3-3z"
-                      stroke="#e0e0e0"
-                    />
-                  </g>
-                </svg>
-              </div>
-              <label htmlFor="username" className="input-label">Username</label>
-            </div>
-            <div className="input-group">
-              <input
-                type="text"
-                id="discordId"
-                className="input-field"
-                placeholder=" "
-                value={discordId}
-                onChange={(e) => setDiscordId(e.target.value)}
-              />
-              <div className="input-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <g opacity="0.7">
-                    <path
-                      d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.045-.319 13.579.193 18.07a.082.082 0 00.031.056 19.874 19.874 0 005.992 3.03.077.077 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.009-.128 10.51 10.51 0 00.372-.292.074.074 0 01.077-.01c3.927 1.793 8.18 1.793 12.061 0a.074.074 0 01.078.01c.12.098.246.198.372.292a.077.077 0 01-.01.129 13.114 13.114 0 01-1.873.892.076.076 0 00-.04.106c.36.698.771 1.362 1.225 1.993a.076.076 0 00.084.028 19.846 19.846 0 006.003-3.03.077.077 0 00.032-.054c.5-4.499-.838-9.14-3.118-13.701a.07.07 0 00-.032-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"
-                      fill="#e0e0e0"
-                    />
-                  </g>
-                </svg>
-              </div>
-              <label htmlFor="discordId" className="input-label">Discord ID</label>
-            </div>
-            <div className="login-button-group">
-              <button
-                className="ripple-button login-button"
-                onClick={(e) => {
-                  handleLogin(e);
-                  const button = e.currentTarget;
-                  const rect = button.getBoundingClientRect();
-                  const ripple = document.createElement('span');
-                  ripple.className = 'ripple';
-                  ripple.style.left = `${e.clientX - rect.left}px`;
-                  ripple.style.top = `${e.clientY - rect.top}px`;
-                  button.appendChild(ripple);
-                  setTimeout(() => ripple.remove(), 600);
-                }}
-              >
-                Login
-              </button>
-              <button
-                className="ripple-button login-button"
-                onClick={(e) => {
-                  handleRegister(e);
-                  const button = e.currentTarget;
-                  const rect = button.getBoundingClientRect();
-                  const ripple = document.createElement('span');
-                  ripple.className = 'ripple';
-                  ripple.style.left = `${e.clientX - rect.left}px`;
-                  ripple.style.top = `${e.clientY - rect.top}px`;
-                  button.appendChild(ripple);
-                  setTimeout(() => ripple.remove(), 600);
-                }}
-              >
-                Register
-              </button>
-            </div>
-            <a href="#" className="login-forgot-password">
-              Forgot Password
-            </a>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="landing-page">
-      <Topbar username={username} onSignOut={handleSignOut} isAdmin={isAdmin} />
-      {[...Array(20)].map((_, i) => (
-        <div
-          key={i}
-          className="particle"
-          style={{
-            left: `${Math.random() * 100}vw`,
-            animationDelay: `${Math.random() * 5}s`,
-          }}
-        />
-      ))}
-      <div className="landing-container">
-        <section className="hero-section">
-          <h1 className="hero-title">Welcome to Nebula</h1>
-          <p className="hero-description">Your premier whitelisting service for secure and seamless access.</p>
-          <Link href="/docs">
-            <button className="ripple-button hero-button">
-              Get Started
-            </button>
-          </Link>
-        </section>
-        
-        <section className="features-section">
-          <h2 className="features-title">Why Choose Nebula?</h2>
-          <div className="features-grid">
-            <div className="feature-card">
-              <h3 className="feature-card-title">Secure Whitelisting</h3>
-              <p className="feature-card-description">Robust authentication to ensure only authorized users gain access.</p>
-            </div>
-            <div className="feature-card">
-              <h3 className="feature-card-title">Easy Integration</h3>
-              <p className="feature-card-description">Seamlessly integrate Nebula with your existing systems.</p>
-            </div>
-            <div className="feature-card">
-              <h3 className="feature-card-title">24/7 Support</h3>
-              <p className="feature-card-description">Our team is always here to assist you, day or night.</p>
-            </div>
-          </div>
-        </section>
-        
-        <section className="docs-section">
-          <h2 className="docs-title">Quick Links</h2>
-          <p className="docs-description">Explore our platform and community</p>
-          <div className="docs-placeholder">
-            <Link href="/docs">
-              <div className="docs-card cursor-pointer hover:scale-105 transition-transform">
-                <h3 className="docs-card-title">API Documentation</h3>
-                <p className="docs-card-description">Detailed guides on integrating with our API.</p>
-              </div>
-            </Link>
-            <Link href="/users">
-              <div className="docs-card cursor-pointer hover:scale-105 transition-transform">
-                <h3 className="docs-card-title">User Directory</h3>
-                <p className="docs-card-description">Browse all members of the Nebula community.</p>
-              </div>
-            </Link>
-            {isAdmin && (
-              <Link href="/admin">
-                <div className="docs-card cursor-pointer hover:scale-105 transition-transform">
-                  <h3 className="docs-card-title">Admin Dashboard</h3>
-                  <p className="docs-card-description">Manage users and view system statistics.</p>
-                </div>
-              </Link>
-            )}
-          </div>
-        </section>
-      </div>
-    </div>
-  );
-}
