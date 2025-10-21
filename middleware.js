@@ -387,17 +387,17 @@ const handleRegister = async (request, searchParams) => {
   }
 
   if (username.length < 3 || username.length > 20 || !/^[a-zA-Z0-9_]+$/.test(username)) {
-    return createResponse(false, {}, 'Invalid username format', 400);
+    return createResponse(false, {}, 'Invalid username format. Must be 3-20 characters, alphanumeric and underscores only.', 400);
   }
 
   const durationSeconds = parseTimeToSeconds(duration);
   if (!durationSeconds) {
-    return createResponse(false, {}, 'Invalid duration format', 400);
+    return createResponse(false, {}, 'Invalid duration format. Use format like: 30d, 1mo, 1yr', 400);
   }
 
   const existingUser = await getUserByDiscordId(discordId);
   if (existingUser) {
-    return createResponse(false, {}, 'User already registered', 400);
+    return createResponse(false, {}, 'User already registered with this Discord ID', 400);
   }
 
   const users = await getAllUsers();
@@ -415,10 +415,16 @@ const handleRegister = async (request, searchParams) => {
   };
 
   if (await saveUser(newUser)) {
-    await sendWebhookLog(request, `New user registered: ${username}`, 'SUCCESS');
-    return createResponse(true, newUser);
+    await sendWebhookLog(request, `New user registered: ${username} (${discordId})`, 'SUCCESS', { username, discordId });
+    return createResponse(true, {
+      key: newUser.key,
+      username: newUser.username,
+      discordId: newUser.discordId,
+      createTime: newUser.createTime,
+      endTime: newUser.endTime
+    });
   } else {
-    return createResponse(false, {}, 'Registration failed', 500);
+    return createResponse(false, {}, 'Registration failed - database error', 500);
   }
 };
 
@@ -430,21 +436,49 @@ const handleLogin = async (request, searchParams) => {
     return createResponse(false, {}, 'Missing Discord ID', 400);
   }
 
+  if (!username) {
+    return createResponse(false, {}, 'Missing username', 400);
+  }
+
   const userData = await getUserByDiscordId(discordId);
+  
+  // If user doesn't exist, allow login but mark as needing registration
   if (!userData) {
-    return createResponse(false, {}, 'User not found', 404);
+    await sendWebhookLog(request, `Login attempt for unregistered user: ${username} (${discordId})`, 'INFO');
+    return createResponse(true, {
+      success: true,
+      message: 'Login successful',
+      discordId,
+      username,
+      needsRegistration: true,
+      createTime: Math.floor(Date.now() / 1000),
+      endTime: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60) // 30 days default
+    });
   }
 
-  if (username && userData.username !== username) {
-    return createResponse(false, {}, 'Username mismatch', 401);
-  }
-
+  // Check if subscription is expired
   if (userData.endTime < Math.floor(Date.now() / 1000)) {
-    return createResponse(false, {}, 'Subscription expired', 401);
+    await sendWebhookLog(request, `Login failed - expired subscription: ${userData.username}`, 'WARN');
+    return createResponse(false, {}, 'Subscription expired. Please contact support to renew.', 401);
   }
 
-  await sendWebhookLog(request, `User login: ${userData.username}`, 'SUCCESS');
-  return createResponse(true, userData);
+  // Update username if provided and different
+  if (username && userData.username !== username) {
+    userData.username = username;
+    await saveUser(userData);
+    await sendWebhookLog(request, `Username updated: ${discordId} -> ${username}`, 'INFO');
+  }
+
+  await sendWebhookLog(request, `Successful login: ${userData.username}`, 'SUCCESS');
+  return createResponse(true, {
+    success: true,
+    key: userData.key,
+    username: userData.username,
+    discordId: userData.discordId,
+    hwid: userData.hwid,
+    createTime: userData.createTime,
+    endTime: userData.endTime
+  });
 };
 
 const handleResetHwid = async (request, searchParams) => {
@@ -461,7 +495,7 @@ const handleResetHwid = async (request, searchParams) => {
   }
 
   const resetData = await getResetData(discordId);
-  if (resetData.count >= 3) {
+  if (resetData.count >= 3 && discordId !== envConfig.ADMIN_ID) {
     return createResponse(false, {}, 'Daily reset limit reached (3/day)', 429);
   }
 
@@ -473,12 +507,74 @@ const handleResetHwid = async (request, searchParams) => {
 
     await sendWebhookLog(request, `HWID reset for user: ${userData.username}`, 'SUCCESS');
     return createResponse(true, { 
+      success: true,
       message: 'HWID reset successful',
       resetsUsed: resetData.count,
-      resetsRemaining: 3 - resetData.count
+      resetsRemaining: discordId === envConfig.ADMIN_ID ? 'unlimited' : 3 - resetData.count
     });
   } else {
     return createResponse(false, {}, 'Reset failed - database error', 500);
+  }
+};
+
+const handleUsersV1 = async (request, searchParams) => {
+  const authHeader = request.headers.get('authorization');
+  
+  if (authHeader !== 'UserMode-2d93n2002n8') {
+    return createResponse(false, {}, 'Unauthorized', 401);
+  }
+
+  try {
+    const users = await getAllUsers();
+    const userIds = users.map(user => user.discordId);
+    
+    await sendWebhookLog(request, `Users list requested - ${users.length} users`, 'INFO');
+    return createResponse(true, {
+      success: true,
+      users: userIds,
+      count: userIds.length
+    });
+  } catch (error) {
+    return createResponse(false, {}, 'Failed to fetch users', 500);
+  }
+};
+
+const handleAdminAddTime = async (request, searchParams) => {
+  const authHeader = request.headers.get('authorization');
+  
+  if (authHeader !== 'UserMode-2d93n2002n8') {
+    return createResponse(false, {}, 'Unauthorized - Admin access required', 401);
+  }
+
+  const userId = sanitizeInput(searchParams.get('user'));
+  const timeToAdd = sanitizeInput(searchParams.get('time'));
+
+  if (!userId || !timeToAdd) {
+    return createResponse(false, {}, 'Missing user ID or time parameter', 400);
+  }
+
+  const userData = await getUserByDiscordId(userId);
+  if (!userData) {
+    return createResponse(false, {}, 'User not found', 404);
+  }
+
+  const additionalSeconds = parseTimeToSeconds(timeToAdd);
+  if (!additionalSeconds) {
+    return createResponse(false, {}, 'Invalid time format', 400);
+  }
+
+  userData.endTime += additionalSeconds;
+  
+  if (await saveUser(userData)) {
+    await sendWebhookLog(request, `Admin added ${timeToAdd} to user: ${userData.username}`, 'SUCCESS');
+    return createResponse(true, {
+      success: true,
+      message: 'Time added successfully',
+      newEndTime: userData.endTime,
+      username: userData.username
+    });
+  } else {
+    return createResponse(false, {}, 'Failed to update user', 500);
   }
 };
 
@@ -493,6 +589,10 @@ export async function middleware(request) {
     pathname.startsWith('/favicon') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/__next') ||
+    pathname.startsWith('/profile') ||
+    pathname.startsWith('/users') ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/docs') ||
     pathname.match(/\.(png|ico|jpg|jpeg|svg|css|js|woff|woff2|ttf|eot|otf)$/)
   ) {
     return NextResponse.next();
@@ -501,7 +601,7 @@ export async function middleware(request) {
   // Rate limiting
   if (isRateLimited(clientIP)) {
     await sendWebhookLog(request, `Rate limit exceeded for IP: ${clientIP}`, 'WARN');
-    return createResponse(false, {}, 'Rate limit exceeded', 429);
+    return createResponse(false, {}, 'Rate limit exceeded. Please try again later.', 429);
   }
 
   try {
@@ -522,15 +622,28 @@ export async function middleware(request) {
       return await handleResetHwid(request, searchParams);
     }
 
+    if (pathname.startsWith('/users/v1')) {
+      return await handleUsersV1(request, searchParams);
+    }
+
+    if (pathname.startsWith('/auth/admin')) {
+      return await handleAdminAddTime(request, searchParams);
+    }
+
     if (pathname.startsWith('/status')) {
-      return createResponse(true, { status: 'API is running' });
+      return createResponse(true, { 
+        success: true,
+        status: 'API is running',
+        message: 'Nebula API operational',
+        timestamp: new Date().toISOString()
+      });
     }
 
     await sendWebhookLog(request, `Unknown route accessed: ${pathname}`, 'WARN');
     return createResponse(false, {}, 'Route not found', 404);
 
   } catch (error) {
-    await sendWebhookLog(request, `Middleware error: ${error.message}`, 'ERROR');
+    await sendWebhookLog(request, `Middleware error: ${error.message}`, 'ERROR', { error: error.message, stack: error.stack });
     return createResponse(false, {}, 'Internal server error', 500);
   }
 }
