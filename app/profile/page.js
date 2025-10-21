@@ -18,12 +18,14 @@ export default function UserProfile() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [resetData, setResetData] = useState({ resetsUsed: 0, resetsRemaining: 3 });
+  const [endTimeUnix, setEndTimeUnix] = useState(0);
 
   const fetchUserData = async () => {
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
       setError('No user found. Please log in.');
       setLoading(false);
+      window.location.href = '/';
       return;
     }
 
@@ -32,20 +34,28 @@ export default function UserProfile() {
       setUsername(user.username);
       setDiscordId(user.discordId);
       setIsAdmin(user.discordId === '1272720391462457400');
-      setIsAuthenticated(true); // Set authenticated immediately
+      setIsAuthenticated(true);
 
+      // Fetch user data from dAuth endpoint
       const response = await fetch(`/dAuth/v1?ID=${encodeURIComponent(user.discordId)}`);
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        // Even if API fails, keep them logged in with basic info
+        setError('Failed to load user data. Some information may be unavailable.');
         setLoading(false);
         return;
       }
 
+      // Set all user data
       setHwid(data.hwid || 'Not set');
       setKey(data.key || 'Not set');
-      setJoinDate(new Date(data.createTime * 1000).toLocaleString('en-US', {
+      setEndTimeUnix(data.endTime);
+      
+      // Format dates
+      const createDate = new Date(data.createTime * 1000);
+      const expireDate = new Date(data.endTime * 1000);
+      
+      setJoinDate(createDate.toLocaleString('en-US', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
@@ -53,7 +63,8 @@ export default function UserProfile() {
         minute: 'numeric',
         hour12: true,
       }));
-      setEndDate(new Date(data.endTime * 1000).toLocaleString('en-US', {
+      
+      setEndDate(expireDate.toLocaleString('en-US', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
@@ -61,8 +72,9 @@ export default function UserProfile() {
         minute: 'numeric',
         hour12: true,
       }));
+
     } catch (error) {
-      setError(error.message);
+      setError('Error loading user data: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -80,7 +92,7 @@ export default function UserProfile() {
     try {
       const response = await fetch('/reset-hwid/v1', {
         headers: {
-          Authorization: `Bearer ${discordId}`,
+          'Authorization': `Bearer ${discordId}`,
         },
       });
       const data = await response.json();
@@ -91,10 +103,15 @@ export default function UserProfile() {
 
       setHwid('Not set');
       setSuccess('HWID reset successfully!');
+      
+      // Update reset data
       setResetData({
         resetsUsed: data.resetsUsed || 0,
-        resetsRemaining: data.resetsRemaining || 3
+        resetsRemaining: data.resetsRemaining === 'unlimited' ? 'unlimited' : data.resetsRemaining || 3
       });
+      
+      // Refresh user data to get updated HWID
+      fetchUserData();
       
       setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
@@ -109,11 +126,19 @@ export default function UserProfile() {
   };
 
   const getDaysRemaining = () => {
-    if (!endDate) return 0;
-    const end = new Date(endDate);
-    const now = new Date();
-    const days = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
+    if (!endTimeUnix) return 0;
+    const now = Math.floor(Date.now() / 1000);
+    const secondsRemaining = endTimeUnix - now;
+    const days = Math.ceil(secondsRemaining / (24 * 60 * 60));
     return days > 0 ? days : 0;
+  };
+
+  const getExpiryStatus = () => {
+    const days = getDaysRemaining();
+    if (days <= 0) return { color: 'red', text: 'Expired' };
+    if (days <= 3) return { color: 'red', text: 'Critical' };
+    if (days <= 7) return { color: 'yellow', text: 'Warning' };
+    return { color: 'green', text: 'Active' };
   };
 
   useEffect(() => {
@@ -123,7 +148,10 @@ export default function UserProfile() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading profile...</p>
+        </div>
       </div>
     );
   }
@@ -146,6 +174,8 @@ export default function UserProfile() {
       </div>
     );
   }
+
+  const expiryStatus = getExpiryStatus();
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-[#0a0a0f] text-white' : 'bg-gray-50 text-gray-900'}`}>
@@ -227,14 +257,16 @@ export default function UserProfile() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error && (
-          <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500">
-            {error}
+          <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 flex items-start space-x-3">
+            <UserIcon className="w-5 h-5 mt-0.5" />
+            <span>{error}</span>
           </div>
         )}
 
         {success && (
-          <div className="mb-6 p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-green-500">
-            {success}
+          <div className="mb-6 p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-green-500 flex items-start space-x-3">
+            <RefreshCw className="w-5 h-5 mt-0.5" />
+            <span>{success}</span>
           </div>
         )}
 
@@ -264,8 +296,8 @@ export default function UserProfile() {
                   </div>
                   <h3 className="font-semibold">Access Key</h3>
                 </div>
-                <code className={`text-sm ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>
-                  {key?.substring(0, 20)}...
+                <code className={`text-sm break-all ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>
+                  {key !== 'Not set' ? `${key.substring(0, 8)}...${key.substring(key.length - 4)}` : 'Not set'}
                 </code>
               </div>
 
@@ -279,7 +311,7 @@ export default function UserProfile() {
                   <h3 className="font-semibold">HWID</h3>
                 </div>
                 <p className={`text-sm ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
-                  {hwid === 'Not set' ? 'Not set' : `${hwid?.substring(0, 20)}...`}
+                  {hwid === 'Not set' ? 'Not set' : `${hwid.substring(0, 12)}...`}
                 </p>
               </div>
 
@@ -293,37 +325,53 @@ export default function UserProfile() {
                   <h3 className="font-semibold">Joined</h3>
                 </div>
                 <p className={`text-sm ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
-                  {joinDate}
+                  {joinDate || 'Unknown'}
                 </p>
               </div>
 
               <div className={`p-4 rounded-xl border ${
-                getDaysRemaining() <= 7 
+                expiryStatus.color === 'red'
                   ? darkMode ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-200'
-                  : darkMode ? 'bg-yellow-500/5 border-yellow-500/20' : 'bg-yellow-50 border-yellow-200'
+                  : expiryStatus.color === 'yellow'
+                  ? darkMode ? 'bg-yellow-500/5 border-yellow-500/20' : 'bg-yellow-50 border-yellow-200'
+                  : darkMode ? 'bg-green-500/5 border-green-500/20' : 'bg-green-50 border-green-200'
               }`}>
                 <div className="flex items-center space-x-3 mb-2">
                   <div className={`p-2 rounded-lg ${
-                    getDaysRemaining() <= 7 ? 'bg-red-500/20' : 'bg-yellow-500/20'
+                    expiryStatus.color === 'red' ? 'bg-red-500/20' :
+                    expiryStatus.color === 'yellow' ? 'bg-yellow-500/20' : 'bg-green-500/20'
                   }`}>
                     <Clock className={`w-5 h-5 ${
-                      getDaysRemaining() <= 7 ? 'text-red-400' : 'text-yellow-400'
+                      expiryStatus.color === 'red' ? 'text-red-400' :
+                      expiryStatus.color === 'yellow' ? 'text-yellow-400' : 'text-green-400'
                     }`} />
                   </div>
                   <h3 className="font-semibold">Expires</h3>
                 </div>
                 <p className={`text-sm ${
-                  getDaysRemaining() <= 7 
+                  expiryStatus.color === 'red'
                     ? darkMode ? 'text-red-400' : 'text-red-600'
-                    : darkMode ? 'text-yellow-400' : 'text-yellow-600'
+                    : expiryStatus.color === 'yellow'
+                    ? darkMode ? 'text-yellow-400' : 'text-yellow-600'
+                    : darkMode ? 'text-green-400' : 'text-green-600'
                 }`}>
-                  {endDate}
+                  {endDate || 'Unknown'}
                 </p>
-                <p className={`text-xs mt-1 ${
-                  getDaysRemaining() <= 7 ? 'text-red-500' : 'text-yellow-500'
-                }`}>
-                  {getDaysRemaining()} days remaining
-                </p>
+                <div className="flex items-center justify-between mt-2">
+                  <span className={`text-xs ${
+                    expiryStatus.color === 'red' ? 'text-red-500' :
+                    expiryStatus.color === 'yellow' ? 'text-yellow-500' : 'text-green-500'
+                  }`}>
+                    {getDaysRemaining()} days remaining
+                  </span>
+                  <span className={`text-xs px-2 py-1 rounded-full ${
+                    expiryStatus.color === 'red' ? 'bg-red-500/20 text-red-400' :
+                    expiryStatus.color === 'yellow' ? 'bg-yellow-500/20 text-yellow-400' :
+                    'bg-green-500/20 text-green-400'
+                  }`}>
+                    {expiryStatus.text}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -342,7 +390,7 @@ export default function UserProfile() {
                 <span>Reset HWID</span>
               </button>
 
-              {!isAdmin && (
+              {!isAdmin && resetData.resetsRemaining !== 'unlimited' && (
                 <div className={`p-4 rounded-xl border ${
                   darkMode ? 'bg-purple-500/5 border-purple-500/20' : 'bg-purple-50 border-purple-200'
                 }`}>
@@ -358,7 +406,7 @@ export default function UserProfile() {
                 </div>
               )}
 
-              {isAdmin && (
+              {(isAdmin || resetData.resetsRemaining === 'unlimited') && (
                 <div className={`p-4 rounded-xl border ${
                   darkMode ? 'bg-green-500/5 border-green-500/20' : 'bg-green-50 border-green-200'
                 }`}>
@@ -420,7 +468,7 @@ export default function UserProfile() {
               <ul className={`space-y-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 <li className="flex items-start space-x-2">
                   <span className="text-blue-400 mt-1">•</span>
-                  <span>Your subscription expires on {endDate}</span>
+                  <span>Your subscription expires on {endDate || 'Unknown'}</span>
                 </li>
                 <li className="flex items-start space-x-2">
                   <span className="text-blue-400 mt-1">•</span>
