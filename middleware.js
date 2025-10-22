@@ -110,11 +110,11 @@ const sendWebhookLog = async (request, message, level = 'INFO', responseData = {
   }
 };
 
-// Database operations
+// Database operations - FIXED PATHS TO USE "Users" instead of "users"
 const getUserByKey = async (key) => {
   try {
     const { blobs } = await list({ 
-      prefix: `users/`, 
+      prefix: `Users/`, 
       token: envConfig.BLOB_READ_WRITE_TOKEN 
     });
     
@@ -141,7 +141,7 @@ const getUserByKey = async (key) => {
 const getUserByDiscordId = async (discordId) => {
   try {
     const { blobs } = await list({ 
-      prefix: `users/${discordId}`, 
+      prefix: `Users/${discordId}`, 
       token: envConfig.BLOB_READ_WRITE_TOKEN 
     });
     
@@ -161,7 +161,7 @@ const getUserByDiscordId = async (discordId) => {
 const getUserByHwid = async (hwid) => {
   try {
     const { blobs } = await list({ 
-      prefix: `users/`, 
+      prefix: `Users/`, 
       token: envConfig.BLOB_READ_WRITE_TOKEN 
     });
     
@@ -188,7 +188,7 @@ const getUserByHwid = async (hwid) => {
 const getAllUsers = async () => {
   try {
     const { blobs } = await list({ 
-      prefix: `users/`, 
+      prefix: `Users/`, 
       token: envConfig.BLOB_READ_WRITE_TOKEN 
     });
     
@@ -213,7 +213,7 @@ const getAllUsers = async () => {
 
 const saveUser = async (userData) => {
   try {
-    const blobPath = `users/${userData.discordId}.json`;
+    const blobPath = `Users/${userData.discordId}.json`;
     await put(blobPath, JSON.stringify(userData), {
       access: 'public',
       token: envConfig.BLOB_READ_WRITE_TOKEN,
@@ -229,7 +229,7 @@ const saveUser = async (userData) => {
 const deleteUser = async (discordId) => {
   try {
     const { blobs } = await list({ 
-      prefix: `users/${discordId}`, 
+      prefix: `Users/${discordId}`, 
       token: envConfig.BLOB_READ_WRITE_TOKEN 
     });
     
@@ -399,6 +399,9 @@ const handleAuth = async (request, searchParams) => {
       key: userData.key,
       username: userData.username,
       discordId: userData.discordId,
+      hwid: userData.hwid || '',
+      createTime: userData.createTime,
+      endTime: userData.endTime,
       profilePicture: userData.profilePicture || ''
     });
   }
@@ -691,7 +694,7 @@ export async function middleware(request) {
     pathname.startsWith('/_next') ||
     pathname.startsWith('/__next') ||
     pathname.startsWith('/profile') ||
-    pathname.startsWith('/Users') ||
+    pathname.startsWith('/users') ||
     pathname.startsWith('/admin') ||
     pathname.startsWith('/docs') ||
     pathname.match(/\.(png|ico|jpg|jpeg|svg|css|js|woff|woff2|ttf|eot|otf)$/)
