@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { put, list, del } from '@vercel/blob';
 import { get } from '@vercel/edge-config';
 
-// Environment variables - NEVER hardcode sensitive data
+// Environment variables
 const envConfig = {
   BLOB_READ_WRITE_TOKEN: process.env.VERCEL_BLOB_RW_TOKEN,
   WEBHOOK_URL: process.env.DISCORD_WEBHOOK_URL,
@@ -141,24 +141,17 @@ const getUserByKey = async (key) => {
 const getUserByDiscordId = async (discordId) => {
   try {
     const { blobs } = await list({ 
-      prefix: `users/`, 
+      prefix: `users/${discordId}`, 
       token: envConfig.BLOB_READ_WRITE_TOKEN 
     });
     
-    for (const blob of blobs) {
-      try {
-        const response = await fetch(blob.url);
-        if (!response.ok) continue;
-        const userData = await response.json();
-        if (userData.discordId === discordId) {
-          return userData;
-        }
-      } catch (error) {
-        console.warn(`Failed to fetch blob ${blob.pathname}: ${error.message}`);
-        continue;
-      }
+    if (blobs.length === 0) {
+      return null;
     }
-    return null;
+    
+    const response = await fetch(blobs[0].url);
+    if (!response.ok) return null;
+    return await response.json();
   } catch (error) {
     console.error(`Error in getUserByDiscordId: ${error.message}`);
     return null;
@@ -235,17 +228,15 @@ const saveUser = async (userData) => {
 
 const deleteUser = async (discordId) => {
   try {
-    const blobPath = `users/${discordId}.json`;
     const { blobs } = await list({ 
-      prefix: blobPath, 
+      prefix: `users/${discordId}`, 
       token: envConfig.BLOB_READ_WRITE_TOKEN 
     });
     
-    if (blobs.length > 0) {
-      await del(blobs[0].url, { token: envConfig.BLOB_READ_WRITE_TOKEN });
-      return true;
+    for (const blob of blobs) {
+      await del(blob.url, { token: envConfig.BLOB_READ_WRITE_TOKEN });
     }
-    return false;
+    return true;
   } catch (error) {
     console.error(`Error deleting user: ${error.message}`);
     return false;
@@ -302,7 +293,7 @@ const validateGameScript = async (gameId) => {
   }
 };
 
-// NEW: Stats endpoint handler
+// Stats endpoint handler
 const handleStats = async (request, searchParams) => {
   try {
     const users = await getAllUsers();
@@ -354,6 +345,7 @@ const handleAuth = async (request, searchParams) => {
       discordId: userData.discordId,
       hwid: userData.hwid,
       endTime: userData.endTime,
+      createTime: userData.createTime,
       gameValid
     });
   }
@@ -480,7 +472,7 @@ const handleLogin = async (request, searchParams) => {
       username,
       needsRegistration: true,
       createTime: Math.floor(Date.now() / 1000),
-      endTime: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60) // 30 days default
+      endTime: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60)
     });
   }
 
@@ -606,6 +598,45 @@ const handleAdminAddTime = async (request, searchParams) => {
   }
 };
 
+const handleManageUsers = async (request) => {
+  const authHeader = request.headers.get('authorization');
+  
+  if (authHeader !== 'UserMode-2d93n2002n8') {
+    return createResponse(false, {}, 'Unauthorized - Admin access required', 401);
+  }
+
+  if (request.method === 'DELETE') {
+    try {
+      const body = await request.json();
+      const discordId = body.discordId;
+
+      if (!discordId) {
+        return createResponse(false, {}, 'Missing Discord ID', 400);
+      }
+
+      const userData = await getUserByDiscordId(discordId);
+      if (!userData) {
+        return createResponse(false, {}, 'User not found', 404);
+      }
+
+      if (await deleteUser(discordId)) {
+        await sendWebhookLog(request, `Admin deleted user: ${userData.username} (${discordId})`, 'SUCCESS');
+        return createResponse(true, {
+          success: true,
+          message: 'User deleted successfully',
+          username: userData.username
+        });
+      } else {
+        return createResponse(false, {}, 'Failed to delete user', 500);
+      }
+    } catch (error) {
+      return createResponse(false, {}, 'Invalid request body', 400);
+    }
+  }
+
+  return createResponse(false, {}, 'Method not allowed', 405);
+};
+
 // Main middleware function
 export async function middleware(request) {
   const { pathname, searchParams } = request.nextUrl;
@@ -656,6 +687,10 @@ export async function middleware(request) {
 
     if (pathname.startsWith('/auth/admin')) {
       return await handleAdminAddTime(request, searchParams);
+    }
+
+    if (pathname.startsWith('/manage/v1')) {
+      return await handleManageUsers(request);
     }
 
     if (pathname.startsWith('/stats/v1')) {
