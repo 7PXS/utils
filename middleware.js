@@ -321,6 +321,45 @@ const handleStats = async (request, searchParams) => {
   }
 };
 
+// Update profile picture handler
+const handleUpdateProfilePicture = async (request) => {
+  try {
+    const body = await request.json();
+    const { discordId, profilePicture } = body;
+
+    if (!discordId || !profilePicture) {
+      return createResponse(false, {}, 'Missing Discord ID or profile picture URL', 400);
+    }
+
+    // Basic URL validation
+    try {
+      new URL(profilePicture);
+    } catch (e) {
+      return createResponse(false, {}, 'Invalid URL format', 400);
+    }
+
+    const userData = await getUserByDiscordId(discordId);
+    if (!userData) {
+      return createResponse(false, {}, 'User not found', 404);
+    }
+
+    userData.profilePicture = profilePicture;
+    
+    if (await saveUser(userData)) {
+      await sendWebhookLog(request, `Profile picture updated for user: ${userData.username}`, 'SUCCESS');
+      return createResponse(true, {
+        success: true,
+        message: 'Profile picture updated successfully',
+        profilePicture: userData.profilePicture
+      });
+    } else {
+      return createResponse(false, {}, 'Failed to update profile picture', 500);
+    }
+  } catch (error) {
+    return createResponse(false, {}, 'Invalid request body', 400);
+  }
+};
+
 // API Handlers
 const handleAuth = async (request, searchParams) => {
   const key = sanitizeInput(searchParams.get('key'));
@@ -343,9 +382,10 @@ const handleAuth = async (request, searchParams) => {
       key: userData.key,
       username: userData.username,
       discordId: userData.discordId,
-      hwid: userData.hwid,
+      hwid: userData.hwid || '',
       endTime: userData.endTime,
       createTime: userData.createTime,
+      profilePicture: userData.profilePicture || '',
       gameValid
     });
   }
@@ -358,7 +398,8 @@ const handleAuth = async (request, searchParams) => {
     return createResponse(true, {
       key: userData.key,
       username: userData.username,
-      discordId: userData.discordId
+      discordId: userData.discordId,
+      profilePicture: userData.profilePicture || ''
     });
   }
 
@@ -390,9 +431,10 @@ const handleAuth = async (request, searchParams) => {
     key: userData.key,
     username: userData.username,
     discordId: userData.discordId,
-    hwid: userData.hwid,
+    hwid: userData.hwid || '',
     endTime: userData.endTime,
     createTime: userData.createTime,
+    profilePicture: userData.profilePicture || '',
     gameValid
   });
 };
@@ -431,7 +473,8 @@ const handleRegister = async (request, searchParams) => {
     discordId,
     username,
     createTime: Math.floor(Date.now() / 1000),
-    endTime: Math.floor(Date.now() / 1000) + durationSeconds
+    endTime: Math.floor(Date.now() / 1000) + durationSeconds,
+    profilePicture: ''
   };
 
   if (await saveUser(newUser)) {
@@ -462,7 +505,6 @@ const handleLogin = async (request, searchParams) => {
 
   const userData = await getUserByDiscordId(discordId);
   
-  // If user doesn't exist, allow login but mark as needing registration
   if (!userData) {
     await sendWebhookLog(request, `Login attempt for unregistered user: ${username} (${discordId})`, 'INFO');
     return createResponse(true, {
@@ -472,17 +514,16 @@ const handleLogin = async (request, searchParams) => {
       username,
       needsRegistration: true,
       createTime: Math.floor(Date.now() / 1000),
-      endTime: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60)
+      endTime: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60),
+      profilePicture: ''
     });
   }
 
-  // Check if subscription is expired
   if (userData.endTime < Math.floor(Date.now() / 1000)) {
     await sendWebhookLog(request, `Login failed - expired subscription: ${userData.username}`, 'WARN');
     return createResponse(false, {}, 'Subscription expired. Please contact support to renew.', 401);
   }
 
-  // Update username if provided and different
   if (username && userData.username !== username) {
     userData.username = username;
     await saveUser(userData);
@@ -495,9 +536,10 @@ const handleLogin = async (request, searchParams) => {
     key: userData.key,
     username: userData.username,
     discordId: userData.discordId,
-    hwid: userData.hwid,
+    hwid: userData.hwid || '',
     createTime: userData.createTime,
-    endTime: userData.endTime
+    endTime: userData.endTime,
+    profilePicture: userData.profilePicture || ''
   });
 };
 
@@ -649,7 +691,7 @@ export async function middleware(request) {
     pathname.startsWith('/_next') ||
     pathname.startsWith('/__next') ||
     pathname.startsWith('/profile') ||
-    pathname.startsWith('/users') ||
+    pathname.startsWith('/Users') ||
     pathname.startsWith('/admin') ||
     pathname.startsWith('/docs') ||
     pathname.match(/\.(png|ico|jpg|jpeg|svg|css|js|woff|woff2|ttf|eot|otf)$/)
@@ -691,6 +733,10 @@ export async function middleware(request) {
 
     if (pathname.startsWith('/manage/v1')) {
       return await handleManageUsers(request);
+    }
+
+    if (pathname.startsWith('/update-profile-picture/v1')) {
+      return await handleUpdateProfilePicture(request);
     }
 
     if (pathname.startsWith('/stats/v1')) {
