@@ -38,10 +38,41 @@ export default function UserProfile() {
 
       // Fetch user data from dAuth endpoint
       const response = await fetch(`/dAuth/v1?ID=${encodeURIComponent(user.discordId)}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
 
-      if (!response.ok || !data.success) {
-        setError('Failed to load user data. Some information may be unavailable.');
+      if (!data.success) {
+        // If user doesn't exist in database yet, set default values
+        setHwid('Not set');
+        setKey('Not set');
+        setEndTimeUnix(Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60));
+        
+        const createDate = new Date();
+        const expireDate = new Date(Date.now() + (30 * 24 * 60 * 60 * 1000));
+        
+        setJoinDate(createDate.toLocaleString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: 'numeric',
+          hour12: true,
+        }));
+        
+        setEndDate(expireDate.toLocaleString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: 'numeric',
+          hour12: true,
+        }));
+
+        setError('');
         setLoading(false);
         return;
       }
@@ -73,8 +104,36 @@ export default function UserProfile() {
         hour12: true,
       }));
 
+      setError('');
     } catch (error) {
-      setError('Error loading user data: ' + error.message);
+      console.error('Error loading user data:', error);
+      // Set default values instead of showing error
+      setHwid('Not set');
+      setKey('Not set');
+      setEndTimeUnix(Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60));
+      
+      const createDate = new Date();
+      const expireDate = new Date(Date.now() + (30 * 24 * 60 * 60 * 1000));
+      
+      setJoinDate(createDate.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: true,
+      }));
+      
+      setEndDate(expireDate.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: true,
+      }));
+      
+      setError('');
     } finally {
       setLoading(false);
     }
