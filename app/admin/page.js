@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bell, Users, Key, Clock, Search, X, Plus, RefreshCw, Moon, Sun, AlertCircle, CheckCircle, Home, FileText } from 'lucide-react';
+import { Bell, Users, Key, Clock, Search, X, Plus, RefreshCw, Moon, Sun, AlertCircle, CheckCircle, Home, FileText, Edit, Trash2, UserPlus, Save } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminDashboard() {
@@ -14,6 +14,14 @@ export default function AdminDashboard() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [newUser, setNewUser] = useState({
+    username: '',
+    discordId: '',
+    time: '30d'
+  });
 
   useEffect(() => {
     checkAuth();
@@ -99,6 +107,102 @@ export default function AdminDashboard() {
     });
 
     setNotifications(prev => [...newNotifications, ...prev.slice(0, 20)]);
+  };
+
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`/register/v1?ID=${encodeURIComponent(newUser.discordId)}&username=${encodeURIComponent(newUser.username)}&time=${newUser.time}`, {
+        headers: { 'User-Agent': 'Roblox/WinInet' }
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setShowCreateModal(false);
+        setNewUser({ username: '', discordId: '', time: '30d' });
+        fetchUsers();
+        setNotifications(prev => [{
+          type: 'success',
+          severity: 'low',
+          message: `Successfully created user: ${newUser.username}`,
+          timestamp: Date.now()
+        }, ...prev]);
+      } else {
+        alert(data.error || 'Failed to create user');
+      }
+    } catch (error) {
+      console.error('Error creating user:', error);
+      alert('Failed to create user');
+    }
+  };
+
+  const handleEditUser = (user) => {
+    setEditingUser({
+      ...user,
+      newEndTime: Math.floor((user.endTime - Date.now() / 1000) / 86400) // Convert to days
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateUser = async (e) => {
+    e.preventDefault();
+    try {
+      const additionalTime = `${editingUser.newEndTime}d`;
+      const response = await fetch(`/auth/admin?user=${editingUser.discordId}&time=${additionalTime}`, {
+        headers: { 'Authorization': 'UserMode-2d93n2002n8' }
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setShowEditModal(false);
+        setEditingUser(null);
+        fetchUsers();
+        setNotifications(prev => [{
+          type: 'success',
+          severity: 'low',
+          message: `Successfully updated ${editingUser.username}`,
+          timestamp: Date.now()
+        }, ...prev]);
+      } else {
+        alert(data.error || 'Failed to update user');
+      }
+    } catch (error) {
+      console.error('Error updating user:', error);
+      alert('Failed to update user');
+    }
+  };
+
+  const handleDeleteUser = async (user) => {
+    if (!confirm(`Are you sure you want to delete ${user.username}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/manage/v1', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': 'UserMode-2d93n2002n8',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ discordId: user.discordId })
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        fetchUsers();
+        setNotifications(prev => [{
+          type: 'success',
+          severity: 'low',
+          message: `Successfully deleted user: ${user.username}`,
+          timestamp: Date.now()
+        }, ...prev]);
+      } else {
+        alert(data.error || 'Failed to delete user');
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert('Failed to delete user');
+    }
   };
 
   const handleAddTime = async (userId, time) => {
@@ -334,6 +438,182 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className={`w-full max-w-md p-6 rounded-2xl border ${
+            darkMode ? 'bg-[#0f0f1a] border-purple-500/20' : 'bg-white border-gray-200'
+          }`}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold">Create New User</h2>
+              <button onClick={() => setShowCreateModal(false)} className="p-2 rounded-lg hover:bg-purple-500/10">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateUser} className="space-y-4">
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={newUser.username}
+                  onChange={(e) => setNewUser({...newUser, username: e.target.value})}
+                  className={`w-full px-4 py-3 rounded-xl border outline-none transition-all ${
+                    darkMode 
+                      ? 'bg-[#1a1a2e] border-purple-500/20 focus:border-purple-500/50 text-white' 
+                      : 'bg-white border-gray-200 focus:border-purple-500 text-gray-900'
+                  }`}
+                  placeholder="Enter username"
+                  required
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Discord ID
+                </label>
+                <input
+                  type="text"
+                  value={newUser.discordId}
+                  onChange={(e) => setNewUser({...newUser, discordId: e.target.value})}
+                  className={`w-full px-4 py-3 rounded-xl border outline-none transition-all ${
+                    darkMode 
+                      ? 'bg-[#1a1a2e] border-purple-500/20 focus:border-purple-500/50 text-white' 
+                      : 'bg-white border-gray-200 focus:border-purple-500 text-gray-900'
+                  }`}
+                  placeholder="Enter Discord ID"
+                  required
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Duration
+                </label>
+                <select
+                  value={newUser.time}
+                  onChange={(e) => setNewUser({...newUser, time: e.target.value})}
+                  className={`w-full px-4 py-3 rounded-xl border outline-none transition-all ${
+                    darkMode 
+                      ? 'bg-[#1a1a2e] border-purple-500/20 focus:border-purple-500/50 text-white' 
+                      : 'bg-white border-gray-200 focus:border-purple-500 text-gray-900'
+                  }`}
+                >
+                  <option value="7d">7 Days</option>
+                  <option value="30d">30 Days</option>
+                  <option value="60d">60 Days</option>
+                  <option value="90d">90 Days</option>
+                  <option value="6mo">6 Months</option>
+                  <option value="1yr">1 Year</option>
+                </select>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all ${
+                    darkMode
+                      ? 'bg-purple-500/10 text-purple-400 hover:bg-purple-500/20'
+                      : 'bg-purple-50 text-purple-600 hover:bg-purple-100'
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 px-6 rounded-xl bg-gradient-to-r from-purple-500 to-purple-700 text-white font-medium hover:scale-105 transition-transform"
+                >
+                  Create User
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && editingUser && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className={`w-full max-w-md p-6 rounded-2xl border ${
+            darkMode ? 'bg-[#0f0f1a] border-purple-500/20' : 'bg-white border-gray-200'
+          }`}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold">Edit User</h2>
+              <button onClick={() => setShowEditModal(false)} className="p-2 rounded-lg hover:bg-purple-500/10">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateUser} className="space-y-4">
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={editingUser.username}
+                  disabled
+                  className={`w-full px-4 py-3 rounded-xl border outline-none ${
+                    darkMode 
+                      ? 'bg-[#1a1a2e] border-purple-500/20 text-gray-500' 
+                      : 'bg-gray-100 border-gray-200 text-gray-500'
+                  }`}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Discord ID
+                </label>
+                <input
+                  type="text"
+                  value={editingUser.discordId}
+                  disabled
+                  className={`w-full px-4 py-3 rounded-xl border outline-none ${
+                    darkMode 
+                      ? 'bg-[#1a1a2e] border-purple-500/20 text-gray-500' 
+                      : 'bg-gray-100 border-gray-200 text-gray-500'
+                  }`}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Add Days
+                </label>
+                <input
+                  type="number"
+                  value={editingUser.newEndTime}
+                  onChange={(e) => setEditingUser({...editingUser, newEndTime: e.target.value})}
+                  className={`w-full px-4 py-3 rounded-xl border outline-none transition-all ${
+                    darkMode 
+                      ? 'bg-[#1a1a2e] border-purple-500/20 focus:border-purple-500/50 text-white' 
+                      : 'bg-white border-gray-200 focus:border-purple-500 text-gray-900'
+                  }`}
+                  placeholder="Number of days to add"
+                  min="1"
+                  required
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all ${
+                    darkMode
+                      ? 'bg-purple-500/10 text-purple-400 hover:bg-purple-500/20'
+                      : 'bg-purple-50 text-purple-600 hover:bg-purple-100'
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 px-6 rounded-xl bg-gradient-to-r from-purple-500 to-purple-700 text-white font-medium hover:scale-105 transition-transform flex items-center justify-center space-x-2"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Save Changes</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className={`p-6 rounded-2xl border backdrop-blur-sm ${
@@ -389,8 +669,8 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="mb-6">
-          <div className={`relative rounded-xl border ${
+        <div className="flex items-center justify-between mb-6">
+          <div className={`relative flex-1 mr-4 rounded-xl border ${
             darkMode ? 'bg-[#0f0f1a] border-purple-500/20' : 'bg-white border-gray-200'
           }`}>
             <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 ${
@@ -406,6 +686,13 @@ export default function AdminDashboard() {
               }`}
             />
           </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-purple-700 text-white font-medium hover:scale-105 transition-transform flex items-center space-x-2"
+          >
+            <UserPlus className="w-5 h-5" />
+            <span>Create User</span>
+          </button>
         </div>
 
         <div className={`rounded-2xl border overflow-hidden ${
@@ -483,6 +770,13 @@ export default function AdminDashboard() {
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">
                           <button
+                            onClick={() => handleEditUser(user)}
+                            className="p-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 transition-colors"
+                            title="Edit user"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => handleAddTime(user.discordId, '30d')}
                             className="p-2 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 transition-colors"
                             title="Add 30 days"
@@ -491,10 +785,17 @@ export default function AdminDashboard() {
                           </button>
                           <button
                             onClick={() => handleResetHwid(user.discordId)}
-                            className="p-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 transition-colors"
+                            className="p-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 transition-colors"
                             title="Reset HWID"
                           >
                             <RefreshCw className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUser(user)}
+                            className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors"
+                            title="Delete user"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
