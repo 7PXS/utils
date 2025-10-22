@@ -54,20 +54,35 @@ export default function UsersDirectory() {
       });
       const data = await response.json();
       
+      if (!data.success || !data.users) {
+        console.error('Failed to fetch users:', data);
+        setUsers([]);
+        setLoading(false);
+        return;
+      }
+
       const detailedUsers = await Promise.all(
-        data.users?.map(async (userId) => {
+        data.users.map(async (userId) => {
           try {
             const userResponse = await fetch(`/dAuth/v1?ID=${userId}`);
             const userData = await userResponse.json();
-            return userData.success ? {
-              username: userData.username,
-              createTime: userData.createTime,
-              isActive: userData.endTime > Date.now() / 1000
-            } : null;
-          } catch {
+            
+            if (userData.success) {
+              return {
+                username: userData.username,
+                createTime: userData.createTime,
+                endTime: userData.endTime,
+                isActive: userData.endTime > Date.now() / 1000,
+                profilePicture: userData.profilePicture || '',
+                discordId: userId
+              };
+            }
+            return null;
+          } catch (error) {
+            console.error(`Error fetching user ${userId}:`, error);
             return null;
           }
-        }) || []
+        })
       );
       
       const validUsers = detailedUsers.filter(Boolean);
@@ -82,6 +97,7 @@ export default function UsersDirectory() {
       });
     } catch (error) {
       console.error('Error fetching users:', error);
+      setUsers([]);
     }
     setLoading(false);
   };
@@ -255,7 +271,10 @@ export default function UsersDirectory() {
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent"></div>
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent mx-auto mb-4"></div>
+              <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Loading users...</p>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -269,9 +288,27 @@ export default function UsersDirectory() {
                 }`}
               >
                 <div className="flex items-center space-x-3 mb-3">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-purple-500/30">
-                    {user.username?.[0]?.toUpperCase() || 'U'}
-                  </div>
+                  {user.profilePicture ? (
+                    <>
+                      <img 
+                        src={user.profilePicture} 
+                        alt={user.username}
+                        className="w-12 h-12 rounded-full object-cover shadow-lg shadow-purple-500/30 border-2 border-purple-500/30"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 hidden items-center justify-center text-white font-bold text-lg shadow-lg shadow-purple-500/30">
+                        {user.username?.[0]?.toUpperCase() || 'U'}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-purple-500/30">
+                      {user.username?.[0]?.toUpperCase() || 'U'}
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold truncate">{user.username}</p>
                     <div className="flex items-center space-x-1 mt-0.5">
@@ -299,7 +336,7 @@ export default function UsersDirectory() {
           <div className="text-center py-20">
             <User className={`w-16 h-16 mx-auto mb-4 ${darkMode ? 'text-gray-700' : 'text-gray-300'}`} />
             <p className={`text-lg ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-              No users found matching "{searchTerm}"
+              {searchTerm ? `No users found matching "${searchTerm}"` : 'No users found'}
             </p>
           </div>
         )}
