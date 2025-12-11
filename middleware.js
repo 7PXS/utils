@@ -784,6 +784,11 @@ export async function middleware(request) {
   }
 
   try {
+    // ⭐ ADD THIS HANDLER FOR SCRIPT FETCHING ⭐
+    if (pathname.startsWith('/api/script/')) {
+      return await handleScriptFetch(request, pathname, searchParams);
+    }
+    
     // Handle different endpoints
     if (pathname.startsWith('/auth/v1') || pathname.startsWith('/dAuth/v1')) {
       return await handleAuth(request, searchParams);
@@ -819,10 +824,6 @@ export async function middleware(request) {
 
     if (pathname.startsWith('/stats/v1')) {
       return await handleStats(request, searchParams);
-    }
-
-    if (pathname.startsWith('/api/script/')) {
-      return await handleScriptFetch(request, pathname, searchParams);
     }
 
     if (pathname.startsWith('/status')) {
