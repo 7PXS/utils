@@ -682,6 +682,80 @@ const handleManageUsers = async (request) => {
   return createResponse(false, {}, 'Method not allowed', 405);
 };
 
+const handleScriptFetch = async (request, pathname, searchParams) => {
+  try {
+    // Parse the URL: /api/script/{version}/{gameId}
+    const parts = pathname.split('/').filter(Boolean);
+    if (parts.length < 4) {
+      return createResponse(false, {}, 'Invalid script path', 400);
+    }
+
+    const version = parts[2]; // "beta" or other version
+    const gameId = parts[3].replace('.lua', ''); // Remove .lua if present
+    const token = searchParams.get('token'); // This is the HWID for logging
+
+    // Construct the blob path
+    const scriptPath = `scripts/${version}/${gameId}.lua`;
+
+    // Log the request
+    await sendWebhookLog(request, `Script requested: ${scriptPath} (HWID: ${token})`, 'INFO', {
+      version,
+      gameId,
+      hwid: token
+    });
+
+    // Fetch the script from Vercel Blob Storage
+    const { blobs } = await list({ 
+      prefix: scriptPath, 
+      token: envConfig.BLOB_READ_WRITE_TOKEN 
+    });
+
+    if (blobs.length === 0) {
+      await sendWebhookLog(
+        request, 
+        `Script not found: ${scriptPath}`, 
+        'WARN',
+        { version, gameId, hwid: token }
+      );
+      return createResponse(false, {}, 'Script not found for this game', 404);
+    }
+
+    // Get the script content
+    const response = await fetch(blobs[0].url);
+    if (!response.ok) {
+      return createResponse(false, {}, 'Failed to fetch script', 500);
+    }
+
+    const scriptContent = await response.text();
+
+    // Log successful fetch
+    await sendWebhookLog(
+      request, 
+      `Script served successfully: ${scriptPath}`, 
+      'SUCCESS',
+      { version, gameId, hwid: token, size: scriptContent.length }
+    );
+
+    // Return the script as plain text
+    return new Response(scriptContent, {
+      headers: {
+        'Content-Type': 'text/plain',
+        'Cache-Control': 'public, max-age=3600'
+      }
+    });
+
+  } catch (error) {
+    await sendWebhookLog(
+      request, 
+      `Script fetch error: ${error.message}`, 
+      'ERROR',
+      { error: error.message, stack: error.stack }
+    );
+    return createResponse(false, {}, 'Internal server error', 500);
+  }
+};
+
+
 // Main middleware function
 export async function middleware(request) {
   const { pathname, searchParams } = request.nextUrl;
