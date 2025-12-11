@@ -588,6 +588,7 @@ const handleUsersV1 = async (request, searchParams) => {
   if (authHeader !== 'UserMode-2d93n2002n8') {
     return createResponse(false, {}, 'Unauthorized', 401);
   }
+  
 
   try {
     const users = await getAllUsers();
@@ -818,6 +819,10 @@ export async function middleware(request) {
 
     if (pathname.startsWith('/stats/v1')) {
       return await handleStats(request, searchParams);
+    }
+
+    if (pathname.startsWith('/api/script/')) {
+      return await handleScriptFetch(request, pathname, searchParams);
     }
 
     if (pathname.startsWith('/status')) {
