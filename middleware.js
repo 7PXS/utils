@@ -63,6 +63,19 @@ const generateSecureKey = (length = 16) => {
   return result;
 };
 
+// Token generation (MUST match Roblox implementation exactly)
+const generateToken = (gameId, playerName, hwid) => {
+  const input = String(gameId) + playerName + hwid;
+  let hashVal = 0;
+  
+  for (let i = 0; i < input.length; i++) {
+    const byte = input.charCodeAt(i);
+    hashVal = ((hashVal * 31) + byte) >>> 0; // >>> 0 ensures unsigned 32-bit
+  }
+  
+  return hashVal.toString(16);
+};
+
 const parseTimeToSeconds = (timeStr) => {
   const match = timeStr.match(/^(\d+)(s|m|h|d|mo|yr)$/);
   if (!match) return null;
@@ -110,7 +123,7 @@ const sendWebhookLog = async (request, message, level = 'INFO', responseData = {
   }
 };
 
-// Database operations - FIXED PATHS TO USE "Users" instead of "users"
+// Database operations
 const getUserByKey = async (key) => {
   try {
     const { blobs } = await list({ 
@@ -331,7 +344,6 @@ const handleUpdateProfilePicture = async (request) => {
       return createResponse(false, {}, 'Missing Discord ID or profile picture URL', 400);
     }
 
-    // Basic URL validation
     try {
       new URL(profilePicture);
     } catch (e) {
@@ -360,11 +372,61 @@ const handleUpdateProfilePicture = async (request) => {
   }
 };
 
+// Token validation endpoint - NEVER throws errors for invalid tokens
+const handleValidateToken = async (request, searchParams) => {
+  const token = sanitizeInput(searchParams.get('token'));
+  const gameId = sanitizeInput(searchParams.get('gameId'));
+  const playerName = sanitizeInput(searchParams.get('playerName'));
+  const hwid = sanitizeInput(searchParams.get('hwid'));
+
+  if (!token || !gameId || !playerName || !hwid) {
+    await sendWebhookLog(
+      request, 
+      'Token validation - missing parameters', 
+      'WARN',
+      { token: token?.substring(0, 12), gameId, playerName, hwid: hwid?.substring(0, 12) }
+    );
+    
+    return createResponse(true, {
+      success: true,
+      tokenValid: false,
+      error: 'Missing required parameters'
+    });
+  }
+
+  // Generate expected token
+  const expectedToken = generateToken(gameId, playerName, hwid);
+
+  // Compare tokens
+  const tokensMatch = token === expectedToken;
+
+  await sendWebhookLog(
+    request,
+    `Token validation: ${tokensMatch ? 'VALID' : 'INVALID'}`,
+    tokensMatch ? 'SUCCESS' : 'WARN',
+    {
+      providedToken: token.substring(0, 12) + '...',
+      expectedToken: expectedToken.substring(0, 12) + '...',
+      match: tokensMatch,
+      gameId,
+      playerName,
+      hwid: hwid.substring(0, 12) + '...'
+    }
+  );
+
+  return createResponse(true, {
+    success: true,
+    tokenValid: tokensMatch,
+    ...(tokensMatch ? {} : { error: 'Token mismatch' })
+  });
+};
+
 // API Handlers
 const handleAuth = async (request, searchParams) => {
   const key = sanitizeInput(searchParams.get('key'));
   const hwid = sanitizeInput(searchParams.get('hwid'));
   const gameId = sanitizeInput(searchParams.get('gameId'));
+  const playerName = sanitizeInput(searchParams.get('playerName'));
   const discordId = sanitizeInput(searchParams.get('discordId'));
 
   if (discordId) {
@@ -377,7 +439,13 @@ const handleAuth = async (request, searchParams) => {
       return createResponse(false, {}, 'Subscription expired', 401);
     }
 
+    // Generate token for this session
+    const token = playerName && hwid && gameId 
+      ? generateToken(gameId, playerName, hwid || userData.hwid)
+      : null;
+
     const gameValid = gameId ? await validateGameScript(gameId) : false;
+    
     return createResponse(true, {
       key: userData.key,
       username: userData.username,
@@ -386,7 +454,8 @@ const handleAuth = async (request, searchParams) => {
       endTime: userData.endTime,
       createTime: userData.createTime,
       profilePicture: userData.profilePicture || '',
-      gameValid
+      gameValid,
+      ...(token ? { token } : {})
     });
   }
 
@@ -395,6 +464,11 @@ const handleAuth = async (request, searchParams) => {
     if (!userData) {
       return createResponse(false, {}, 'No key linked to this HWID', 404);
     }
+    
+    const token = playerName && gameId 
+      ? generateToken(gameId, playerName, hwid)
+      : null;
+    
     return createResponse(true, {
       key: userData.key,
       username: userData.username,
@@ -402,7 +476,8 @@ const handleAuth = async (request, searchParams) => {
       hwid: userData.hwid || '',
       createTime: userData.createTime,
       endTime: userData.endTime,
-      profilePicture: userData.profilePicture || ''
+      profilePicture: userData.profilePicture || '',
+      ...(token ? { token } : {})
     });
   }
 
@@ -426,9 +501,25 @@ const handleAuth = async (request, searchParams) => {
     return createResponse(false, {}, 'HWID mismatch', 401);
   }
 
+  // Generate token for this authenticated session
+  const token = playerName && hwid && gameId 
+    ? generateToken(gameId, playerName, hwid)
+    : null;
+
   const gameValid = gameId ? await validateGameScript(gameId) : false;
   
-  await sendWebhookLog(request, `Successful auth for user: ${userData.username}`, 'SUCCESS');
+  await sendWebhookLog(
+    request, 
+    `Successful auth for user: ${userData.username}`, 
+    'SUCCESS',
+    {
+      username: userData.username,
+      gameId,
+      playerName,
+      tokenGenerated: !!token,
+      token: token ? token.substring(0, 12) + '...' : 'none'
+    }
+  );
   
   return createResponse(true, {
     key: userData.key,
@@ -438,7 +529,8 @@ const handleAuth = async (request, searchParams) => {
     endTime: userData.endTime,
     createTime: userData.createTime,
     profilePicture: userData.profilePicture || '',
-    gameValid
+    gameValid,
+    ...(token ? { token } : {})
   });
 };
 
@@ -588,7 +680,6 @@ const handleUsersV1 = async (request, searchParams) => {
   if (authHeader !== 'UserMode-2d93n2002n8') {
     return createResponse(false, {}, 'Unauthorized', 401);
   }
-  
 
   try {
     const users = await getAllUsers();
@@ -685,27 +776,23 @@ const handleManageUsers = async (request) => {
 
 const handleScriptFetch = async (request, pathname, searchParams) => {
   try {
-    // Parse the URL: /api/script/{version}/{gameId}
     const parts = pathname.split('/').filter(Boolean);
     if (parts.length < 4) {
       return createResponse(false, {}, 'Invalid script path', 400);
     }
 
-    const version = parts[2]; // "beta" or other version
-    const gameId = parts[3].replace('.lua', ''); // Remove .lua if present
-    const token = searchParams.get('token'); // This is the HWID for logging
+    const version = parts[2];
+    const gameId = parts[3].replace('.lua', '');
+    const token = searchParams.get('token');
 
-    // Construct the blob path
     const scriptPath = `scripts/${version}/${gameId}.lua`;
 
-    // Log the request
-    await sendWebhookLog(request, `Script requested: ${scriptPath} (HWID: ${token})`, 'INFO', {
+    await sendWebhookLog(request, `Script requested: ${scriptPath}`, 'INFO', {
       version,
       gameId,
-      hwid: token
+      token: token ? token.substring(0, 12) + '...' : 'none'
     });
 
-    // Fetch the script from Vercel Blob Storage
     const { blobs } = await list({ 
       prefix: scriptPath, 
       token: envConfig.BLOB_READ_WRITE_TOKEN 
@@ -716,12 +803,11 @@ const handleScriptFetch = async (request, pathname, searchParams) => {
         request, 
         `Script not found: ${scriptPath}`, 
         'WARN',
-        { version, gameId, hwid: token }
+        { version, gameId }
       );
       return createResponse(false, {}, 'Script not found for this game', 404);
     }
 
-    // Get the script content
     const response = await fetch(blobs[0].url);
     if (!response.ok) {
       return createResponse(false, {}, 'Failed to fetch script', 500);
@@ -729,15 +815,13 @@ const handleScriptFetch = async (request, pathname, searchParams) => {
 
     const scriptContent = await response.text();
 
-    // Log successful fetch
     await sendWebhookLog(
       request, 
       `Script served successfully: ${scriptPath}`, 
       'SUCCESS',
-      { version, gameId, hwid: token, size: scriptContent.length }
+      { version, gameId, size: scriptContent.length }
     );
 
-    // Return the script as plain text
     return new Response(scriptContent, {
       headers: {
         'Content-Type': 'text/plain',
@@ -755,7 +839,6 @@ const handleScriptFetch = async (request, pathname, searchParams) => {
     return createResponse(false, {}, 'Internal server error', 500);
   }
 };
-
 
 // Main middleware function
 export async function middleware(request) {
@@ -784,7 +867,12 @@ export async function middleware(request) {
   }
 
   try {
-    // ⭐ ADD THIS HANDLER FOR SCRIPT FETCHING ⭐
+    // Token validation endpoint - IMPORTANT: Never returns errors for invalid tokens
+    if (pathname.startsWith('/validate-token/v1')) {
+      return await handleValidateToken(request, searchParams);
+    }
+
+    // Script fetching
     if (pathname.startsWith('/api/script/')) {
       return await handleScriptFetch(request, pathname, searchParams);
     }
@@ -830,7 +918,7 @@ export async function middleware(request) {
       return createResponse(true, { 
         success: true,
         status: 'API is running',
-        message: 'Nebula API operational',
+        message: 'Nebula API operational with token authentication',
         timestamp: new Date().toISOString()
       });
     }
