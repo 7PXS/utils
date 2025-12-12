@@ -785,11 +785,28 @@ const handleScriptFetch = async (request, pathname, searchParams) => {
     const gameId = parts[3].replace('.lua', '');
     const token = searchParams.get('token');
 
-    const scriptPath = `scripts/${version}/${gameId}.lua`;
+    // Map multiple game IDs to a single script (by target script game ID)
+    const GAME_ID_MAPPINGS = {
+      '8282828': ['829293948', '8272727272', '2882282', '2929829'], // These all use script 8282828.lua
+      '76558904092080': ['7671049560'], // These use script 1234567.lua
+      // Add more mappings as needed
+    };
+
+    // Find which script this game ID should use
+    let targetScriptId = gameId; // Default to itself
+    for (const [scriptId, gameIds] of Object.entries(GAME_ID_MAPPINGS)) {
+      if (gameIds.includes(gameId)) {
+        targetScriptId = scriptId;
+        break;
+      }
+    }
+
+    const scriptPath = `scripts/${version}/${targetScriptId}.lua`;
 
     await sendWebhookLog(request, `Script requested: ${scriptPath}`, 'INFO', {
       version,
       gameId,
+      targetScriptId: targetScriptId !== gameId ? targetScriptId : undefined,
       token: token ? token.substring(0, 12) + '...' : 'none'
     });
 
@@ -803,7 +820,7 @@ const handleScriptFetch = async (request, pathname, searchParams) => {
         request, 
         `Script not found: ${scriptPath}`, 
         'WARN',
-        { version, gameId }
+        { version, gameId, targetScriptId }
       );
       return createResponse(false, {}, 'Script not found for this game', 404);
     }
@@ -819,7 +836,7 @@ const handleScriptFetch = async (request, pathname, searchParams) => {
       request, 
       `Script served successfully: ${scriptPath}`, 
       'SUCCESS',
-      { version, gameId, size: scriptContent.length }
+      { version, gameId, targetScriptId, size: scriptContent.length }
     );
 
     return new Response(scriptContent, {
