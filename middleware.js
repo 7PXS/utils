@@ -788,7 +788,7 @@ const handleScriptFetch = async (request, pathname, searchParams) => {
     // Map multiple game IDs to a single script (by target script game ID)
     const GAME_ID_MAPPINGS = {
       '8282828': ['829293948', '8272727272', '2882282', '2929829'], // These all use script 8282828.lua
-      '76558904092080': ['7671049560'], // These use script 1234567.lua
+      '76558904092080': ['129009554587176'], // These use script 1234567.lua
       // Add more mappings as needed
     };
 
