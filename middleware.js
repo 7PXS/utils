@@ -784,29 +784,28 @@ const handleScriptFetch = async (request, pathname, searchParams) => {
     const gameId = parts[3].replace('.lua', '');
     const token = searchParams.get('token');
 
-    // Optional: Keep your existing mappings for redirecting certain gameIds to a specific script
+    // mappings: redirect certain gameIds to search for a specific target
     const GAME_ID_MAPPINGS = {
       '8282828': ['829293948', '8272727272', '2882282', '2929829'],
       '76558904092080': ['129009554587176'],
-      // Add more as needed
     };
 
     let searchGameId = gameId;
     for (const [targetId, aliases] of Object.entries(GAME_ID_MAPPINGS)) {
       if (aliases.includes(gameId)) {
-        searchGameId = targetId; // Use the target script ID for contains search too
+        searchGameId = targetId;
         break;
       }
     }
 
-    await sendWebhookLog(request, `Script requested (contains search)`, 'INFO', {
+    await sendWebhookLog(request, `Script requested (contains + most recent)`, 'INFO', {
       version,
       originalGameId: gameId,
       searchGameId,
       token: token ? token.substring(0, 12) + '...' : 'none'
     });
 
-    // List ALL scripts in this version folder
+    // List all scripts in the version folder
     const { blobs } = await list({
       prefix: `scripts/${version}/`,
       token: envConfig.BLOB_READ_WRITE_TOKEN
@@ -817,12 +816,12 @@ const handleScriptFetch = async (request, pathname, searchParams) => {
       return createResponse(false, {}, 'No scripts available for this version', 404);
     }
 
-    // Find the first script whose filename contains the (possibly mapped) gameId
-    const matchingBlob = blobs.find(blob => 
+    // Filter scripts that contain the searchGameId (case-insensitive)
+    const matchingBlobs = blobs.filter(blob =>
       blob.pathname.toLowerCase().includes(searchGameId.toLowerCase())
     );
 
-    if (!matchingBlob) {
+    if (matchingBlobs.length === 0) {
       await sendWebhookLog(
         request,
         `No script containing gameId: ${searchGameId}`,
@@ -832,7 +831,13 @@ const handleScriptFetch = async (request, pathname, searchParams) => {
       return createResponse(false, {}, 'Script not found for this game', 404);
     }
 
-    const response = await fetch(matchingBlob.url);
+    // Sort by uploadedAt (most recent first)
+    matchingBlobs.sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime());
+
+    // Pick the most recently uploaded one
+    const selectedBlob = matchingBlobs[0];
+
+    const response = await fetch(selectedBlob.url);
     if (!response.ok) {
       return createResponse(false, {}, 'Failed to fetch script', 500);
     }
@@ -841,12 +846,14 @@ const handleScriptFetch = async (request, pathname, searchParams) => {
 
     await sendWebhookLog(
       request,
-      `Script served (contains match): ${matchingBlob.pathname}`,
+      `Script served (most recent match): ${selectedBlob.pathname}`,
       'SUCCESS',
       {
         version,
         originalGameId: gameId,
-        matchedScript: matchingBlob.pathname,
+        matchedScript: selectedBlob.pathname,
+        uploadedAt: selectedBlob.uploadedAt.toISOString(),
+        totalMatches: matchingBlobs.length,
         size: scriptContent.length
       }
     );
