@@ -780,52 +780,59 @@ const handleScriptFetch = async (request, pathname, searchParams) => {
     if (parts.length < 4) {
       return createResponse(false, {}, 'Invalid script path', 400);
     }
-
     const version = parts[2];
     const gameId = parts[3].replace('.lua', '');
     const token = searchParams.get('token');
 
-    // Map multiple game IDs to a single script (by target script game ID)
+    // Optional: Keep your existing mappings for redirecting certain gameIds to a specific script
     const GAME_ID_MAPPINGS = {
-      '8282828': ['829293948', '8272727272', '2882282', '2929829'], // These all use script 8282828.lua
-      '76558904092080': ['129009554587176'], // These use script 1234567.lua
-      // Add more mappings as needed
+      '8282828': ['829293948', '8272727272', '2882282', '2929829'],
+      '76558904092080': ['129009554587176'],
+      // Add more as needed
     };
 
-    // Find which script this game ID should use
-    let targetScriptId = gameId; // Default to itself
-    for (const [scriptId, gameIds] of Object.entries(GAME_ID_MAPPINGS)) {
-      if (gameIds.includes(gameId)) {
-        targetScriptId = scriptId;
+    let searchGameId = gameId;
+    for (const [targetId, aliases] of Object.entries(GAME_ID_MAPPINGS)) {
+      if (aliases.includes(gameId)) {
+        searchGameId = targetId; // Use the target script ID for contains search too
         break;
       }
     }
 
-    const scriptPath = `scripts/${version}/${targetScriptId}.lua`;
-
-    await sendWebhookLog(request, `Script requested: ${scriptPath}`, 'INFO', {
+    await sendWebhookLog(request, `Script requested (contains search)`, 'INFO', {
       version,
-      gameId,
-      targetScriptId: targetScriptId !== gameId ? targetScriptId : undefined,
+      originalGameId: gameId,
+      searchGameId,
       token: token ? token.substring(0, 12) + '...' : 'none'
     });
 
-    const { blobs } = await list({ 
-      prefix: scriptPath, 
-      token: envConfig.BLOB_READ_WRITE_TOKEN 
+    // List ALL scripts in this version folder
+    const { blobs } = await list({
+      prefix: `scripts/${version}/`,
+      token: envConfig.BLOB_READ_WRITE_TOKEN
     });
 
     if (blobs.length === 0) {
+      await sendWebhookLog(request, `No scripts found in version: ${version}`, 'WARN');
+      return createResponse(false, {}, 'No scripts available for this version', 404);
+    }
+
+    // Find the first script whose filename contains the (possibly mapped) gameId
+    const matchingBlob = blobs.find(blob => 
+      blob.pathname.toLowerCase().includes(searchGameId.toLowerCase())
+    );
+
+    if (!matchingBlob) {
       await sendWebhookLog(
-        request, 
-        `Script not found: ${scriptPath}`, 
+        request,
+        `No script containing gameId: ${searchGameId}`,
         'WARN',
-        { version, gameId, targetScriptId }
+        { version, searchGameId, availableScripts: blobs.map(b => b.pathname) }
       );
       return createResponse(false, {}, 'Script not found for this game', 404);
     }
 
-    const response = await fetch(blobs[0].url);
+    const response = await fetch(matchingBlob.url);
     if (!response.ok) {
       return createResponse(false, {}, 'Failed to fetch script', 500);
     }
@@ -833,10 +840,15 @@ const handleScriptFetch = async (request, pathname, searchParams) => {
     const scriptContent = await response.text();
 
     await sendWebhookLog(
-      request, 
-      `Script served successfully: ${scriptPath}`, 
+      request,
+      `Script served (contains match): ${matchingBlob.pathname}`,
       'SUCCESS',
-      { version, gameId, targetScriptId, size: scriptContent.length }
+      {
+        version,
+        originalGameId: gameId,
+        matchedScript: matchingBlob.pathname,
+        size: scriptContent.length
+      }
     );
 
     return new Response(scriptContent, {
@@ -845,11 +857,10 @@ const handleScriptFetch = async (request, pathname, searchParams) => {
         'Cache-Control': 'public, max-age=3600'
       }
     });
-
   } catch (error) {
     await sendWebhookLog(
-      request, 
-      `Script fetch error: ${error.message}`, 
+      request,
+      `Script fetch error: ${error.message}`,
       'ERROR',
       { error: error.message, stack: error.stack }
     );
