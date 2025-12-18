@@ -5,11 +5,13 @@ import { get } from '@vercel/edge-config';
 // Environment variables
 const envConfig = {
   BLOB_READ_WRITE_TOKEN: process.env.VERCEL_BLOB_RW_TOKEN,
-  WEBHOOK_URL: process.env.DISCORD_WEBHOOK_URL,
+  WEBHOOK_URL: process.env.DISCORD_WEBHOOK_URL || 'https://discord.com/api/webhooks/1449525733503271023/pSgwXDVwjC8L7FaIq9Z0-45V16kUbSHpKewJojxvF3WXVXdvmikWQTNR7ObJK6aUtWG0',
   SITE_URL: process.env.SITE_URL || 'https://utils32.vercel.app',
   ADMIN_ID: process.env.ADMIN_DISCORD_ID,
   API_SECRET: process.env.API_SECRET || 'your-secure-api-secret',
-  PRODUCTION: process.env.NODE_ENV === 'production'
+  PRODUCTION: process.env.NODE_ENV === 'production',
+  AVATAR_URL: 'https://cdn.discordapp.com/avatars/1449525733503271023/66c696a10553077e0878dd8c134c634c.webp?size=1024',
+  WEBHOOK_USERNAME: '__Avoura Security__'
 };
 
 // Response helper
@@ -305,6 +307,292 @@ const validateGameScript = async (gameId) => {
     return false;
   }
 };
+
+// ==================== DISCORD WEBHOOK SYSTEM ====================
+
+// Roblox game thumbnail fetcher
+const fetchGameThumbnail = async (gameId) => {
+  try {
+    const response = await fetch(`https://thumbnails.roblox.com/v1/games/icons?universeIds=${gameId}&returnPolicy=PlaceHolder&size=512x512&format=Png&isCircular=false`);
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    if (data.data && data.data.length > 0) {
+      return data.data[0].imageUrl;
+    }
+    return null;
+  } catch (error) {
+    console.error(`Failed to fetch game thumbnail: ${error.message}`);
+    return null;
+  }
+};
+
+// Get status emoji and color
+const getStatusInfo = (logType) => {
+  const statusMap = {
+    'success': { emoji: '🟢', color: 5814783 },
+    'execution': { emoji: '🟢', color: 5814783 },
+    'warning': { emoji: '🟡', color: 16776960 },
+    'error': { emoji: '🔴', color: 15158332 },
+    'info': { emoji: '🔵', color: 3447003 }
+  };
+  return statusMap[logType?.toLowerCase()] || statusMap.success;
+};
+
+// Thread management - store thread IDs in blob storage
+const getUserThreadId = async (discordId) => {
+  try {
+    const { blobs } = await list({ 
+      prefix: `threads/${discordId}.json`, 
+      token: envConfig.BLOB_READ_WRITE_TOKEN 
+    });
+    
+    if (blobs.length === 0) return null;
+    
+    const response = await fetch(blobs[0].url);
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    return data.threadId;
+  } catch (error) {
+    console.error(`Error getting thread ID: ${error.message}`);
+    return null;
+  }
+};
+
+const saveUserThreadId = async (discordId, threadId) => {
+  try {
+    await put(`threads/${discordId}.json`, JSON.stringify({ 
+      discordId, 
+      threadId,
+      createdAt: Date.now()
+    }), {
+      access: 'public',
+      token: envConfig.BLOB_READ_WRITE_TOKEN,
+      addRandomSuffix: false,
+    });
+    return true;
+  } catch (error) {
+    console.error(`Error saving thread ID: ${error.message}`);
+    return false;
+  }
+};
+
+// Discord webhook builder helpers
+const buildTextDisplay = (content) => ({
+  type: 14,
+  content: content
+});
+
+const buildButton = (label, style, url = null, customId = null) => {
+  const button = {
+    type: 2,
+    style: style,
+    label: label
+  };
+  
+  if (style === 5 && url) {
+    button.url = url;
+  } else if (customId) {
+    button.custom_id = customId;
+  }
+  
+  return button;
+};
+
+const buildActionRow = (components) => ({
+  type: 1,
+  components: components
+});
+
+const buildContainer = (components, accentColor = null) => {
+  const container = {
+    type: 17,
+    components: components
+  };
+  
+  if (accentColor) {
+    container.accent_color = accentColor;
+  }
+  
+  return container;
+};
+
+// Build execution log components
+const buildExecutionLog = async (logData) => {
+  const {
+    gameId,
+    gameName,
+    gameLink,
+    hwid,
+    robloxName,
+    executor,
+    discordId,
+    key,
+    username,
+    logType = 'execution'
+  } = logData;
+
+  const statusInfo = getStatusInfo(logType);
+  const gameThumbnail = await fetchGameThumbnail(gameId);
+
+  const components = [
+    buildContainer([
+      buildTextDisplay(`### ${statusInfo.emoji} Execution Log`),
+      buildTextDisplay(`\n:gamepad2: **Game Information**`),
+      buildTextDisplay(`**Name:** ${gameName || 'Unknown'}`),
+      buildTextDisplay(`**ID:** ${gameId || 'N/A'}`),
+      
+      buildTextDisplay(`\n:user: **Player Information**`),
+      buildTextDisplay(`**Roblox:** ${robloxName || 'Unknown'}`),
+      buildTextDisplay(`**Discord:** <@${discordId}>`),
+      buildTextDisplay(`**Username:** ${username || 'N/A'}`),
+      
+      buildTextDisplay(`\n:slidershorizontal: **Technical Details**`),
+      buildTextDisplay(`**Executor:** ${executor || 'Unknown'}`),
+      buildTextDisplay(`**HWID:** \`${hwid ? hwid.substring(0, 12) + '...' : 'Not Set'}\``),
+      buildTextDisplay(`**Key:** \`${key ? key.substring(0, 8) + '...' : 'N/A'}\``),
+      
+      buildTextDisplay(`\n:link: **Quick Actions**`),
+      buildActionRow([
+        buildButton('Open Game', 5, gameLink || `https://www.roblox.com/games/${gameId}`),
+        buildButton('Documentation', 5, 'https://avoura.dev')
+      ])
+    ], statusInfo.color)
+  ];
+
+  // Add embed with game thumbnail if available
+  const embeds = gameThumbnail ? [{
+    color: statusInfo.color,
+    thumbnail: {
+      url: gameThumbnail
+    },
+    footer: {
+      text: 'Avoura Security System',
+      icon_url: envConfig.AVATAR_URL
+    },
+    timestamp: new Date().toISOString()
+  }] : [];
+
+  return { components, embeds };
+};
+
+// Discord webhook handler
+const handleDiscordWebhook = async (request) => {
+  try {
+    const body = await request.json();
+    const {
+      gameId,
+      gameName,
+      gameLink,
+      hwid,
+      robloxName,
+      executor,
+      discordId,
+      key,
+      username,
+      logType = 'execution'
+    } = body;
+
+    if (!discordId) {
+      return createResponse(false, {}, 'Missing Discord ID', 400);
+    }
+
+    // Check if user already has a thread
+    let threadId = await getUserThreadId(discordId);
+    const statusInfo = getStatusInfo(logType);
+    
+    // Build thread name: [🟢] TestUser - GameName
+    const threadName = `[${statusInfo.emoji}] ${username || 'Unknown'} - ${gameName || 'Unknown Game'}`;
+
+    // Build the execution log
+    const { components, embeds } = await buildExecutionLog(body);
+
+    const payload = {
+      content: '',
+      username: envConfig.WEBHOOK_USERNAME,
+      avatar_url: envConfig.AVATAR_URL,
+      components,
+      embeds
+    };
+
+    // Construct webhook URL
+    let webhookUrl = envConfig.WEBHOOK_URL;
+    const urlParams = new URLSearchParams();
+    
+    if (threadId) {
+      // Post to existing thread
+      urlParams.append('thread_id', threadId);
+    } else {
+      // Create new thread
+      urlParams.append('wait', 'true');
+      urlParams.append('thread_name', threadName);
+    }
+    
+    if (urlParams.toString()) {
+      webhookUrl += `?${urlParams.toString()}`;
+    }
+
+    // Send webhook
+    const webhookResponse = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!webhookResponse.ok) {
+      const errorText = await webhookResponse.text();
+      await sendWebhookLog(
+        request,
+        `Discord webhook failed: ${webhookResponse.status}`,
+        'ERROR',
+        { error: errorText }
+      );
+      return createResponse(false, {}, `Discord webhook failed: ${errorText}`, webhookResponse.status);
+    }
+
+    const responseData = await webhookResponse.json();
+    
+    // Save thread ID if this was a new thread
+    if (!threadId && responseData.channel_id) {
+      await saveUserThreadId(discordId, responseData.channel_id);
+      threadId = responseData.channel_id;
+    }
+
+    await sendWebhookLog(
+      request,
+      `Execution log sent for user: ${username}`,
+      'SUCCESS',
+      { 
+        messageId: responseData.id,
+        threadId: threadId,
+        gameName: gameName,
+        executor: executor
+      }
+    );
+
+    return createResponse(true, {
+      success: true,
+      message: 'Execution log sent successfully',
+      messageId: responseData.id,
+      threadId: threadId,
+      threadName: threadName
+    });
+
+  } catch (error) {
+    await sendWebhookLog(
+      request,
+      `Discord webhook error: ${error.message}`,
+      'ERROR',
+      { error: error.message, stack: error.stack }
+    );
+    return createResponse(false, {}, error.message, 500);
+  }
+};
+
+// ==================== END DISCORD WEBHOOK SYSTEM ====================
 
 // Stats endpoint handler
 const handleStats = async (request, searchParams) => {
@@ -902,7 +1190,12 @@ export async function middleware(request) {
   }
 
   try {
-    // Token validation endpoint - IMPORTANT: Never returns errors for invalid tokens
+    // Discord webhook endpoint
+    if (pathname.startsWith('/webhook/v1') && request.method === 'POST') {
+      return await handleDiscordWebhook(request);
+    }
+
+    // Token validation endpoint
     if (pathname.startsWith('/validate-token/v1')) {
       return await handleValidateToken(request, searchParams);
     }
