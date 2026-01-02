@@ -11,7 +11,8 @@ const envConfig = {
   API_SECRET: process.env.API_SECRET || 'your-secure-api-secret',
   PRODUCTION: process.env.NODE_ENV === 'production',
   AVATAR_URL: 'https://cdn.discordapp.com/avatars/1449525733503271023/66c696a10553077e0878dd8c134c634c.webp?size=1024',
-  WEBHOOK_USERNAME: '__Avoura Security__'
+  WEBHOOK_USERNAME: '__Avoura Security__',
+  DISCORD_LOOKUP_API: 'https://discord-lookup-api-ecru.vercel.app/v1/user'
 };
 
 // Response helper
@@ -27,6 +28,21 @@ const createResponse = (success, data = {}, error = null, statusCode = 200) => {
 const sanitizeInput = (input) => {
   if (typeof input !== 'string') return input;
   return input.trim().replace(/[<>'"&]/g, '');
+};
+
+// Simple password hashing (use bcrypt in production)
+const hashPassword = async (password) => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+};
+
+const verifyPassword = async (password, hashedPassword) => {
+  const hash = await hashPassword(password);
+  return hash === hashedPassword;
 };
 
 const rateLimiter = new Map();
@@ -65,14 +81,14 @@ const generateSecureKey = (length = 16) => {
   return result;
 };
 
-// Token generation (MUST match Roblox implementation exactly)
+// Token generation
 const generateToken = (gameId, playerName, hwid) => {
   const input = String(gameId) + playerName + hwid;
   let hashVal = 0;
   
   for (let i = 0; i < input.length; i++) {
     const byte = input.charCodeAt(i);
-    hashVal = ((hashVal * 31) + byte) >>> 0; // >>> 0 ensures unsigned 32-bit
+    hashVal = ((hashVal * 31) + byte) >>> 0;
   }
   
   return hashVal.toString(16);
@@ -86,6 +102,30 @@ const parseTimeToSeconds = (timeStr) => {
   return value * units[match[2]];
 };
 
+// Discord API helper
+const fetchDiscordUser = async (discordId) => {
+  try {
+    const response = await fetch(`${envConfig.DISCORD_LOOKUP_API}/${discordId}`);
+    if (!response.ok) {
+      return null;
+    }
+    const data = await response.json();
+    if (data.code === 10013 || data.message === 'Unknown User') {
+      return null;
+    }
+    return {
+      id: data.id,
+      username: data.username,
+      global_name: data.global_name || data.username,
+      avatar: data.avatar?.link || null,
+      created_at: data.created_at
+    };
+  } catch (error) {
+    console.error(`Error fetching Discord user: ${error.message}`);
+    return null;
+  }
+};
+
 // Enhanced logging with webhook
 const sendWebhookLog = async (request, message, level = 'INFO', responseData = {}) => {
   if (!envConfig.WEBHOOK_URL) return;
@@ -95,7 +135,7 @@ const sendWebhookLog = async (request, message, level = 'INFO', responseData = {
   const ip = request ? request.headers?.get('x-forwarded-for') || 'unknown' : 'system';
 
   const embed = {
-    title: `Nebula System - ${level}`,
+    title: `Avoura Auth - ${level}`,
     description: `\`${timestamp}\` **${message.substring(0, 200)}**`,
     color: { INFO: 0x00FF00, SUCCESS: 0x00AAFF, WARN: 0xFFA500, ERROR: 0xFF0000 }[level] || 0x00FF00,
     fields: [
@@ -110,7 +150,7 @@ const sendWebhookLog = async (request, message, level = 'INFO', responseData = {
         inline: false
       }
     ],
-    footer: { text: 'Nebula Security System' },
+    footer: { text: 'Avoura Security System' },
     timestamp: new Date().toISOString()
   };
 
@@ -308,292 +348,6 @@ const validateGameScript = async (gameId) => {
   }
 };
 
-// ==================== DISCORD WEBHOOK SYSTEM ====================
-
-// Roblox game thumbnail fetcher
-const fetchGameThumbnail = async (gameId) => {
-  try {
-    const response = await fetch(`https://thumbnails.roblox.com/v1/games/icons?universeIds=${gameId}&returnPolicy=PlaceHolder&size=512x512&format=Png&isCircular=false`);
-    if (!response.ok) return null;
-    
-    const data = await response.json();
-    if (data.data && data.data.length > 0) {
-      return data.data[0].imageUrl;
-    }
-    return null;
-  } catch (error) {
-    console.error(`Failed to fetch game thumbnail: ${error.message}`);
-    return null;
-  }
-};
-
-// Get status emoji and color
-const getStatusInfo = (logType) => {
-  const statusMap = {
-    'success': { emoji: '🟢', color: 5814783 },
-    'execution': { emoji: '🟢', color: 5814783 },
-    'warning': { emoji: '🟡', color: 16776960 },
-    'error': { emoji: '🔴', color: 15158332 },
-    'info': { emoji: '🔵', color: 3447003 }
-  };
-  return statusMap[logType?.toLowerCase()] || statusMap.success;
-};
-
-// Thread management - store thread IDs in blob storage
-const getUserThreadId = async (discordId) => {
-  try {
-    const { blobs } = await list({ 
-      prefix: `threads/${discordId}.json`, 
-      token: envConfig.BLOB_READ_WRITE_TOKEN 
-    });
-    
-    if (blobs.length === 0) return null;
-    
-    const response = await fetch(blobs[0].url);
-    if (!response.ok) return null;
-    
-    const data = await response.json();
-    return data.threadId;
-  } catch (error) {
-    console.error(`Error getting thread ID: ${error.message}`);
-    return null;
-  }
-};
-
-const saveUserThreadId = async (discordId, threadId) => {
-  try {
-    await put(`threads/${discordId}.json`, JSON.stringify({ 
-      discordId, 
-      threadId,
-      createdAt: Date.now()
-    }), {
-      access: 'public',
-      token: envConfig.BLOB_READ_WRITE_TOKEN,
-      addRandomSuffix: false,
-    });
-    return true;
-  } catch (error) {
-    console.error(`Error saving thread ID: ${error.message}`);
-    return false;
-  }
-};
-
-// Discord webhook builder helpers
-const buildTextDisplay = (content) => ({
-  type: 14,
-  content: content
-});
-
-const buildButton = (label, style, url = null, customId = null) => {
-  const button = {
-    type: 2,
-    style: style,
-    label: label
-  };
-  
-  if (style === 5 && url) {
-    button.url = url;
-  } else if (customId) {
-    button.custom_id = customId;
-  }
-  
-  return button;
-};
-
-const buildActionRow = (components) => ({
-  type: 1,
-  components: components
-});
-
-const buildContainer = (components, accentColor = null) => {
-  const container = {
-    type: 17,
-    components: components
-  };
-  
-  if (accentColor) {
-    container.accent_color = accentColor;
-  }
-  
-  return container;
-};
-
-// Build execution log components
-const buildExecutionLog = async (logData) => {
-  const {
-    gameId,
-    gameName,
-    gameLink,
-    hwid,
-    robloxName,
-    executor,
-    discordId,
-    key,
-    username,
-    logType = 'execution'
-  } = logData;
-
-  const statusInfo = getStatusInfo(logType);
-  const gameThumbnail = await fetchGameThumbnail(gameId);
-
-  const components = [
-    buildContainer([
-      buildTextDisplay(`### ${statusInfo.emoji} Execution Log`),
-      buildTextDisplay(`\n:gamepad2: **Game Information**`),
-      buildTextDisplay(`**Name:** ${gameName || 'Unknown'}`),
-      buildTextDisplay(`**ID:** ${gameId || 'N/A'}`),
-      
-      buildTextDisplay(`\n:user: **Player Information**`),
-      buildTextDisplay(`**Roblox:** ${robloxName || 'Unknown'}`),
-      buildTextDisplay(`**Discord:** <@${discordId}>`),
-      buildTextDisplay(`**Username:** ${username || 'N/A'}`),
-      
-      buildTextDisplay(`\n:slidershorizontal: **Technical Details**`),
-      buildTextDisplay(`**Executor:** ${executor || 'Unknown'}`),
-      buildTextDisplay(`**HWID:** \`${hwid ? hwid.substring(0, 12) + '...' : 'Not Set'}\``),
-      buildTextDisplay(`**Key:** \`${key ? key.substring(0, 8) + '...' : 'N/A'}\``),
-      
-      buildTextDisplay(`\n:link: **Quick Actions**`),
-      buildActionRow([
-        buildButton('Open Game', 5, gameLink || `https://www.roblox.com/games/${gameId}`),
-        buildButton('Documentation', 5, 'https://avoura.dev')
-      ])
-    ], statusInfo.color)
-  ];
-
-  // Add embed with game thumbnail if available
-  const embeds = gameThumbnail ? [{
-    color: statusInfo.color,
-    thumbnail: {
-      url: gameThumbnail
-    },
-    footer: {
-      text: 'Avoura Security System',
-      icon_url: envConfig.AVATAR_URL
-    },
-    timestamp: new Date().toISOString()
-  }] : [];
-
-  return { components, embeds };
-};
-
-// Discord webhook handler
-const handleDiscordWebhook = async (request) => {
-  try {
-    const body = await request.json();
-    const {
-      gameId,
-      gameName,
-      gameLink,
-      hwid,
-      robloxName,
-      executor,
-      discordId,
-      key,
-      username,
-      logType = 'execution'
-    } = body;
-
-    if (!discordId) {
-      return createResponse(false, {}, 'Missing Discord ID', 400);
-    }
-
-    // Check if user already has a thread
-    let threadId = await getUserThreadId(discordId);
-    const statusInfo = getStatusInfo(logType);
-    
-    // Build thread name: [🟢] TestUser - GameName
-    const threadName = `[${statusInfo.emoji}] ${username || 'Unknown'} - ${gameName || 'Unknown Game'}`;
-
-    // Build the execution log
-    const { components, embeds } = await buildExecutionLog(body);
-
-    const payload = {
-      content: '',
-      username: envConfig.WEBHOOK_USERNAME,
-      avatar_url: envConfig.AVATAR_URL,
-      components,
-      embeds
-    };
-
-    // Construct webhook URL
-    let webhookUrl = envConfig.WEBHOOK_URL;
-    const urlParams = new URLSearchParams();
-    
-    if (threadId) {
-      // Post to existing thread
-      urlParams.append('thread_id', threadId);
-    } else {
-      // Create new thread
-      urlParams.append('wait', 'true');
-      urlParams.append('thread_name', threadName);
-    }
-    
-    if (urlParams.toString()) {
-      webhookUrl += `?${urlParams.toString()}`;
-    }
-
-    // Send webhook
-    const webhookResponse = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!webhookResponse.ok) {
-      const errorText = await webhookResponse.text();
-      await sendWebhookLog(
-        request,
-        `Discord webhook failed: ${webhookResponse.status}`,
-        'ERROR',
-        { error: errorText }
-      );
-      return createResponse(false, {}, `Discord webhook failed: ${errorText}`, webhookResponse.status);
-    }
-
-    const responseData = await webhookResponse.json();
-    
-    // Save thread ID if this was a new thread
-    if (!threadId && responseData.channel_id) {
-      await saveUserThreadId(discordId, responseData.channel_id);
-      threadId = responseData.channel_id;
-    }
-
-    await sendWebhookLog(
-      request,
-      `Execution log sent for user: ${username}`,
-      'SUCCESS',
-      { 
-        messageId: responseData.id,
-        threadId: threadId,
-        gameName: gameName,
-        executor: executor
-      }
-    );
-
-    return createResponse(true, {
-      success: true,
-      message: 'Execution log sent successfully',
-      messageId: responseData.id,
-      threadId: threadId,
-      threadName: threadName
-    });
-
-  } catch (error) {
-    await sendWebhookLog(
-      request,
-      `Discord webhook error: ${error.message}`,
-      'ERROR',
-      { error: error.message, stack: error.stack }
-    );
-    return createResponse(false, {}, error.message, 500);
-  }
-};
-
-// ==================== END DISCORD WEBHOOK SYSTEM ====================
-
 // Stats endpoint handler
 const handleStats = async (request, searchParams) => {
   try {
@@ -622,45 +376,7 @@ const handleStats = async (request, searchParams) => {
   }
 };
 
-// Update profile picture handler
-const handleUpdateProfilePicture = async (request) => {
-  try {
-    const body = await request.json();
-    const { discordId, profilePicture } = body;
-
-    if (!discordId || !profilePicture) {
-      return createResponse(false, {}, 'Missing Discord ID or profile picture URL', 400);
-    }
-
-    try {
-      new URL(profilePicture);
-    } catch (e) {
-      return createResponse(false, {}, 'Invalid URL format', 400);
-    }
-
-    const userData = await getUserByDiscordId(discordId);
-    if (!userData) {
-      return createResponse(false, {}, 'User not found', 404);
-    }
-
-    userData.profilePicture = profilePicture;
-    
-    if (await saveUser(userData)) {
-      await sendWebhookLog(request, `Profile picture updated for user: ${userData.username}`, 'SUCCESS');
-      return createResponse(true, {
-        success: true,
-        message: 'Profile picture updated successfully',
-        profilePicture: userData.profilePicture
-      });
-    } else {
-      return createResponse(false, {}, 'Failed to update profile picture', 500);
-    }
-  } catch (error) {
-    return createResponse(false, {}, 'Invalid request body', 400);
-  }
-};
-
-// Token validation endpoint - NEVER throws errors for invalid tokens
+// Token validation endpoint
 const handleValidateToken = async (request, searchParams) => {
   const token = sanitizeInput(searchParams.get('token'));
   const gameId = sanitizeInput(searchParams.get('gameId'));
@@ -682,10 +398,7 @@ const handleValidateToken = async (request, searchParams) => {
     });
   }
 
-  // Generate expected token
   const expectedToken = generateToken(gameId, playerName, hwid);
-
-  // Compare tokens
   const tokensMatch = token === expectedToken;
 
   await sendWebhookLog(
@@ -727,7 +440,7 @@ const handleAuth = async (request, searchParams) => {
       return createResponse(false, {}, 'Subscription expired', 401);
     }
 
-    // Generate token for this session
+    const discordData = await fetchDiscordUser(discordId);
     const token = playerName && hwid && gameId 
       ? generateToken(gameId, playerName, hwid || userData.hwid)
       : null;
@@ -736,12 +449,11 @@ const handleAuth = async (request, searchParams) => {
     
     return createResponse(true, {
       key: userData.key,
-      username: userData.username,
       discordId: userData.discordId,
       hwid: userData.hwid || '',
       endTime: userData.endTime,
       createTime: userData.createTime,
-      profilePicture: userData.profilePicture || '',
+      discordData: discordData,
       gameValid,
       ...(token ? { token } : {})
     });
@@ -753,18 +465,18 @@ const handleAuth = async (request, searchParams) => {
       return createResponse(false, {}, 'No key linked to this HWID', 404);
     }
     
+    const discordData = await fetchDiscordUser(userData.discordId);
     const token = playerName && gameId 
       ? generateToken(gameId, playerName, hwid)
       : null;
     
     return createResponse(true, {
       key: userData.key,
-      username: userData.username,
       discordId: userData.discordId,
       hwid: userData.hwid || '',
       createTime: userData.createTime,
       endTime: userData.endTime,
-      profilePicture: userData.profilePicture || '',
+      discordData: discordData,
       ...(token ? { token } : {})
     });
   }
@@ -789,7 +501,7 @@ const handleAuth = async (request, searchParams) => {
     return createResponse(false, {}, 'HWID mismatch', 401);
   }
 
-  // Generate token for this authenticated session
+  const discordData = await fetchDiscordUser(userData.discordId);
   const token = playerName && hwid && gameId 
     ? generateToken(gameId, playerName, hwid)
     : null;
@@ -798,25 +510,23 @@ const handleAuth = async (request, searchParams) => {
   
   await sendWebhookLog(
     request, 
-    `Successful auth for user: ${userData.username}`, 
+    `Successful auth for user: ${discordData?.global_name || userData.discordId}`, 
     'SUCCESS',
     {
-      username: userData.username,
+      discordId: userData.discordId,
       gameId,
       playerName,
-      tokenGenerated: !!token,
-      token: token ? token.substring(0, 12) + '...' : 'none'
+      tokenGenerated: !!token
     }
   );
   
   return createResponse(true, {
     key: userData.key,
-    username: userData.username,
     discordId: userData.discordId,
     hwid: userData.hwid || '',
     endTime: userData.endTime,
     createTime: userData.createTime,
-    profilePicture: userData.profilePicture || '',
+    discordData: discordData,
     gameValid,
     ...(token ? { token } : {})
   });
@@ -824,20 +534,21 @@ const handleAuth = async (request, searchParams) => {
 
 const handleRegister = async (request, searchParams) => {
   const discordId = sanitizeInput(searchParams.get('discordId') || searchParams.get('ID'));
-  const username = sanitizeInput(searchParams.get('username'));
-  const duration = sanitizeInput(searchParams.get('time') || searchParams.get('duration'));
+  const password = sanitizeInput(searchParams.get('password'));
+  const duration = sanitizeInput(searchParams.get('time') || searchParams.get('duration')) || '30d';
 
-  if (!discordId || !username || !duration) {
-    return createResponse(false, {}, 'Missing required parameters', 400);
+  if (!discordId || !password) {
+    return createResponse(false, {}, 'Missing Discord ID or password', 400);
   }
 
-  if (username.length < 3 || username.length > 20 || !/^[a-zA-Z0-9_]+$/.test(username)) {
-    return createResponse(false, {}, 'Invalid username format. Must be 3-20 characters, alphanumeric and underscores only.', 400);
+  if (password.length < 6) {
+    return createResponse(false, {}, 'Password must be at least 6 characters', 400);
   }
 
-  const durationSeconds = parseTimeToSeconds(duration);
-  if (!durationSeconds) {
-    return createResponse(false, {}, 'Invalid duration format. Use format like: 30d, 1mo, 1yr', 400);
+  // Validate Discord ID
+  const discordData = await fetchDiscordUser(discordId);
+  if (!discordData) {
+    return createResponse(false, {}, 'Invalid Discord ID. User not found on Discord.', 400);
   }
 
   const existingUser = await getUserByDiscordId(discordId);
@@ -845,29 +556,30 @@ const handleRegister = async (request, searchParams) => {
     return createResponse(false, {}, 'User already registered with this Discord ID', 400);
   }
 
-  const users = await getAllUsers();
-  if (users.some(user => user.username === username)) {
-    return createResponse(false, {}, 'Username already taken', 400);
+  const durationSeconds = parseTimeToSeconds(duration);
+  if (!durationSeconds) {
+    return createResponse(false, {}, 'Invalid duration format. Use format like: 30d, 1mo, 1yr', 400);
   }
+
+  const hashedPassword = await hashPassword(password);
 
   const newUser = {
     key: generateSecureKey(),
     hwid: '',
     discordId,
-    username,
+    password: hashedPassword,
     createTime: Math.floor(Date.now() / 1000),
-    endTime: Math.floor(Date.now() / 1000) + durationSeconds,
-    profilePicture: ''
+    endTime: Math.floor(Date.now() / 1000) + durationSeconds
   };
 
   if (await saveUser(newUser)) {
-    await sendWebhookLog(request, `New user registered: ${username} (${discordId})`, 'SUCCESS', { username, discordId });
+    await sendWebhookLog(request, `New user registered: ${discordData.global_name} (${discordId})`, 'SUCCESS', { discordId });
     return createResponse(true, {
       key: newUser.key,
-      username: newUser.username,
       discordId: newUser.discordId,
       createTime: newUser.createTime,
-      endTime: newUser.endTime
+      endTime: newUser.endTime,
+      discordData: discordData
     });
   } else {
     return createResponse(false, {}, 'Registration failed - database error', 500);
@@ -876,53 +588,45 @@ const handleRegister = async (request, searchParams) => {
 
 const handleLogin = async (request, searchParams) => {
   const discordId = sanitizeInput(searchParams.get('discordId') || searchParams.get('ID'));
-  const username = sanitizeInput(searchParams.get('username'));
+  const password = sanitizeInput(searchParams.get('password'));
 
   if (!discordId) {
     return createResponse(false, {}, 'Missing Discord ID', 400);
   }
 
-  if (!username) {
-    return createResponse(false, {}, 'Missing username', 400);
+  if (!password) {
+    return createResponse(false, {}, 'Missing password', 400);
   }
 
   const userData = await getUserByDiscordId(discordId);
   
   if (!userData) {
-    await sendWebhookLog(request, `Login attempt for unregistered user: ${username} (${discordId})`, 'INFO');
-    return createResponse(true, {
-      success: true,
-      message: 'Login successful',
-      discordId,
-      username,
-      needsRegistration: true,
-      createTime: Math.floor(Date.now() / 1000),
-      endTime: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60),
-      profilePicture: ''
-    });
+    await sendWebhookLog(request, `Login attempt for unregistered user: ${discordId}`, 'WARN');
+    return createResponse(false, {}, 'User not found. Please register first.', 404);
+  }
+
+  const passwordValid = await verifyPassword(password, userData.password);
+  if (!passwordValid) {
+    await sendWebhookLog(request, `Failed login attempt - invalid password: ${discordId}`, 'WARN');
+    return createResponse(false, {}, 'Invalid password', 401);
   }
 
   if (userData.endTime < Math.floor(Date.now() / 1000)) {
-    await sendWebhookLog(request, `Login failed - expired subscription: ${userData.username}`, 'WARN');
+    await sendWebhookLog(request, `Login failed - expired subscription: ${discordId}`, 'WARN');
     return createResponse(false, {}, 'Subscription expired. Please contact support to renew.', 401);
   }
 
-  if (username && userData.username !== username) {
-    userData.username = username;
-    await saveUser(userData);
-    await sendWebhookLog(request, `Username updated: ${discordId} -> ${username}`, 'INFO');
-  }
+  const discordData = await fetchDiscordUser(discordId);
 
-  await sendWebhookLog(request, `Successful login: ${userData.username}`, 'SUCCESS');
+  await sendWebhookLog(request, `Successful login: ${discordData?.global_name || discordId}`, 'SUCCESS');
   return createResponse(true, {
     success: true,
     key: userData.key,
-    username: userData.username,
     discordId: userData.discordId,
     hwid: userData.hwid || '',
     createTime: userData.createTime,
     endTime: userData.endTime,
-    profilePicture: userData.profilePicture || ''
+    discordData: discordData
   });
 };
 
@@ -950,7 +654,8 @@ const handleResetHwid = async (request, searchParams) => {
     resetData.resets.push({ timestamp: Math.floor(Date.now() / 1000) });
     await saveResetData(discordId, resetData);
 
-    await sendWebhookLog(request, `HWID reset for user: ${userData.username}`, 'SUCCESS');
+    const discordData = await fetchDiscordUser(discordId);
+    await sendWebhookLog(request, `HWID reset for user: ${discordData?.global_name || discordId}`, 'SUCCESS');
     return createResponse(true, { 
       success: true,
       message: 'HWID reset successful',
@@ -1011,12 +716,13 @@ const handleAdminAddTime = async (request, searchParams) => {
   userData.endTime += additionalSeconds;
   
   if (await saveUser(userData)) {
-    await sendWebhookLog(request, `Admin added ${timeToAdd} to user: ${userData.username}`, 'SUCCESS');
+    const discordData = await fetchDiscordUser(userId);
+    await sendWebhookLog(request, `Admin added ${timeToAdd} to user: ${discordData?.global_name || userId}`, 'SUCCESS');
     return createResponse(true, {
       success: true,
       message: 'Time added successfully',
       newEndTime: userData.endTime,
-      username: userData.username
+      discordId: userData.discordId
     });
   } else {
     return createResponse(false, {}, 'Failed to update user', 500);
@@ -1045,11 +751,12 @@ const handleManageUsers = async (request) => {
       }
 
       if (await deleteUser(discordId)) {
-        await sendWebhookLog(request, `Admin deleted user: ${userData.username} (${discordId})`, 'SUCCESS');
+        const discordData = await fetchDiscordUser(discordId);
+        await sendWebhookLog(request, `Admin deleted user: ${discordData?.global_name || discordId}`, 'SUCCESS');
         return createResponse(true, {
           success: true,
           message: 'User deleted successfully',
-          username: userData.username
+          discordId: discordId
         });
       } else {
         return createResponse(false, {}, 'Failed to delete user', 500);
@@ -1072,7 +779,6 @@ const handleScriptFetch = async (request, pathname, searchParams) => {
     const gameId = parts[3].replace('.lua', '');
     const token = searchParams.get('token');
 
-    // mappings: redirect certain gameIds to search for a specific target
     const GAME_ID_MAPPINGS = {
       '8282828': ['829293948', '8272727272', '2882282', '2929829'],
       '76558904092080': ['129009554587176'],
@@ -1086,14 +792,13 @@ const handleScriptFetch = async (request, pathname, searchParams) => {
       }
     }
 
-    await sendWebhookLog(request, `Script requested (contains + most recent)`, 'INFO', {
+    await sendWebhookLog(request, `Script requested`, 'INFO', {
       version,
       originalGameId: gameId,
       searchGameId,
       token: token ? token.substring(0, 12) + '...' : 'none'
     });
 
-    // List all scripts in the version folder
     const { blobs } = await list({
       prefix: `scripts/${version}/`,
       token: envConfig.BLOB_READ_WRITE_TOKEN
@@ -1104,7 +809,6 @@ const handleScriptFetch = async (request, pathname, searchParams) => {
       return createResponse(false, {}, 'No scripts available for this version', 404);
     }
 
-    // Filter scripts that contain the searchGameId (case-insensitive)
     const matchingBlobs = blobs.filter(blob =>
       blob.pathname.toLowerCase().includes(searchGameId.toLowerCase())
     );
@@ -1119,10 +823,7 @@ const handleScriptFetch = async (request, pathname, searchParams) => {
       return createResponse(false, {}, 'Script not found for this game', 404);
     }
 
-    // Sort by uploadedAt (most recent first)
     matchingBlobs.sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime());
-
-    // Pick the most recently uploaded one
     const selectedBlob = matchingBlobs[0];
 
     const response = await fetch(selectedBlob.url);
@@ -1134,7 +835,7 @@ const handleScriptFetch = async (request, pathname, searchParams) => {
 
     await sendWebhookLog(
       request,
-      `Script served (most recent match): ${selectedBlob.pathname}`,
+      `Script served: ${selectedBlob.pathname}`,
       'SUCCESS',
       {
         version,
@@ -1168,7 +869,6 @@ export async function middleware(request) {
   const { pathname, searchParams } = request.nextUrl;
   const clientIP = request.headers.get('x-forwarded-for') || 'unknown';
 
-  // Skip middleware for static files and Next.js internals
   if (
     pathname === '/' ||
     pathname.startsWith('/favicon') ||
@@ -1176,36 +876,26 @@ export async function middleware(request) {
     pathname.startsWith('/__next') ||
     pathname.startsWith('/profile') ||
     pathname.startsWith('/users') ||
-    pathname.startsWith('/admin') ||
     pathname.startsWith('/docs') ||
     pathname.match(/\.(png|ico|jpg|jpeg|svg|css|js|woff|woff2|ttf|eot|otf)$/)
   ) {
     return NextResponse.next();
   }
 
-  // Rate limiting
   if (isRateLimited(clientIP)) {
     await sendWebhookLog(request, `Rate limit exceeded for IP: ${clientIP}`, 'WARN');
     return createResponse(false, {}, 'Rate limit exceeded. Please try again later.', 429);
   }
 
   try {
-    // Discord webhook endpoint
-    if (pathname.startsWith('/webhook/v1') && request.method === 'POST') {
-      return await handleDiscordWebhook(request);
-    }
-
-    // Token validation endpoint
     if (pathname.startsWith('/validate-token/v1')) {
       return await handleValidateToken(request, searchParams);
     }
 
-    // Script fetching
     if (pathname.startsWith('/api/script/')) {
       return await handleScriptFetch(request, pathname, searchParams);
     }
     
-    // Handle different endpoints
     if (pathname.startsWith('/auth/v1') || pathname.startsWith('/dAuth/v1')) {
       return await handleAuth(request, searchParams);
     }
@@ -1234,10 +924,6 @@ export async function middleware(request) {
       return await handleManageUsers(request);
     }
 
-    if (pathname.startsWith('/update-profile-picture/v1')) {
-      return await handleUpdateProfilePicture(request);
-    }
-
     if (pathname.startsWith('/stats/v1')) {
       return await handleStats(request, searchParams);
     }
@@ -1246,7 +932,7 @@ export async function middleware(request) {
       return createResponse(true, { 
         success: true,
         status: 'API is running',
-        message: 'Nebula API operational with token authentication',
+        message: 'Avoura Auth operational',
         timestamp: new Date().toISOString()
       });
     }
@@ -1260,7 +946,6 @@ export async function middleware(request) {
   }
 }
 
-// Middleware configuration
 export const config = {
   matcher: [
     '/((?!_next/static|_next/image|favicon.ico).*)',
